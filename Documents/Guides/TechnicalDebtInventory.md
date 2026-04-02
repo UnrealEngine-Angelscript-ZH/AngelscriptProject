@@ -146,3 +146,28 @@
 - `Angelscript.TestModule.ScriptExamples.Actor`
   - 失败摘要：`Cannot declare class AExampleActorType in module ScriptExamples.Example_Actor. A class with this name already exists in module Example_Actor.`
   - 归因判断：script example 模块命名或清理冲突，未触及本轮 `P2` 改动面。
+
+## 11. Phase 3 验证快照
+
+- helper 命名迁移结果：`Plugins/Angelscript/Source/AngelscriptTest/` 下旧 helper 名称定向 grep 结果为 **0 命中**。
+- `P3.1` / `P3.2` focused regression：
+  - `Angelscript.TestModule.Shared.EngineHelper`：PASS
+  - `Angelscript.TestModule.Internals.Restore.*`：PASS
+- `P3.3` 主题化集成 focused regression：`Actor`、`BlueprintChild`、`Component`、`Delegate`、`GC`、`HotReload`、`Inheritance`、`Interface`、`WorldSubsystem`、`ClassGenerator`：PASS（已知旧失败项未增加）。
+- `P3.4` 行为 / Bindings / FileSystem / Editor / ScriptExamples focused regression：helper 改名未新增失败；仍保留与此前一致的 4 个已知失败项。
+- `Automation RunTests Angelscript.TestModule` 全量回归结果：**仍未全绿**，失败项与 Phase 2 结束时一致，没有新增 helper 命名迁移相关失败。
+
+### Phase 3 完成后的 full-suite 保留失败项（2026-04-03）
+
+- `Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2A`
+  - 失败摘要：`Expected 'Phase2A should load source from Script/Tests/Test_Enums.as' to be true.`
+  - 归因判断：hot-reload 测试输入文件路径/存在性问题，helper 命名迁移未触及该路径。
+- `Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2B`
+  - 失败摘要：`Expected 'Phase2B should load source from Script/Tests/Test_GameplayTags.as' to be true.`
+  - 归因判断：同样属于 hot-reload 测试输入文件路径问题，helper 命名迁移未触及该路径。
+- `Angelscript.TestModule.Editor.SourceNavigation.Functions`
+  - 失败摘要：`Unable to open script file .../Saved/Automation/Automation/RuntimeFunctionNavigationTest.as`，随后 `Generated function navigation class should exist` 断言失败。
+  - 归因判断：editor/source-navigation 测试文件生成或清理路径问题，helper 命名迁移未触及该路径。
+- `Angelscript.TestModule.ScriptExamples.Actor`
+  - 失败摘要：`Cannot declare class AExampleActorType in module ScriptExamples.Example_Actor. A class with this name already exists in module Example_Actor.`
+  - 归因判断：script example 模块命名或清理冲突，helper 命名迁移未触及该路径。
