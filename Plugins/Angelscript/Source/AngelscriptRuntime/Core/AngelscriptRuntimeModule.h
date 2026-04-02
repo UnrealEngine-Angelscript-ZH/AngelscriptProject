@@ -20,6 +20,8 @@ DECLARE_MULTICAST_DELEGATE_TwoParams(FAngelscriptDebugListAssets, TArray<FString
 DECLARE_MULTICAST_DELEGATE_OneParam(FAngelscriptEditorCreateBlueprint, class UASClass*);
 DECLARE_DELEGATE_RetVal_OneParam(FString, FAngelscriptEditorGetCreateBlueprintDefaultAssetPath, class UASClass*);
 
+struct FAngelscriptEngine;
+
 class ANGELSCRIPTRUNTIME_API FAngelscriptRuntimeModule : public FDefaultModuleImpl
 {
 public:
@@ -48,7 +50,13 @@ public:
 
 private:
 	friend struct FAngelscriptRuntimeModuleTickTestAccess;
+	#if WITH_DEV_AUTOMATION_TESTS
+	static void SetInitializeOverrideForTesting(TFunction<FAngelscriptEngine*()> InOverride);
+	static void ResetInitializeStateForTesting();
+	static TFunction<FAngelscriptEngine*()> InitializeOverrideForTesting;
+	#endif
 	bool TickFallbackPrimaryEngine(float DeltaTime);
+	static bool bInitializeAngelscriptCalled;
 	FTSTicker::FDelegateHandle FallbackTickHandle;
 
 };

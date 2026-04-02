@@ -4,6 +4,11 @@
 
 IMPLEMENT_MODULE(FAngelscriptRuntimeModule, AngelscriptRuntime);
 
+bool FAngelscriptRuntimeModule::bInitializeAngelscriptCalled = false;
+#if WITH_DEV_AUTOMATION_TESTS
+TFunction<FAngelscriptEngine*()> FAngelscriptRuntimeModule::InitializeOverrideForTesting;
+#endif
+
 void FAngelscriptRuntimeModule::StartupModule()
 {
 	if (GIsEditor || IsRunningCommandlet())
@@ -125,14 +130,37 @@ FAngelscriptEditorGetCreateBlueprintDefaultAssetPath& FAngelscriptRuntimeModule:
 
 void FAngelscriptRuntimeModule::InitializeAngelscript()
 {
-	static bool bInitialized = false;
-	if (bInitialized)
+	if (bInitializeAngelscriptCalled)
 		return;
 
-	bInitialized = true;
+	bInitializeAngelscriptCalled = true;
+	#if WITH_DEV_AUTOMATION_TESTS
+	if (InitializeOverrideForTesting)
+	{
+		if (FAngelscriptEngine* OverrideEngine = InitializeOverrideForTesting())
+		{
+			FAngelscriptEngine::SetGlobalEngine(OverrideEngine);
+		}
+		return;
+	}
+	#endif
+
 	FModuleManager::Get().LoadModuleChecked(TEXT("AngelscriptRuntime"));
 	FAngelscriptEngine::GetOrCreate().Initialize();
 }
+
+#if WITH_DEV_AUTOMATION_TESTS
+void FAngelscriptRuntimeModule::SetInitializeOverrideForTesting(TFunction<FAngelscriptEngine*()> InOverride)
+{
+	InitializeOverrideForTesting = MoveTemp(InOverride);
+}
+
+void FAngelscriptRuntimeModule::ResetInitializeStateForTesting()
+{
+	bInitializeAngelscriptCalled = false;
+	InitializeOverrideForTesting = nullptr;
+}
+#endif
 
 bool FAngelscriptRuntimeModule::TickFallbackPrimaryEngine(float DeltaTime)
 {
