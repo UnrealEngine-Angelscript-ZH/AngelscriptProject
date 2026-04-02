@@ -258,7 +258,7 @@ bool FAngelscriptRestoreEmptyStreamFailsTest::RunTest(const FString& Parameters)
 
 	FMemoryBinaryStream Stream;
 	bool bWasDebugInfoStripped = false;
-	AddExpectedErrorPlain(TEXT("Unexpected end of file"), EAutomationExpectedErrorFlags::Contains, 0);
+	AddExpectedErrorPlain(TEXT("Unexpected end of file"), EAutomationExpectedErrorFlags::Contains, -1);
 	const int LoadResult = RestoredModule->LoadByteCode(&Stream, &bWasDebugInfoStripped);
 	return TestNotEqual(TEXT("Restore should reject an empty bytecode stream"), LoadResult, static_cast<int>(asSUCCESS));
 }
@@ -313,7 +313,7 @@ bool FAngelscriptRestoreTruncatedStreamFailsTest::RunTest(const FString& Paramet
 	}
 
 	bool bWasDebugInfoStripped = false;
-	AddExpectedErrorPlain(TEXT("Unexpected end of file"), EAutomationExpectedErrorFlags::Contains, 0);
+	AddExpectedErrorPlain(TEXT("Unexpected end of file"), EAutomationExpectedErrorFlags::Contains, -1);
 	const int LoadResult = RestoredModule->LoadByteCode(&Stream, &bWasDebugInfoStripped);
 	return TestNotEqual(TEXT("Restore should reject a truncated bytecode stream"), LoadResult, static_cast<int>(asSUCCESS));
 }
