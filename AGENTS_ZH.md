@@ -58,6 +58,11 @@
 ## Git 与提交
 
 - Git 提交格式与示例统一参考 `Documents/Rules/GitCommitRule.md`。
+- 本仓库的 GitHub 标准远端为 `origin -> git@github.com:UnrealEngine-Angelscript-ZH/AngelscriptProject.git`。
+- 默认发布分支为 `main`；如果本地仓库仍停留在 `master`，首次推送前先创建或切换到 `main`。
+- 首次配置 GitHub 远端时，优先使用 `git remote add origin git@github.com:UnrealEngine-Angelscript-ZH/AngelscriptProject.git`，然后执行 `git push -u origin main` 建立 upstream 跟踪关系。
+- 如果 `origin` 已存在但指向了其他仓库，应使用 `git remote set-url origin git@github.com:UnrealEngine-Angelscript-ZH/AngelscriptProject.git` 更新地址，而不是再添加一个重复远端。
+- 除非用户明确要求，否则不要对 `main` 执行 force push。
 
 ## 计划与 TODO
 

@@ -58,18 +58,24 @@
 - Git commit format and examples: see `Documents/Rules/GitCommitRule.md`.
 - All future commits must strictly follow the format in `Documents/Rules/GitCommitRule.md` (including `Scope` and `Type` usage where applicable).
 - Do not append tool-generated commit trailers (for example `Made-with: Cursor`) unless explicitly requested.
+- The canonical GitHub remote for this repository is `origin -> git@github.com:UnrealEngine-Angelscript-ZH/AngelscriptProject.git`.
+- The default publish branch is `main`. If a local clone still uses `master`, create or switch to `main` before the first push.
+- For first-time GitHub remote setup, prefer `git remote add origin git@github.com:UnrealEngine-Angelscript-ZH/AngelscriptProject.git`, then `git push -u origin main` to establish upstream tracking.
+- If `origin` already exists but points to another repository, update it with `git remote set-url origin git@github.com:UnrealEngine-Angelscript-ZH/AngelscriptProject.git` instead of adding a duplicate remote.
+- Do not force-push `main` unless the user explicitly requests it.
 
 ## Plans & TODO
 
 - Tasks requiring multi-phase execution should have a Plan document under `Documents/Plans/`. Writing rules are defined in `Documents/Plans/Plan.md`.
 - TODOs should be broken down around the plugin goal. Avoid lumping legacy project issues into one large task.
 - When renaming, migrating modules, or adjusting public APIs, identify all affected files and documentation.
+- Tests under `Plugins/Angelscript/Source/AngelscriptTest/` should be organized by concrete theme (for example `Actor`, `Blueprint`, `Interface`, `HotReload`, `Shared`) rather than accumulated under a broad catch-all `Scenarios` bucket.
 
 ## Document Navigation
 
 | Document | Purpose |
 | --- | --- |
-| `Agents_ZH.md` | Chinese version of this guide |
+| `AGENTS_ZH.md` | Chinese version of this guide |
 | `Reference/README.md` | External reference repository index and details |
 | `Documents/Guides/Build.md` | Build and command execution guide |
 | `Documents/Guides/Test.md` | Test guide |
