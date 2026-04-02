@@ -138,6 +138,10 @@ void FAngelscriptBinds::CallBinds(const TSet<FName>& DisabledBindNames)
 
 		Bind.Function();
 	}
+
+	#if WITH_DEV_AUTOMATION_TESTS
+	FAngelscriptBindExecutionObservation::EndObservationPass();
+	#endif
 }
 
 FAngelscriptBinds FAngelscriptBinds::ReferenceClass(FBindString Name, UClass* UnrealClass)

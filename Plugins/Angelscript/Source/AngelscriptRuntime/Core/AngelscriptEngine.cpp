@@ -49,6 +49,7 @@
 #include "EndAngelscriptHeaders.h"
 
 #include "Testing/DiscoverTests.h"
+#include "Testing/AngelscriptBindExecutionObservation.h"
 #include "Testing/UnitTest.h"
 #include "Testing/AngelscriptTestSettings.h"
 
@@ -1396,7 +1397,15 @@ FAngelscriptContextPool::~FAngelscriptContextPool()
 
 void FAngelscriptEngine::BindScriptTypes()
 {
+	#if WITH_DEV_AUTOMATION_TESTS
+	FAngelscriptBindExecutionObservation::BeginBindScriptTypesTiming();
+	#endif
+
 	FAngelscriptBinds::CallBinds(CollectDisabledBindNames());
+
+	#if WITH_DEV_AUTOMATION_TESTS
+	FAngelscriptBindExecutionObservation::EndBindScriptTypesTiming();
+	#endif
 }
 
 TSet<FName> FAngelscriptEngine::CollectDisabledBindNames() const
