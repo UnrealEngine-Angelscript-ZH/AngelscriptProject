@@ -22,9 +22,11 @@ namespace UnrealBuildTool.Rules
 			{
 				PublicAdditionalLibraries.Add(Path.Combine(PluginDirectory, "Intermediate", "Build", "as_callfunc_x64_msvc_asm.lib"));
 			}
-			
-			// TODO: 不要删除, 开发期间，关闭优化方便debug
-			OptimizeCode = CodeOptimization.Never;
+
+			if (Target.Configuration == UnrealTargetConfiguration.Debug || Target.Configuration == UnrealTargetConfiguration.DebugGame)
+			{
+				OptimizeCode = CodeOptimization.Never;
+			}
 
 			/* Link to libraries used in core angelscript code */
 			PublicDependencyModuleNames.AddRange(new string[]
