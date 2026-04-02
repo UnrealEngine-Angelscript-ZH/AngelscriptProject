@@ -54,7 +54,7 @@ namespace DataBreakpoint_Windows
 #if PLATFORM_WINDOWS && WITH_AS_DEBUGSERVER
 
 	static PVOID DegbugRegisterExceptionHandlerHandle;
-	static bool GClearDataBreakpoints = false;
+	static TAtomic<bool> GClearDataBreakpoints { false };
 
 	struct FThreadContextGuard
 	{
@@ -97,6 +97,40 @@ namespace DataBreakpoint_Windows
 			//Context.Dr7 |= static_cast<DWORD64>(0x1) << (RegisterToUse * 2 + 1); // Global enable
 
 			DWORD64 BreakpointSettings = 0x1; // Writes only
+			switch (Breakpoints[RegisterToModify].AddressSize)
+			{
+			case 1: break;
+			case 2: BreakpointSettings |= 0b0100; break;
+			case 4: BreakpointSettings |= 0b1100; break;
+			case 8: BreakpointSettings |= 0b1000; break;
+			}
+
+			Context.Dr7 |= static_cast<DWORD64>(BreakpointSettings) << (16 + RegisterToModify * 4);
+		}
+	}
+
+	void ApplyBreakpointsToThreadContext(const FAngelscriptActiveDataBreakpoint* Breakpoints, int32 BreakpointCount, CONTEXT& Context)
+	{
+		Context.Dr7 &= 0xFFFFFFFFFFFFFF00;
+
+		for (uint8 RegisterToModify = 0; RegisterToModify < BreakpointCount; RegisterToModify++)
+		{
+			if (Breakpoints[RegisterToModify].GetStatus() != EAngelscriptDataBreakpointStatus::Keep)
+			{
+				continue;
+			}
+
+			switch (RegisterToModify)
+			{
+			case 0: Context.Dr0 = Breakpoints[RegisterToModify].Address; break;
+			case 1: Context.Dr1 = Breakpoints[RegisterToModify].Address; break;
+			case 2: Context.Dr2 = Breakpoints[RegisterToModify].Address; break;
+			case 3: Context.Dr3 = Breakpoints[RegisterToModify].Address; break;
+			}
+
+			Context.Dr7 |= static_cast<DWORD64>(0x1) << (RegisterToModify * 2);
+
+			DWORD64 BreakpointSettings = 0x1;
 			switch (Breakpoints[RegisterToModify].AddressSize)
 			{
 			case 1: break;
@@ -182,59 +216,64 @@ namespace DataBreakpoint_Windows
 		// * Don't do any form of heap allocation, as if the function is called from a malloc
 		// context we might "steal" memory they were about to use, resulting in a crash after returning program flow.
 
-		// TODO: This function should probably guard a bit better against multithreading, if we get exceptions from multiple threads
 		if (ExceptionInfo->ExceptionRecord->ExceptionCode == EXCEPTION_SINGLE_STEP && (ExceptionInfo->ContextRecord->Dr6 & 0xF) > 0)
 		{
 			auto DebugServer = FAngelscriptEngine::Get().DebugServer;
+			const int32 ActiveBreakpointCount = FMath::Min(DebugServer->ActiveDataBreakpointCount.Load(), FAngelscriptDebugServer::DATA_BREAKPOINT_HARDWARE_LIMIT);
 
 			bool bCppBreakpointTriggered = false;
 			bool bBreakpointTriggered = false;
 			for (uint8 i = 0; i < FAngelscriptDebugServer::DATA_BREAKPOINT_HARDWARE_LIMIT; i++)
 			{
+				if (i >= ActiveBreakpointCount)
+				{
+					continue;
+				}
+
 				if ((ExceptionInfo->ContextRecord->Dr6 & (static_cast<DWORD64>(0x1) << i)) == 0)
 				{
 					continue;
 				}
 
-				if (!DebugServer->DataBreakpoints.IsValidIndex(i))
+				auto& Breakpoint = DebugServer->ActiveDataBreakpoints[i];
+				if (Breakpoint.GetStatus() != EAngelscriptDataBreakpointStatus::Keep)
 				{
 					continue;
 				}
 
-				auto& Breakpoint = DebugServer->DataBreakpoints[i];
-				if (Breakpoint.Status != EAngelscriptDataBreakpointStatus::Keep)
+				const int32 PreviousHitCount = Breakpoint.HitCount.Load();
+				bool bTriggeredThisIteration = false;
+				if (PreviousHitCount > 0)
 				{
-					continue;
-				}
-
-				if (Breakpoint.HitCount > 0)
-				{
-					Breakpoint.HitCount--;
+					const int32 NewHitCount = PreviousHitCount - 1;
+					Breakpoint.HitCount.Store(NewHitCount);
 
 					// Breakpoints with a HitCount only trigger once they reach 0 hits left
-					if (Breakpoint.HitCount == 0)
+					if (NewHitCount == 0)
 					{
-						Breakpoint.Status = EAngelscriptDataBreakpointStatus::Remove_ReachedHitCount;
-						Breakpoint.bTriggered = true;
+						Breakpoint.SetStatus(EAngelscriptDataBreakpointStatus::Remove_ReachedHitCount);
+						Breakpoint.bTriggered.Store(true);
+						bTriggeredThisIteration = true;
 					}
 				}
 				else
 				{
-					Breakpoint.bTriggered = true;
+					Breakpoint.bTriggered.Store(true);
+					bTriggeredThisIteration = true;
 				}
 
 				asCContext* Context = (asCContext*)asGetActiveContext();
-				Breakpoint.Context = Context;
-				bCppBreakpointTriggered |= (Breakpoint.bTriggered && Breakpoint.bCppBreakpoint);
-				bBreakpointTriggered |= Breakpoint.bTriggered;
+				Breakpoint.SetContext(Context);
+				bCppBreakpointTriggered |= (bTriggeredThisIteration && Breakpoint.bCppBreakpoint);
+				bBreakpointTriggered |= bTriggeredThisIteration || Breakpoint.bTriggered.Load();
 			}
 
 			// AS breakpoints are deferred to the next script line (hence why we cache line number here), since we need to use heap memory to properly handle it
 			if (bBreakpointTriggered)
 			{
-				DebugServer->bBreakNextScriptLine = true;
+				DebugServer->bBreakNextScriptLine.Store(true);
 
-				ApplyBreakpointsToThreadContext(DebugServer->DataBreakpoints, *ExceptionInfo->ContextRecord);
+				ApplyBreakpointsToThreadContext(DebugServer->ActiveDataBreakpoints, ActiveBreakpointCount, *ExceptionInfo->ContextRecord);
 			}
 
 			// Still unsure how the RF (Resume Flags) of the EFlags register works, I'm guessing it is handled by VS, or 
@@ -251,20 +290,20 @@ namespace DataBreakpoint_Windows
 			}
 
 			// Call ClearAllAngelscriptDataBreakpointsFromHandler() from the debugger immediate window to exit a spamming data breakpoint
-			if (GClearDataBreakpoints)
+			if (GClearDataBreakpoints.Load())
 			{
-				for (int i = 0; i < DebugServer->DataBreakpoints.Num(); i++)
+				for (int i = 0; i < ActiveBreakpointCount; i++)
 				{
-					DebugServer->DataBreakpoints[i].bTriggered = false;
-					DebugServer->DataBreakpoints[i].Status = EAngelscriptDataBreakpointStatus::Remove_ReachedHitCount;
+					DebugServer->ActiveDataBreakpoints[i].bTriggered.Store(false);
+					DebugServer->ActiveDataBreakpoints[i].SetStatus(EAngelscriptDataBreakpointStatus::Remove_ReachedHitCount);
 				}
 
-				GClearDataBreakpoints = false;
-				DebugServer->bBreakNextScriptLine = false;
+				GClearDataBreakpoints.Store(false);
+				DebugServer->bBreakNextScriptLine.Store(false);
 			}
 			else if (bBreakpointTriggered)
 			{
-				DebugServer->bBreakNextScriptLine = true;
+				DebugServer->bBreakNextScriptLine.Store(true);
 			}
 
 			FAngelscriptEngine::Get().UpdateLineCallbackState();
@@ -369,6 +408,8 @@ void FAngelscriptDebugServer::ProcessScriptLine(class asCContext* Context)
 
 	if (DataBreakpoints.Num() > 0 && bBreakNextScriptLine)
 	{
+		SyncActiveDataBreakpointsToAuthoritativeState();
+
 		FAngelscriptClearDataBreakpoints ClearMessage;
 		TArray<FString> TriggeredBreakpoints;
 
@@ -378,9 +419,9 @@ void FAngelscriptDebugServer::ProcessScriptLine(class asCContext* Context)
 
 			if (Breakpoint.bTriggered)
 			{
-				if (bBreakNextScriptLine)
+				if (bBreakNextScriptLine.Load())
 				{
-					bBreakNextScriptLine = false;
+					bBreakNextScriptLine.Store(false);
 					FAngelscriptEngine::Get().UpdateLineCallbackState();
 				}
 
@@ -454,7 +495,7 @@ void FAngelscriptDebugServer::ProcessScriptLine(class asCContext* Context)
 		{
 			bWasStep = true;
 			bIsPaused = true;
-			bBreakNextScriptLine = false;
+			bBreakNextScriptLine.Store(false);
 
 			ConditionBreakFrame = -1;
 			ConditionBreakFunction = nullptr;
@@ -526,7 +567,8 @@ void FAngelscriptDebugServer::ProcessScriptStackPop(class asCContext* Context, v
 			Breakpoint.bTriggered = true;
 			Breakpoint.Context = Context;
 
-			bBreakNextScriptLine = true;
+			RebuildActiveDataBreakpoints();
+			bBreakNextScriptLine.Store(true);
 			FAngelscriptEngine::Get().UpdateLineCallbackState();
 		}
 	}
@@ -1122,11 +1164,41 @@ void FAngelscriptDebugServer::ClearAllBreakpoints()
 void FAngelscriptDebugServer::ClearAllDataBreakpoints()
 {
 	DataBreakpoints.Reset();
+	RebuildActiveDataBreakpoints();
 	UpdateDataBreakpoints();
+}
+
+void FAngelscriptDebugServer::RebuildActiveDataBreakpoints()
+{
+	ActiveDataBreakpointCount.Store(0);
+
+	const int32 BreakpointCountToCopy = FMath::Min(DataBreakpoints.Num(), DATA_BREAKPOINT_HARDWARE_LIMIT);
+	for (int32 BreakpointIndex = 0; BreakpointIndex < BreakpointCountToCopy; ++BreakpointIndex)
+	{
+		ActiveDataBreakpoints[BreakpointIndex].CopyFrom(DataBreakpoints[BreakpointIndex]);
+	}
+
+	for (int32 BreakpointIndex = BreakpointCountToCopy; BreakpointIndex < DATA_BREAKPOINT_HARDWARE_LIMIT; ++BreakpointIndex)
+	{
+		ActiveDataBreakpoints[BreakpointIndex].Reset();
+	}
+
+	ActiveDataBreakpointCount.Store(BreakpointCountToCopy);
+}
+
+void FAngelscriptDebugServer::SyncActiveDataBreakpointsToAuthoritativeState()
+{
+	const int32 BreakpointCountToSync = FMath::Min(DataBreakpoints.Num(), ActiveDataBreakpointCount.Load());
+	for (int32 BreakpointIndex = 0; BreakpointIndex < BreakpointCountToSync; ++BreakpointIndex)
+	{
+		ActiveDataBreakpoints[BreakpointIndex].CopyTo(DataBreakpoints[BreakpointIndex]);
+	}
 }
 
 void FAngelscriptDebugServer::UpdateDataBreakpoints()
 {
+	RebuildActiveDataBreakpoints();
+
 #if PLATFORM_WINDOWS && WITH_AS_DEBUGSERVER
 	{
 		DataBreakpoint_Windows::FUpdateDebugRegisterThread UpdateDebugRegisters(DataBreakpoint_Windows::GetThreadAgnosticCurrentThreadHandle(), DataBreakpoints);
