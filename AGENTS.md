@@ -56,6 +56,8 @@
 ## Git & Commits
 
 - Git commit format and examples: see `Documents/Rules/GitCommitRule.md`.
+- All future commits must strictly follow the format in `Documents/Rules/GitCommitRule.md` (including `Scope` and `Type` usage where applicable).
+- Do not append tool-generated commit trailers (for example `Made-with: Cursor`) unless explicitly requested.
 
 ## Plans & TODO
 
