@@ -61,6 +61,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	"Angelscript.TestModule.FileSystem.SkipRules",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptRenameUpdatesModuleLookupTest,
+	"Angelscript.TestModule.FileSystem.RenameUpdatesModuleLookup",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptPathNormalizationLookupTest,
+	"Angelscript.TestModule.FileSystem.PathNormalizationLookup",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
 bool FAngelscriptModuleLookupByFilenameTest::RunTest(const FString& Parameters)
 {
 	CleanFileSystemTestRoot();
@@ -279,6 +289,98 @@ FAngelscriptEngine& Engine = GetResetSharedTestEngine();
 	{
 		TestEqual(TEXT("Skip rules should keep the gameplay relative path"), Files[0].RelativePath.Replace(TEXT("\\"), TEXT("/")), FString(TEXT("Gameplay/Main.as")));
 	}
+
+	CleanFileSystemTestRoot();
+	return true;
+}
+
+bool FAngelscriptRenameUpdatesModuleLookupTest::RunTest(const FString& Parameters)
+{
+	CleanFileSystemTestRoot();
+
+	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	const FString Script = TEXT(R"AS(
+int PatrolEntry()
+{
+	return 7;
+}
+)AS");
+
+	FString OldAbsolutePath;
+	if (!TestTrue(TEXT("Write old filename script should succeed"), WriteFileSystemTestFile(TEXT("Game/AI/OldPatrol.as"), Script, OldAbsolutePath)))
+	{
+		return false;
+	}
+
+	if (!TestTrue(TEXT("Compile old filename module should succeed"), CompileModuleFromMemory(&Engine, TEXT("Game.AI.Patrol"), OldAbsolutePath, Script)))
+	{
+		CleanFileSystemTestRoot();
+		return false;
+	}
+
+	TestTrue(TEXT("Old filename lookup should resolve the original module before rename"), Engine.GetModuleByFilename(OldAbsolutePath).IsValid());
+	Engine.DiscardModule(TEXT("Game.AI.Patrol"));
+
+	FString NewAbsolutePath;
+	if (!TestTrue(TEXT("Write renamed filename script should succeed"), WriteFileSystemTestFile(TEXT("Game/AI/NewPatrol.as"), Script, NewAbsolutePath)))
+	{
+		CleanFileSystemTestRoot();
+		return false;
+	}
+
+	if (!TestTrue(TEXT("Compile renamed filename module should succeed"), CompileModuleFromMemory(&Engine, TEXT("Game.AI.Patrol"), NewAbsolutePath, Script)))
+	{
+		CleanFileSystemTestRoot();
+		return false;
+	}
+
+	TestTrue(TEXT("Rename lookup should resolve the module by its new filename"), Engine.GetModuleByFilename(NewAbsolutePath).IsValid());
+	TestTrue(TEXT("Rename lookup should stop resolving the old filename after the renamed module is recompiled"), !Engine.GetModuleByFilename(OldAbsolutePath).IsValid());
+	TestTrue(TEXT("Rename lookup should keep module-name lookup alive after the filename switch"), Engine.GetModuleByFilenameOrModuleName(NewAbsolutePath, TEXT("Game.AI.Patrol")).IsValid());
+
+	CleanFileSystemTestRoot();
+	return true;
+}
+
+bool FAngelscriptPathNormalizationLookupTest::RunTest(const FString& Parameters)
+{
+	CleanFileSystemTestRoot();
+
+	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	const FString Script = TEXT(R"AS(
+int NormalizeEntry()
+{
+	return 11;
+}
+)AS");
+
+	FString AbsolutePath;
+	if (!TestTrue(TEXT("Write normalization script should succeed"), WriteFileSystemTestFile(TEXT("Game/Path/Normalize.as"), Script, AbsolutePath)))
+	{
+		return false;
+	}
+
+	if (!TestTrue(TEXT("Compile normalization module should succeed"), CompileModuleFromMemory(&Engine, TEXT("Game.Path.Normalize"), AbsolutePath, Script)))
+	{
+		CleanFileSystemTestRoot();
+		return false;
+	}
+
+	const FString BackslashPath = AbsolutePath.Replace(TEXT("/"), TEXT("\\"));
+	TSharedPtr<FAngelscriptModuleDesc> ModuleByForwardSlash = Engine.GetModuleByFilename(AbsolutePath);
+	TSharedPtr<FAngelscriptModuleDesc> ModuleByEither = Engine.GetModuleByFilenameOrModuleName(BackslashPath, TEXT("Game.Path.Normalize"));
+
+	if (!TestTrue(TEXT("Normalization lookup should resolve the forward-slash absolute filename"), ModuleByForwardSlash.IsValid())
+		|| !TestTrue(TEXT("Normalization lookup should resolve filename-or-module after slash normalization"), ModuleByEither.IsValid()))
+	{
+		CleanFileSystemTestRoot();
+		return false;
+	}
+
+	TestEqual(TEXT("Normalization lookup should keep the same module name for forward slashes"), ModuleByForwardSlash->ModuleName, FString(TEXT("Game.Path.Normalize")));
+	TestEqual(TEXT("Normalization lookup should not duplicate the module when normalizing paths through filename-or-module fallback"), ModuleByEither->ModuleName, FString(TEXT("Game.Path.Normalize")));
 
 	CleanFileSystemTestRoot();
 	return true;
