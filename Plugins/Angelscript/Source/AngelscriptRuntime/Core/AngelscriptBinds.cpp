@@ -2,6 +2,7 @@
 
 #include "AngelscriptEngine.h"
 #include "AngelscriptSettings.h"
+#include "Testing/AngelscriptBindExecutionObservation.h"
 
 #include "AngelscriptInclude.h"
 #include "AngelscriptSettings.h"
@@ -119,6 +120,10 @@ void FAngelscriptBinds::CallBinds()
 
 void FAngelscriptBinds::CallBinds(const TSet<FName>& DisabledBindNames)
 {
+	#if WITH_DEV_AUTOMATION_TESTS
+	FAngelscriptBindExecutionObservation::BeginObservationPass(DisabledBindNames);
+	#endif
+
 	for (const FBindFunction& Bind : GetSortedBindArray())
 	{
 		if (DisabledBindNames.Contains(Bind.BindName))
@@ -126,6 +131,10 @@ void FAngelscriptBinds::CallBinds(const TSet<FName>& DisabledBindNames)
 			UE_LOG(Angelscript, Log, TEXT("Skipping bind '%s'"), *Bind.BindName.ToString());
 			continue;
 		}
+
+		#if WITH_DEV_AUTOMATION_TESTS
+		FAngelscriptBindExecutionObservation::RecordExecutedBind(Bind.BindName);
+		#endif
 
 		Bind.Function();
 	}

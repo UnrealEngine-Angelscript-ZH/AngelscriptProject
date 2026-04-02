@@ -1,6 +1,9 @@
 #include "AngelscriptEngine.h"
+#include "AngelscriptBinds.h"
 #include "Misc/AutomationTest.h"
+#include "Misc/Guid.h"
 #include "Misc/ScopeExit.h"
+#include "Testing/AngelscriptBindExecutionObservation.h"
 
 #include "StartAngelscriptHeaders.h"
 #include "source/as_scriptengine.h"
@@ -52,6 +55,11 @@ static void ResetToIsolatedEngineState()
 	{
 		FAngelscriptMultiEngineTestAccess::DestroyGlobalEngine();
 	}
+}
+
+static FName MakeUniqueStartupBindName(const TCHAR* Prefix)
+{
+	return FName(*FString::Printf(TEXT("%s.%s"), Prefix, *FGuid::NewGuid().ToString(EGuidFormats::Digits)));
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -107,6 +115,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptCloneHonorsInjectedDependenciesTest,
 	"Angelscript.CppTests.MultiEngine.CloneHonorsInjectedDependencies",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptStartupBindObservationFullCreateTest,
+	"Angelscript.CppTests.MultiEngine.StartupBindObservation.FullCreateRecordsOrderedBinds",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptStartupBindObservationCloneCreateTest,
+	"Angelscript.CppTests.MultiEngine.StartupBindObservation.CloneCreateDoesNotReplayBinds",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FAngelscriptEngineCreateFullModeTest::RunTest(const FString& Parameters)
@@ -418,6 +436,73 @@ bool FAngelscriptCloneHonorsInjectedDependenciesTest::RunTest(const FString& Par
 		TestEqual(TEXT("MultiEngine.CloneHonorsInjectedDependencies should use the injected project root"), Roots[0], FString(TEXT("C:/InjectedCloneProject/Script")));
 	}
 	return TestEqual(TEXT("MultiEngine.CloneHonorsInjectedDependencies should create the expected injected clone project root path"), CreatedPath, FString(TEXT("C:/InjectedCloneProject/Script")));
+}
+
+bool FAngelscriptStartupBindObservationFullCreateTest::RunTest(const FString& Parameters)
+{
+	ResetToIsolatedEngineState();
+
+	const FName FirstBindName = MakeUniqueStartupBindName(TEXT("Automation.StartupBind.Full.First"));
+	const FName SecondBindName = MakeUniqueStartupBindName(TEXT("Automation.StartupBind.Full.Second"));
+	FAngelscriptBinds::FBind FirstBind(FirstBindName, -25, []() {});
+	FAngelscriptBinds::FBind SecondBind(SecondBindName, 25, []() {});
+
+	FAngelscriptBindExecutionObservation::Reset();
+
+	const FAngelscriptEngineConfig Config;
+	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
+	TUniquePtr<FAngelscriptEngine> Engine = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+	if (!TestNotNull(TEXT("MultiEngine.StartupBindObservation.FullCreateRecordsOrderedBinds should create a full engine"), Engine.Get()))
+	{
+		return false;
+	}
+
+	const FAngelscriptBindExecutionSnapshot Snapshot = FAngelscriptBindExecutionObservation::GetLastSnapshot();
+	if (!TestEqual(TEXT("MultiEngine.StartupBindObservation.FullCreateRecordsOrderedBinds should observe a single startup bind pass"), FAngelscriptBindExecutionObservation::GetInvocationCount(), 1))
+	{
+		return false;
+	}
+
+	const int32 FirstIndex = Snapshot.ExecutedBindNames.IndexOfByKey(FirstBindName);
+	const int32 SecondIndex = Snapshot.ExecutedBindNames.IndexOfByKey(SecondBindName);
+	if (!TestTrue(TEXT("MultiEngine.StartupBindObservation.FullCreateRecordsOrderedBinds should observe the first named bind"), FirstIndex != INDEX_NONE)
+		|| !TestTrue(TEXT("MultiEngine.StartupBindObservation.FullCreateRecordsOrderedBinds should observe the second named bind"), SecondIndex != INDEX_NONE))
+	{
+		return false;
+	}
+
+	return TestTrue(TEXT("MultiEngine.StartupBindObservation.FullCreateRecordsOrderedBinds should preserve bind order in the observed startup pass"), FirstIndex < SecondIndex);
+}
+
+bool FAngelscriptStartupBindObservationCloneCreateTest::RunTest(const FString& Parameters)
+{
+	ResetToIsolatedEngineState();
+
+	const FName BindName = MakeUniqueStartupBindName(TEXT("Automation.StartupBind.Clone.Named"));
+	FAngelscriptBinds::FBind NamedBind(BindName, []() {});
+
+	const FAngelscriptEngineConfig Config;
+	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
+	TUniquePtr<FAngelscriptEngine> SourceEngine = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+	if (!TestNotNull(TEXT("MultiEngine.StartupBindObservation.CloneCreateDoesNotReplayBinds should create a source engine"), SourceEngine.Get()))
+	{
+		return false;
+	}
+
+	FAngelscriptBindExecutionObservation::Reset();
+	TUniquePtr<FAngelscriptEngine> CloneEngine = FAngelscriptEngine::CreateCloneFrom(*SourceEngine, Config);
+	if (!TestNotNull(TEXT("MultiEngine.StartupBindObservation.CloneCreateDoesNotReplayBinds should create a clone engine"), CloneEngine.Get()))
+	{
+		return false;
+	}
+
+	if (!TestEqual(TEXT("MultiEngine.StartupBindObservation.CloneCreateDoesNotReplayBinds should not observe a fresh startup bind pass for clone creation"), FAngelscriptBindExecutionObservation::GetInvocationCount(), 0))
+	{
+		return false;
+	}
+
+	const FAngelscriptBindExecutionSnapshot Snapshot = FAngelscriptBindExecutionObservation::GetLastSnapshot();
+	return TestEqual(TEXT("MultiEngine.StartupBindObservation.CloneCreateDoesNotReplayBinds should not append any executed bind names during clone creation"), Snapshot.ExecutedBindNames.Num(), 0);
 }
 
 #endif
