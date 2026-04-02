@@ -11,22 +11,22 @@ using namespace AngelscriptTestSupport;
 
 namespace
 {
-	struct FNativeCounter
+	struct FLearningNativeBindingCounter
 	{
 		int32 Value = 0;
 	};
 
-	void ConstructNativeCounter(FNativeCounter* Address)
+	void ConstructLearningNativeBindingCounter(FLearningNativeBindingCounter* Address)
 	{
-		new(Address) FNativeCounter{0};
+		new(Address) FLearningNativeBindingCounter{0};
 	}
 
-	void DestructNativeCounter(FNativeCounter* Address)
+	void DestructLearningNativeBindingCounter(FLearningNativeBindingCounter* Address)
 	{
-		Address->~FNativeCounter();
+		Address->~FLearningNativeBindingCounter();
 	}
 
-	int32 NativeDoubleValue(int32 Value)
+	int32 LearningNativeBindingDoubleValue(int32 Value)
 	{
 		return Value * 2;
 	}
@@ -62,13 +62,13 @@ bool FAngelscriptLearningNativeBindingTraceTest::RunTest(const FString& Paramete
 	}
 
 	int32 NativeSeed = 21;
-	const ASAutoCaller::FunctionCaller NativeDoubleCaller = ASAutoCaller::MakeFunctionCaller(NativeDoubleValue);
-	const ASAutoCaller::FunctionCaller NativeCounterConstructorCaller = ASAutoCaller::MakeFunctionCaller(ConstructNativeCounter);
+	const ASAutoCaller::FunctionCaller NativeDoubleCaller = ASAutoCaller::MakeFunctionCaller(LearningNativeBindingDoubleValue);
+	const ASAutoCaller::FunctionCaller NativeCounterConstructorCaller = ASAutoCaller::MakeFunctionCaller(ConstructLearningNativeBindingCounter);
 
 	Trace.BeginPhase(EAngelscriptLearningTracePhase::Binding);
 	const int32 RegisterFunctionResult = ScriptEngine->RegisterGlobalFunction(
 		"int DoubleNative(int Value)",
-		asFUNCTION(NativeDoubleValue),
+		asFUNCTION(LearningNativeBindingDoubleValue),
 		asCALL_CDECL,
 		*(asFunctionCaller*)&NativeDoubleCaller);
 	Trace.AddStep(TEXT("RegisterGlobalFunction"), RegisterFunctionResult >= 0 ? TEXT("Registered DoubleNative as a global function") : TEXT("Failed to register DoubleNative"));
@@ -80,8 +80,8 @@ bool FAngelscriptLearningNativeBindingTraceTest::RunTest(const FString& Paramete
 
 	const int32 RegisterTypeResult = ScriptEngine->RegisterObjectType(
 		"NativeCounter",
-		sizeof(FNativeCounter),
-		asOBJ_VALUE | asOBJ_POD | asGetTypeTraits<FNativeCounter>() | asOBJ_APP_CLASS_ALLINTS);
+		sizeof(FLearningNativeBindingCounter),
+		asOBJ_VALUE | asOBJ_POD | asGetTypeTraits<FLearningNativeBindingCounter>() | asOBJ_APP_CLASS_ALLINTS);
 	Trace.AddStep(TEXT("RegisterObjectType"), RegisterTypeResult >= 0 ? TEXT("Registered NativeCounter as a value type") : TEXT("Failed to register NativeCounter"));
 	Trace.AddKeyValue(TEXT("ReturnCode"), FString::FromInt(RegisterTypeResult));
 
@@ -89,17 +89,17 @@ bool FAngelscriptLearningNativeBindingTraceTest::RunTest(const FString& Paramete
 		"NativeCounter",
 		asBEHAVE_CONSTRUCT,
 		"void f()",
-		asFUNCTION(ConstructNativeCounter),
+		asFUNCTION(ConstructLearningNativeBindingCounter),
 		asCALL_CDECL_OBJLAST,
 		*(asFunctionCaller*)&NativeCounterConstructorCaller);
 	Trace.AddStep(TEXT("RegisterObjectBehaviour.Construct"), RegisterConstructResult >= 0 ? TEXT("Registered the default constructor for NativeCounter") : TEXT("Failed to register the constructor"));
 	Trace.AddKeyValue(TEXT("ReturnCode"), FString::FromInt(RegisterConstructResult));
 
-	const int32 RegisterDestructResult = ScriptEngine->RegisterObjectBehaviour("NativeCounter", asBEHAVE_DESTRUCT, "void f()", asFUNCTION(DestructNativeCounter), asCALL_CDECL_OBJLAST);
+	const int32 RegisterDestructResult = ScriptEngine->RegisterObjectBehaviour("NativeCounter", asBEHAVE_DESTRUCT, "void f()", asFUNCTION(DestructLearningNativeBindingCounter), asCALL_CDECL_OBJLAST);
 	Trace.AddStep(TEXT("RegisterObjectBehaviour.Destruct"), RegisterDestructResult >= 0 ? TEXT("Registered the destructor for NativeCounter") : TEXT("Failed to register the destructor"));
 	Trace.AddKeyValue(TEXT("ReturnCode"), FString::FromInt(RegisterDestructResult));
 
-	const int32 RegisterValuePropertyResult = ScriptEngine->RegisterObjectProperty("NativeCounter", "int Value", asOFFSET(FNativeCounter, Value));
+	const int32 RegisterValuePropertyResult = ScriptEngine->RegisterObjectProperty("NativeCounter", "int Value", asOFFSET(FLearningNativeBindingCounter, Value));
 	Trace.AddStep(TEXT("RegisterObjectProperty"), RegisterValuePropertyResult >= 0 ? TEXT("Registered Value as an object property") : TEXT("Failed to register the Value property"));
 	Trace.AddKeyValue(TEXT("ReturnCode"), FString::FromInt(RegisterValuePropertyResult));
 
