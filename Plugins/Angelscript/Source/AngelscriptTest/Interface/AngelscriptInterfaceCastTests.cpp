@@ -27,7 +27,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioInterfaceCastSuccessTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceCastSuccess"));
 	ON_SCOPE_EXIT
 	{
@@ -96,7 +96,7 @@ class AScenarioInterfaceCastSuccess : AAngelscriptActor, UIDamageableCastOk
 
 bool FAngelscriptScenarioInterfaceCastFailTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceCastFail"));
 	ON_SCOPE_EXIT
 	{
@@ -162,7 +162,7 @@ class AScenarioInterfaceCastFail : AAngelscriptActor
 
 bool FAngelscriptScenarioInterfaceMethodCallTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceMethodCall"));
 	ON_SCOPE_EXIT
 	{

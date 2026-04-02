@@ -122,7 +122,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptTemplateBlueprintWorldTickActorChildTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("TemplateBlueprintActorChildWorldTick"));
 	ON_SCOPE_EXIT
 	{

@@ -142,7 +142,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioScriptClassCompilesToUClassTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioScriptClassCompilesToUClass"));
 	ON_SCOPE_EXIT
 	{
@@ -191,7 +191,7 @@ class AScenarioScriptClassCompilesToUClass : AAngelscriptActor
 
 bool FAngelscriptScenarioScriptClassCanSpawnInTestWorldTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioScriptClassCanSpawnInTestWorld"));
 	ON_SCOPE_EXIT
 	{
@@ -246,7 +246,7 @@ class AScenarioScriptClassCanSpawnInTestWorld : AAngelscriptActor
 
 bool FAngelscriptScenarioScriptClassMultiSpawnKeepsStateIsolationTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioScriptClassMultiSpawnKeepsStateIsolation"));
 	ON_SCOPE_EXIT
 	{
@@ -311,7 +311,7 @@ class AScenarioScriptClassMultiSpawnKeepsStateIsolation : AAngelscriptActor
 
 bool FAngelscriptScenarioScriptClassBlueprintChildCompilesTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioScriptClassBlueprintChildCompiles"));
 	ON_SCOPE_EXIT
 	{
@@ -386,7 +386,7 @@ class AScenarioScriptClassBlueprintChildCompiles : AAngelscriptActor
 
 bool FAngelscriptScenarioScriptClassCDOHasExpectedDefaultsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioScriptClassCDOHasExpectedDefaults"));
 	ON_SCOPE_EXIT
 	{
@@ -473,7 +473,7 @@ class AScenarioScriptClassCDOHasExpectedDefaults : AAngelscriptActor
 
 bool FAngelscriptScenarioScriptClassRecompileDoesNotCrashClassSwitchTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioScriptClassRecompileDoesNotCrashClassSwitch"));
 	ON_SCOPE_EXIT
 	{
@@ -562,7 +562,7 @@ class AScenarioScriptClassRecompileDoesNotCrashClassSwitch : AAngelscriptActor
 
 bool FAngelscriptScenarioScriptClassNonUClassTypeCannotSpawnTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioScriptClassNonUClassTypeCannotSpawn"));
 	ON_SCOPE_EXIT
 	{

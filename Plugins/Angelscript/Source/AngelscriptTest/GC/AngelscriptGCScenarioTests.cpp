@@ -71,7 +71,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioGCActorDestroyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioGCActorDestroy"));
 	ON_SCOPE_EXIT
 	{
@@ -116,7 +116,7 @@ class AScenarioGCActorDestroy : AAngelscriptActor
 
 bool FAngelscriptScenarioGCComponentDestroyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioGCComponentDestroy"));
 	ON_SCOPE_EXIT
 	{
@@ -161,7 +161,7 @@ class UScenarioGCComponentDestroy : UAngelscriptComponent
 
 bool FAngelscriptScenarioGCWorldTeardownTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioGCWorldTeardown"));
 	ON_SCOPE_EXIT
 	{

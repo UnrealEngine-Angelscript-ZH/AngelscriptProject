@@ -63,7 +63,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioDelegateUnicastTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioDelegateUnicast"));
 	ON_SCOPE_EXIT
 	{
@@ -144,7 +144,7 @@ class AScenarioDelegateUnicast : AAngelscriptActor
 
 bool FAngelscriptScenarioDelegateMulticastTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioDelegateMulticast"));
 	ON_SCOPE_EXIT
 	{
@@ -232,7 +232,7 @@ class AScenarioDelegateMulticast : AAngelscriptActor
 
 bool FAngelscriptScenarioDelegateUnicastSignatureMismatchTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioDelegateUnicastSignatureMismatch"));
 	ON_SCOPE_EXIT
 	{
@@ -318,7 +318,7 @@ class AScenarioDelegateUnicastSignatureMismatch : AAngelscriptActor
 
 bool FAngelscriptScenarioDelegateMulticastSignatureMismatchTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioDelegateMulticastSignatureMismatch"));
 	ON_SCOPE_EXIT
 	{

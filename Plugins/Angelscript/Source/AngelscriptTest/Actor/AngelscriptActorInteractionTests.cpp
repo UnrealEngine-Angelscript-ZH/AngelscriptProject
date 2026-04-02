@@ -38,7 +38,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioActorPointDamageTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	FScopedTestEngineGlobalScope GlobalScope(&Engine);
 	static const FName ModuleName(TEXT("ScenarioActorPointDamage"));
 	ON_SCOPE_EXIT
@@ -89,7 +89,7 @@ class AScenarioActorPointDamage : AAngelscriptActor
 
 bool FAngelscriptScenarioActorRadialDamageTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioActorRadialDamage"));
 	ON_SCOPE_EXIT
 	{
@@ -153,7 +153,7 @@ class AScenarioActorRadialDamage : AAngelscriptActor
 
 bool FAngelscriptScenarioActorMultiSpawnTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioActorMultiSpawn"));
 	ON_SCOPE_EXIT
 	{
@@ -218,7 +218,7 @@ class AScenarioActorMultiSpawn : AAngelscriptActor
 
 bool FAngelscriptScenarioActorCrossCallTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioActorCrossCall"));
 	ON_SCOPE_EXIT
 	{

@@ -29,8 +29,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptSoftReloadBasicTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
 class USoftReloadTarget : UObject
@@ -128,8 +128,8 @@ int GetSoftReloadVersion()
 
 bool FAngelscriptSoftReloadPreservesOtherModulesTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	const FString ScriptA = TEXT(R"AS(
 int GetValueA()
 {
@@ -192,8 +192,8 @@ int GetValueA()
 
 bool FAngelscriptFullReloadBasicTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
 class UFullReloadTarget : UObject
@@ -290,8 +290,8 @@ class UFullReloadTarget : UObject
 
 bool FAngelscriptFullReloadEnumBasicTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(TEXT("FullReloadEnumMod"));

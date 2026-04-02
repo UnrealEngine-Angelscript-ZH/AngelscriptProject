@@ -20,7 +20,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioInterfaceDeclareBasicTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceDeclareBasic"));
 	ON_SCOPE_EXIT
 	{
@@ -52,7 +52,7 @@ interface UIDamageable
 
 bool FAngelscriptScenarioInterfaceDeclareInheritanceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceDeclareInheritance"));
 	ON_SCOPE_EXIT
 	{

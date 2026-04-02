@@ -26,7 +26,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioActorUPropertyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioActorUProperty"));
 	ON_SCOPE_EXIT
 	{
@@ -84,7 +84,7 @@ class AScenarioActorUProperty : AAngelscriptActor
 
 bool FAngelscriptScenarioActorUFunctionTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioActorUFunction"));
 	ON_SCOPE_EXIT
 	{
@@ -144,7 +144,7 @@ class AScenarioActorUFunction : AAngelscriptActor
 
 bool FAngelscriptScenarioActorDefaultValuesTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioActorDefaultValues"));
 	ON_SCOPE_EXIT
 	{

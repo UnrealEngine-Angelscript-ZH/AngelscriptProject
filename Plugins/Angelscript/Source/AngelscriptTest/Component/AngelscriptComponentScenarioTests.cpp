@@ -90,7 +90,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioComponentBeginPlayTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioComponentBeginPlay"));
 	ON_SCOPE_EXIT
 	{
@@ -146,7 +146,7 @@ class UScenarioComponentBeginPlay : UAngelscriptComponent
 
 bool FAngelscriptScenarioComponentTickTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioComponentTick"));
 	ON_SCOPE_EXIT
 	{
@@ -205,7 +205,7 @@ class UScenarioComponentTick : UAngelscriptComponent
 
 bool FAngelscriptScenarioComponentReceiveEndPlayTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioComponentReceiveEndPlay"));
 	ON_SCOPE_EXIT
 	{
@@ -263,7 +263,7 @@ class UScenarioComponentReceiveEndPlay : UAngelscriptComponent
 
 bool FAngelscriptScenarioComponentActorOwnerTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioComponentActorOwner"));
 	ON_SCOPE_EXIT
 	{
@@ -341,7 +341,7 @@ class UScenarioComponentActorOwner : UAngelscriptComponent
 
 bool FAngelscriptScenarioDefaultComponentBasicTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioDefaultComponentBasic"));
 	ON_SCOPE_EXIT
 	{
@@ -401,7 +401,7 @@ class AScenarioDefaultComponentBasic : AAngelscriptActor
 
 bool FAngelscriptScenarioDefaultComponentMultipleTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioDefaultComponentMultiple"));
 	ON_SCOPE_EXIT
 	{

@@ -42,7 +42,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioActorBeginPlayTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioActorBeginPlay"));
 	ON_SCOPE_EXIT
 	{
@@ -96,7 +96,7 @@ class AScenarioActorBeginPlay : AAngelscriptActor
 
 bool FAngelscriptScenarioActorTickTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioActorTick"));
 	ON_SCOPE_EXIT
 	{
@@ -155,7 +155,7 @@ class AScenarioActorTick : AAngelscriptActor
 
 bool FAngelscriptScenarioActorReceiveEndPlayTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioActorReceiveEndPlay"));
 	ON_SCOPE_EXIT
 	{
@@ -212,7 +212,7 @@ class AScenarioActorReceiveEndPlay : AAngelscriptActor
 
 bool FAngelscriptScenarioActorReceiveDestroyedTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioActorReceiveDestroyed"));
 	ON_SCOPE_EXIT
 	{
@@ -269,7 +269,7 @@ class AScenarioActorReceiveDestroyed : AAngelscriptActor
 
 bool FAngelscriptScenarioActorResetTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioActorReset"));
 	ON_SCOPE_EXIT
 	{

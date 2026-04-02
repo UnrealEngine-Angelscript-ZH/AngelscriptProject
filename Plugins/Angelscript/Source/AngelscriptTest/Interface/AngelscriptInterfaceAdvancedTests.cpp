@@ -50,7 +50,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioInterfaceInheritedInterfaceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceInherited"));
 	ON_SCOPE_EXIT
 	{
@@ -131,7 +131,7 @@ class AScenarioInterfaceInherited : AAngelscriptActor, UIKillableChild
 
 bool FAngelscriptScenarioInterfaceMissingMethodTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceMissingMethod"));
 	ON_SCOPE_EXIT
 	{
@@ -187,7 +187,7 @@ class AScenarioInterfaceMissingMethod : AAngelscriptActor, UIDamageableMissing
 
 bool FAngelscriptScenarioInterfaceNoPropertyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceNoProperty"));
 	ON_SCOPE_EXIT
 	{
@@ -226,7 +226,7 @@ interface UINoProperty
 
 bool FAngelscriptScenarioInterfaceGCSafeTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceGCSafe"));
 	ON_SCOPE_EXIT
 	{
@@ -286,7 +286,7 @@ class AScenarioInterfaceGCSafe : AAngelscriptActor, UIDamageableGC
 #if 1
 bool FAngelscriptScenarioInterfaceHotReloadTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceHotReload"));
 	ON_SCOPE_EXIT
 	{
@@ -385,7 +385,7 @@ class AScenarioInterfaceHotReload : AAngelscriptActor, UIDamageableHR
 
 bool FAngelscriptScenarioInterfaceCppInterfaceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceCppInterface"));
 	ON_SCOPE_EXIT
 	{
@@ -444,7 +444,7 @@ class AScenarioInterfaceCppBase : AAngelscriptActor, UICppTestInterface
 
 bool FAngelscriptScenarioInterfaceMultipleInheritanceChainTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceMultiChain"));
 	ON_SCOPE_EXIT
 	{
