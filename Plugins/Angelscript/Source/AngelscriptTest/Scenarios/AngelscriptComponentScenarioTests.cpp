@@ -1,0 +1,490 @@
+#include "AngelscriptScenarioTestUtils.h"
+
+#include "Core/AngelscriptActor.h"
+#include "Core/AngelscriptComponent.h"
+#include "Components/ActorTestSpawner.h"
+#include "Components/BillboardComponent.h"
+#include "Components/SceneComponent.h"
+#include "Components/StaticMeshComponent.h"
+#include "GameFramework/Actor.h"
+#include "Misc/AutomationTest.h"
+#include "Misc/ScopeExit.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
+
+using namespace AngelscriptTestSupport;
+
+namespace
+{
+	using namespace AngelscriptScenarioTestUtils;
+
+	constexpr float ComponentScenarioDeltaTime = 0.016f;
+
+	void InitializeComponentScenarioSpawner(FActorTestSpawner& Spawner)
+	{
+		Spawner.InitializeGameSubsystems();
+	}
+
+	template <typename ComponentType = UActorComponent>
+	ComponentType* CreateComponentScenarioScriptComponent(
+		FAutomationTestBase& Test,
+		AActor& OwnerActor,
+		UClass* ComponentClass,
+		const TCHAR* Context)
+	{
+		if (!Test.TestNotNull(*FString::Printf(TEXT("%s should compile to a valid component class"), Context), ComponentClass))
+		{
+			return nullptr;
+		}
+
+		UActorComponent* Component = NewObject<UActorComponent>(&OwnerActor, ComponentClass);
+		if (!Test.TestNotNull(*FString::Printf(TEXT("%s should instantiate a runtime component"), Context), Component))
+		{
+			return nullptr;
+		}
+
+		OwnerActor.AddInstanceComponent(Component);
+		Component->OnComponentCreated();
+		Component->RegisterComponent();
+		Component->Activate(true);
+
+		ComponentType* TypedComponent = Cast<ComponentType>(Component);
+		if (!Test.TestNotNull(*FString::Printf(TEXT("%s should produce the expected component base type"), Context), TypedComponent))
+		{
+			return nullptr;
+		}
+
+		return TypedComponent;
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptScenarioComponentBeginPlayTest,
+	"Angelscript.TestModule.Scenario.Component.BeginPlay",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptScenarioComponentTickTest,
+	"Angelscript.TestModule.Scenario.Component.Tick",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptScenarioComponentReceiveEndPlayTest,
+	"Angelscript.TestModule.Scenario.Component.ReceiveEndPlay",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptScenarioComponentActorOwnerTest,
+	"Angelscript.TestModule.Scenario.Component.ActorOwner",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptScenarioDefaultComponentBasicTest,
+	"Angelscript.TestModule.Scenario.DefaultComponent.Basic",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptScenarioDefaultComponentMultipleTest,
+	"Angelscript.TestModule.Scenario.DefaultComponent.Multiple",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FAngelscriptScenarioComponentBeginPlayTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	static const FName ModuleName(TEXT("ScenarioComponentBeginPlay"));
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedInitializedTestEngine(Engine);
+	};
+
+	UClass* ScriptClass = CompileScriptModule(
+		*this,
+		Engine,
+		ModuleName,
+		TEXT("ScenarioComponentBeginPlay.as"),
+		TEXT(R"AS(
+UCLASS()
+class UScenarioComponentBeginPlay : UAngelscriptComponent
+{
+	UPROPERTY()
+	bool bReady = false;
+
+	UFUNCTION(BlueprintOverride)
+	void BeginPlay()
+	{
+		bReady = true;
+	}
+}
+)AS"),
+		TEXT("UScenarioComponentBeginPlay"));
+	if (ScriptClass == nullptr)
+	{
+		return false;
+	}
+
+	FActorTestSpawner Spawner;
+	InitializeComponentScenarioSpawner(Spawner);
+	AActor& HostActor = Spawner.SpawnActor<AActor>();
+	UActorComponent* Component = CreateComponentScenarioScriptComponent(*this, HostActor, ScriptClass, TEXT("Component.BeginPlay"));
+	if (Component == nullptr)
+	{
+		return false;
+	}
+
+	BeginPlayActor(HostActor);
+
+	bool bReady = false;
+	if (!ReadPropertyValue<FBoolProperty>(*this, Component, TEXT("bReady"), bReady))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Scenario component BeginPlay should set the readiness flag"), bReady);
+	return true;
+}
+
+bool FAngelscriptScenarioComponentTickTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	static const FName ModuleName(TEXT("ScenarioComponentTick"));
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedInitializedTestEngine(Engine);
+	};
+
+	UClass* ScriptClass = CompileScriptModule(
+		*this,
+		Engine,
+		ModuleName,
+		TEXT("ScenarioComponentTick.as"),
+		TEXT(R"AS(
+UCLASS()
+class UScenarioComponentTick : UAngelscriptComponent
+{
+	UPROPERTY()
+	int TickCount = 0;
+
+	UFUNCTION(BlueprintOverride)
+	void Tick(float DeltaSeconds)
+	{
+		TickCount += 1;
+	}
+}
+)AS"),
+		TEXT("UScenarioComponentTick"));
+	if (ScriptClass == nullptr)
+	{
+		return false;
+	}
+
+	FActorTestSpawner Spawner;
+	InitializeComponentScenarioSpawner(Spawner);
+	AActor& HostActor = Spawner.SpawnActor<AActor>();
+	UActorComponent* Component = CreateComponentScenarioScriptComponent(*this, HostActor, ScriptClass, TEXT("Component.Tick"));
+	if (Component == nullptr)
+	{
+		return false;
+	}
+
+	Component->PrimaryComponentTick.bCanEverTick = true;
+	Component->SetComponentTickEnabled(true);
+	BeginPlayActor(HostActor);
+	TickWorld(Spawner.GetWorld(), ComponentScenarioDeltaTime, 5);
+
+	int32 TickCount = 0;
+	if (!ReadPropertyValue<FIntProperty>(*this, Component, TEXT("TickCount"), TickCount))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Scenario component Tick should run during manual world ticking"), TickCount >= 5);
+	return true;
+}
+
+bool FAngelscriptScenarioComponentReceiveEndPlayTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	static const FName ModuleName(TEXT("ScenarioComponentReceiveEndPlay"));
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedInitializedTestEngine(Engine);
+	};
+
+	UClass* ScriptClass = CompileScriptModule(
+		*this,
+		Engine,
+		ModuleName,
+		TEXT("ScenarioComponentReceiveEndPlay.as"),
+		TEXT(R"AS(
+UCLASS()
+class UScenarioComponentReceiveEndPlay : UAngelscriptComponent
+{
+	UPROPERTY()
+	bool bCleanedUp = false;
+
+	UFUNCTION(BlueprintOverride)
+	void EndPlay(EEndPlayReason Reason)
+	{
+		bCleanedUp = true;
+	}
+}
+)AS"),
+		TEXT("UScenarioComponentReceiveEndPlay"));
+	if (ScriptClass == nullptr)
+	{
+		return false;
+	}
+
+	FActorTestSpawner Spawner;
+	InitializeComponentScenarioSpawner(Spawner);
+	AActor& HostActor = Spawner.SpawnActor<AActor>();
+	UActorComponent* Component = CreateComponentScenarioScriptComponent(*this, HostActor, ScriptClass, TEXT("Component.ReceiveEndPlay"));
+	if (Component == nullptr)
+	{
+		return false;
+	}
+
+	BeginPlayActor(HostActor);
+	HostActor.Destroy();
+	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+
+	bool bCleanedUp = false;
+	if (!ReadPropertyValue<FBoolProperty>(*this, Component, TEXT("bCleanedUp"), bCleanedUp))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Scenario component EndPlay should run when the owning actor is destroyed"), bCleanedUp);
+	return true;
+}
+
+bool FAngelscriptScenarioComponentActorOwnerTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	static const FName ModuleName(TEXT("ScenarioComponentActorOwner"));
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedInitializedTestEngine(Engine);
+	};
+
+	UClass* OwnerActorClass = CompileScriptModule(
+		*this,
+		Engine,
+		ModuleName,
+		TEXT("ScenarioComponentActorOwner.as"),
+		TEXT(R"AS(
+UCLASS()
+class AScenarioComponentOwnerActor : AAngelscriptActor
+{
+	UPROPERTY()
+	int OwnerValue = 42;
+}
+
+UCLASS()
+class UScenarioComponentActorOwner : UAngelscriptComponent
+{
+	UPROPERTY()
+	int ReadOwnerValue = 0;
+
+	UFUNCTION(BlueprintOverride)
+	void BeginPlay()
+	{
+		AScenarioComponentOwnerActor OwnerActor = Cast<AScenarioComponentOwnerActor>(GetOwner());
+		if (OwnerActor != null)
+		{
+			ReadOwnerValue = OwnerActor.OwnerValue;
+		}
+	}
+}
+)AS"),
+		TEXT("AScenarioComponentOwnerActor"));
+	if (OwnerActorClass == nullptr)
+	{
+		return false;
+	}
+
+	UClass* ComponentClass = FindGeneratedClass(&Engine, TEXT("UScenarioComponentActorOwner"));
+	if (!TestNotNull(TEXT("Scenario component owner-access class should be generated"), ComponentClass))
+	{
+		return false;
+	}
+
+	FActorTestSpawner Spawner;
+	InitializeComponentScenarioSpawner(Spawner);
+	AActor* HostActor = SpawnScriptActor(*this, Spawner, OwnerActorClass);
+	if (HostActor == nullptr)
+	{
+		return false;
+	}
+
+	UActorComponent* Component = CreateComponentScenarioScriptComponent(*this, *HostActor, ComponentClass, TEXT("Component.ActorOwner"));
+	if (Component == nullptr)
+	{
+		return false;
+	}
+
+	BeginPlayActor(*HostActor);
+
+	int32 ReadOwnerValue = 0;
+	if (!ReadPropertyValue<FIntProperty>(*this, Component, TEXT("ReadOwnerValue"), ReadOwnerValue))
+	{
+		return false;
+	}
+
+	TestEqual(TEXT("Scenario component should read the owning script actor's property in BeginPlay"), ReadOwnerValue, 42);
+	return true;
+}
+
+bool FAngelscriptScenarioDefaultComponentBasicTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	static const FName ModuleName(TEXT("ScenarioDefaultComponentBasic"));
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedInitializedTestEngine(Engine);
+	};
+
+	UClass* ScriptClass = CompileScriptModule(
+		*this,
+		Engine,
+		ModuleName,
+		TEXT("ScenarioDefaultComponentBasic.as"),
+		TEXT(R"AS(
+UCLASS()
+class UScenarioDefaultComponentBasicRoot : USceneComponent
+{
+}
+
+UCLASS()
+class AScenarioDefaultComponentBasic : AAngelscriptActor
+{
+	UPROPERTY(DefaultComponent, RootComponent)
+	UScenarioDefaultComponentBasicRoot RootScene;
+}
+)AS"),
+		TEXT("AScenarioDefaultComponentBasic"));
+	if (ScriptClass == nullptr)
+	{
+		return false;
+	}
+
+	FActorTestSpawner Spawner;
+	InitializeComponentScenarioSpawner(Spawner);
+	AActor* Actor = SpawnScriptActor(*this, Spawner, ScriptClass);
+	if (Actor == nullptr)
+	{
+		return false;
+	}
+
+	BeginPlayActor(*Actor);
+
+	UClass* RootComponentClass = FindGeneratedClass(&Engine, TEXT("UScenarioDefaultComponentBasicRoot"));
+	if (!TestNotNull(TEXT("Scenario default-component root class should be generated"), RootComponentClass))
+	{
+		return false;
+	}
+
+	USceneComponent* RootComponent = Actor->GetRootComponent();
+	if (!TestNotNull(TEXT("Scenario actor should create a default root component"), RootComponent))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Scenario actor root component should be the scripted default component"), RootComponent->IsA(RootComponentClass));
+	return true;
+}
+
+bool FAngelscriptScenarioDefaultComponentMultipleTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	static const FName ModuleName(TEXT("ScenarioDefaultComponentMultiple"));
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedInitializedTestEngine(Engine);
+	};
+
+	UClass* ScriptClass = CompileScriptModule(
+		*this,
+		Engine,
+		ModuleName,
+		TEXT("ScenarioDefaultComponentMultiple.as"),
+		TEXT(R"AS(
+UCLASS()
+class UScenarioDefaultComponentMultipleRoot : USceneComponent
+{
+}
+
+UCLASS()
+class UScenarioDefaultComponentMultipleBillboard : UBillboardComponent
+{
+}
+
+UCLASS()
+class AScenarioDefaultComponentMultiple : AAngelscriptActor
+{
+	UPROPERTY(DefaultComponent, RootComponent)
+	UScenarioDefaultComponentMultipleRoot RootScene;
+
+	UPROPERTY(DefaultComponent, Attach = RootScene)
+	UScenarioDefaultComponentMultipleBillboard Billboard;
+}
+)AS"),
+		TEXT("AScenarioDefaultComponentMultiple"));
+	if (ScriptClass == nullptr)
+	{
+		return false;
+	}
+
+	FActorTestSpawner Spawner;
+	InitializeComponentScenarioSpawner(Spawner);
+	AActor* Actor = SpawnScriptActor(*this, Spawner, ScriptClass);
+	if (Actor == nullptr)
+	{
+		return false;
+	}
+
+	BeginPlayActor(*Actor);
+
+	UClass* RootSceneClass = FindGeneratedClass(&Engine, TEXT("UScenarioDefaultComponentMultipleRoot"));
+	UClass* BillboardClass = FindGeneratedClass(&Engine, TEXT("UScenarioDefaultComponentMultipleBillboard"));
+	if (!TestNotNull(TEXT("Scenario multi-default root class should be generated"), RootSceneClass)
+		|| !TestNotNull(TEXT("Scenario multi-default child class should be generated"), BillboardClass))
+	{
+		return false;
+	}
+
+	USceneComponent* RootScene = Actor->GetRootComponent();
+	if (!TestNotNull(TEXT("Scenario actor should create a scripted root scene component"), RootScene))
+	{
+		return false;
+	}
+	if (!TestTrue(TEXT("Scenario actor root component should use the scripted root component class"), RootScene->IsA(RootSceneClass)))
+	{
+		return false;
+	}
+
+	UBillboardComponent* Billboard = nullptr;
+	for (UActorComponent* Component : Actor->GetComponents())
+	{
+		if (Component != nullptr && Component->IsA(BillboardClass))
+		{
+			Billboard = Cast<UBillboardComponent>(Component);
+			break;
+		}
+	}
+	if (!TestNotNull(TEXT("Scenario actor should create the attached billboard component"), Billboard))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Scenario actor attached default component should preserve the scripted hierarchy"), Billboard->GetAttachParent() == RootScene);
+	return true;
+}
+
+#endif

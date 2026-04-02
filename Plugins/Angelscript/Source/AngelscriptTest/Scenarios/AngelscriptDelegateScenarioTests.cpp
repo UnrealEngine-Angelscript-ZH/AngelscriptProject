@@ -1,0 +1,210 @@
+#include "AngelscriptScenarioTestUtils.h"
+
+#include "Shared/AngelscriptNativeScriptTestObject.h"
+
+#include "Components/ActorTestSpawner.h"
+#include "Misc/AutomationTest.h"
+#include "Misc/ScopeExit.h"
+#include "UObject/ScriptDelegates.h"
+#include "UObject/UnrealType.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
+
+using namespace AngelscriptTestSupport;
+
+namespace
+{
+	using namespace AngelscriptScenarioTestUtils;
+
+	struct FScenarioIntStringParams
+	{
+		int32 Value = 0;
+		FString Label;
+	};
+
+	void InitializeDelegateScenarioSpawner(FActorTestSpawner& Spawner)
+	{
+		Spawner.InitializeGameSubsystems();
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptScenarioDelegateUnicastTest,
+	"Angelscript.TestModule.Scenario.Delegate.Unicast",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptScenarioDelegateMulticastTest,
+	"Angelscript.TestModule.Scenario.Delegate.Multicast",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FAngelscriptScenarioDelegateUnicastTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	static const FName ModuleName(TEXT("ScenarioDelegateUnicast"));
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedInitializedTestEngine(Engine);
+	};
+
+	UClass* ScriptClass = CompileScriptModule(
+		*this,
+		Engine,
+		ModuleName,
+		TEXT("ScenarioDelegateUnicast.as"),
+		TEXT(R"AS(
+delegate void FOnHealthChanged(int32 NewHealth, const FString& Label);
+
+UCLASS()
+class AScenarioDelegateUnicast : AAngelscriptActor
+{
+	UPROPERTY()
+	FOnHealthChanged OnHealthChanged;
+
+	UFUNCTION()
+	void TriggerHealthChanged(int32 NewHealth, const FString& Label)
+	{
+		if (OnHealthChanged.IsBound())
+		{
+			OnHealthChanged.Execute(NewHealth, Label);
+		}
+	}
+}
+)AS"),
+		TEXT("AScenarioDelegateUnicast"));
+	if (ScriptClass == nullptr)
+	{
+		return false;
+	}
+
+	FActorTestSpawner Spawner;
+	InitializeDelegateScenarioSpawner(Spawner);
+	AActor* Actor = SpawnScriptActor(*this, Spawner, ScriptClass);
+	if (!TestNotNull(TEXT("Scenario unicast delegate actor should spawn"), Actor))
+	{
+		return false;
+	}
+	BeginPlayActor(*Actor);
+
+	UAngelscriptNativeScriptTestObject* NativeReceiver = NewObject<UAngelscriptNativeScriptTestObject>(GetTransientPackage());
+	if (!TestNotNull(TEXT("Scenario unicast delegate test should create a native receiver"), NativeReceiver))
+	{
+		return false;
+	}
+	NativeReceiver->NameCounts.Reset();
+
+	FDelegateProperty* DelegateProperty = FindFProperty<FDelegateProperty>(Actor->GetClass(), TEXT("OnHealthChanged"));
+	if (!TestNotNull(TEXT("Scenario unicast delegate property should exist"), DelegateProperty))
+	{
+		return false;
+	}
+
+	FScriptDelegate BoundDelegate;
+	BoundDelegate.BindUFunction(NativeReceiver, TEXT("SetIntStringFromDelegate"));
+	*DelegateProperty->ContainerPtrToValuePtr<FScriptDelegate>(Actor) = BoundDelegate;
+
+	UFunction* TriggerFunction = FindGeneratedFunction(ScriptClass, TEXT("TriggerHealthChanged"));
+	if (!TestNotNull(TEXT("Scenario unicast trigger function should exist"), TriggerFunction))
+	{
+		return false;
+	}
+
+	FScenarioIntStringParams Params;
+	Params.Value = 77;
+	Params.Label = TEXT("Unicast");
+	Actor->ProcessEvent(TriggerFunction, &Params);
+
+	TestEqual(TEXT("Scenario unicast delegate should invoke the bound C++ callback"), NativeReceiver->NameCounts.FindRef(TEXT("Unicast")), 77);
+	return true;
+}
+
+bool FAngelscriptScenarioDelegateMulticastTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	static const FName ModuleName(TEXT("ScenarioDelegateMulticast"));
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedInitializedTestEngine(Engine);
+	};
+
+	UClass* ScriptClass = CompileScriptModule(
+		*this,
+		Engine,
+		ModuleName,
+		TEXT("ScenarioDelegateMulticast.as"),
+		TEXT(R"AS(
+event void FOnDamaged(int32 NewHealth, const FString& Label);
+
+UCLASS()
+class AScenarioDelegateMulticast : AAngelscriptActor
+{
+	UPROPERTY()
+	FOnDamaged OnDamaged;
+
+	UPROPERTY()
+	int EventTriggerCount = 0;
+
+	UFUNCTION(BlueprintOverride)
+	void BeginPlay()
+	{
+		OnDamaged.AddUFunction(this, n"HandleDamaged");
+	}
+
+	UFUNCTION()
+	void HandleDamaged(int32 NewHealth, const FString& Label)
+	{
+		EventTriggerCount += 1;
+	}
+}
+)AS"),
+		TEXT("AScenarioDelegateMulticast"));
+	if (ScriptClass == nullptr)
+	{
+		return false;
+	}
+
+	FActorTestSpawner Spawner;
+	InitializeDelegateScenarioSpawner(Spawner);
+	AActor* Actor = SpawnScriptActor(*this, Spawner, ScriptClass);
+	if (!TestNotNull(TEXT("Scenario multicast delegate actor should spawn"), Actor))
+	{
+		return false;
+	}
+	BeginPlayActor(*Actor);
+
+	int32 InitialEventTriggerCount = 0;
+	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("EventTriggerCount"), InitialEventTriggerCount))
+	{
+		return false;
+	}
+
+	FMulticastInlineDelegateProperty* MulticastProperty = FindFProperty<FMulticastInlineDelegateProperty>(Actor->GetClass(), TEXT("OnDamaged"));
+	if (!TestNotNull(TEXT("Scenario multicast delegate property should exist"), MulticastProperty))
+	{
+		return false;
+	}
+
+	FMulticastScriptDelegate* MulticastDelegate = MulticastProperty->ContainerPtrToValuePtr<FMulticastScriptDelegate>(Actor);
+	if (!TestNotNull(TEXT("Scenario multicast delegate storage should exist"), MulticastDelegate))
+	{
+		return false;
+	}
+
+	FScenarioIntStringParams Params;
+	Params.Value = 33;
+	Params.Label = TEXT("Multicast");
+	MulticastDelegate->ProcessMulticastDelegate<UObject>(&Params);
+
+	int32 EventTriggerCount = 0;
+	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("EventTriggerCount"), EventTriggerCount))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Scenario multicast delegate should invoke the script handler when broadcast from C++"), EventTriggerCount > InitialEventTriggerCount);
+	return true;
+}
+
+#endif

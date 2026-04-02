@@ -1,0 +1,298 @@
+#include "../Shared/AngelscriptTestEngineHelper.h"
+#include "../Shared/AngelscriptTestUtilities.h"
+
+#include "HAL/FileManager.h"
+#include "Misc/AutomationTest.h"
+#include "Misc/FileHelper.h"
+#include "Misc/Paths.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
+
+using namespace AngelscriptTestSupport;
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptModuleRecordTrackingTest,
+	"Angelscript.TestModule.HotReload.ModuleRecordTracking",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptDiscardModuleTest,
+	"Angelscript.TestModule.HotReload.DiscardModule",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptDiscardAndRecompileTest,
+	"Angelscript.TestModule.HotReload.DiscardAndRecompile",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptModuleWatcherQueuesFileChangesTest,
+	"Angelscript.TestModule.HotReload.ModuleWatcherQueuesFileChanges",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+struct FAngelscriptHotReloadTestAccess
+{
+	static void QueueFileChange(FAngelscriptEngine& Engine, const FAngelscriptEngine::FFilenamePair& Filename)
+	{
+		Engine.FileChangesDetectedForReload.AddUnique(Filename);
+	}
+
+	static int32 GetQueuedFileChangeCount(const FAngelscriptEngine& Engine)
+	{
+		return Engine.FileChangesDetectedForReload.Num();
+	}
+
+	static int32 GetQueuedFullReloadCount(const FAngelscriptEngine& Engine)
+	{
+		return Engine.QueuedFullReloadFiles.Num();
+	}
+
+	static void CheckForHotReload(FAngelscriptEngine& Engine, ECompileType CompileType)
+	{
+		Engine.CheckForHotReload(CompileType);
+	}
+
+};
+
+bool FAngelscriptModuleRecordTrackingTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	const FString ScriptA = TEXT(R"AS(
+UCLASS()
+class UTrackedObjectA : UObject
+{
+	UPROPERTY()
+	int ValueA;
+
+	default ValueA = 10;
+
+	UFUNCTION()
+	int GetValueA()
+	{
+		return ValueA;
+	}
+}
+)AS");
+	const FString ScriptB = TEXT(R"AS(
+UCLASS()
+class UTrackedObjectB : UObject
+{
+	UPROPERTY()
+	int ValueB;
+
+	default ValueB = 20;
+
+	UFUNCTION()
+	int GetValueB()
+	{
+		return ValueB;
+	}
+}
+)AS");
+	if (!TestTrue(TEXT("Compile module A should succeed"), CompileAnnotatedModuleFromMemory(&Engine, TEXT("ModuleA"), TEXT("ModuleA.as"), ScriptA)) ||
+
+		!TestTrue(TEXT("Compile module B should succeed"), CompileAnnotatedModuleFromMemory(&Engine, TEXT("ModuleB"), TEXT("ModuleB.as"), ScriptB)))
+	{
+		return false;
+	}
+
+	TArray<TSharedRef<FAngelscriptModuleDesc>> ActiveModules = Engine.GetActiveModules();
+	TestTrue(TEXT("At least two modules should be tracked after compiling module A and B"), ActiveModules.Num() >= 2);
+
+	TSharedPtr<FAngelscriptModuleDesc> RecordA = Engine.GetModuleByModuleName(TEXT("ModuleA"));
+	TSharedPtr<FAngelscriptModuleDesc> RecordB = Engine.GetModuleByModuleName(TEXT("ModuleB"));
+	TestTrue(TEXT("Module A record should exist"), RecordA.IsValid());
+	TestTrue(TEXT("Module B record should exist"), RecordB.IsValid());
+
+	if (RecordA.IsValid())
+	{
+		TestEqual(TEXT("Module A should track one generated class"), RecordA->Classes.Num(), 1);
+		TestTrue(TEXT("Module A should track UTrackedObjectA"), RecordA->GetClass(TEXT("UTrackedObjectA")).IsValid());
+	}
+
+	if (RecordB.IsValid())
+	{
+		TestEqual(TEXT("Module B should track one generated class"), RecordB->Classes.Num(), 1);
+		TestTrue(TEXT("Module B should track UTrackedObjectB"), RecordB->GetClass(TEXT("UTrackedObjectB")).IsValid());
+	}
+
+	TestNotNull(TEXT("UTrackedObjectA class should exist"), FindGeneratedClass(&Engine, TEXT("UTrackedObjectA")));
+	TestNotNull(TEXT("UTrackedObjectB class should exist"), FindGeneratedClass(&Engine, TEXT("UTrackedObjectB")));
+	TestTrue(TEXT("Unknown module record should not exist"), !Engine.GetModuleByModuleName(TEXT("NonExistent")).IsValid());
+	return true;
+}
+
+bool FAngelscriptDiscardModuleTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	const FString ScriptA = TEXT(R"AS(
+UCLASS()
+class UDiscardableObject : UObject
+{
+	UPROPERTY()
+	int Score;
+
+	default Score = 42;
+
+	UFUNCTION()
+	int GetScore()
+	{
+		return Score;
+	}
+}
+)AS");
+	const FString ScriptB = TEXT(R"AS(
+int SurvivorEntry()
+{
+	return 99;
+}
+)AS");
+	if (!TestTrue(TEXT("Compile discardable module should succeed"), CompileAnnotatedModuleFromMemory(&Engine, TEXT("DiscardA"), TEXT("DiscardA.as"), ScriptA)) ||
+
+		!TestTrue(TEXT("Compile survivor module should succeed"), CompileModuleFromMemory(&Engine, TEXT("SurvivorB"), TEXT("SurvivorB.as"), ScriptB)))
+	{
+		return false;
+	}
+
+	TestNotNull(TEXT("Discardable class should exist before discard"), FindGeneratedClass(&Engine, TEXT("UDiscardableObject")));
+	TestTrue(TEXT("Discardable module record should exist before discard"), Engine.GetModuleByModuleName(TEXT("DiscardA")).IsValid());
+
+	int32 SurvivorResult = 0;
+	if (!TestTrue(TEXT("Survivor module should execute before discard"), ExecuteIntFunction(&Engine, TEXT("SurvivorB"), TEXT("int SurvivorEntry()"), SurvivorResult)))
+	{
+		return false;
+	}
+	TestEqual(TEXT("Survivor module should return 99 before discard"), SurvivorResult, 99);
+
+	if (!TestTrue(TEXT("DiscardModule should succeed for tracked module"), Engine.DiscardModule(TEXT("DiscardA"))))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Discardable module record should be gone after discard"), !Engine.GetModuleByModuleName(TEXT("DiscardA")).IsValid());
+
+	SurvivorResult = 0;
+	if (!TestTrue(TEXT("Survivor module should still execute after discard"), ExecuteIntFunction(&Engine, TEXT("SurvivorB"), TEXT("int SurvivorEntry()"), SurvivorResult)))
+	{
+		return false;
+	}
+	TestEqual(TEXT("Survivor module should still return 99 after discard"), SurvivorResult, 99);
+
+	TestFalse(TEXT("Discarding the same module twice should fail"), Engine.DiscardModule(TEXT("DiscardA")));
+	return true;
+}
+
+bool FAngelscriptDiscardAndRecompileTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	const FString ScriptV1 = TEXT(R"AS(
+UCLASS()
+class UDiscardRecompileTarget : UObject
+{
+	UPROPERTY()
+	int Version;
+
+	default Version = 1;
+
+	UFUNCTION()
+	int GetVersion()
+	{
+		return Version;
+	}
+}
+)AS");
+
+	const FString ScriptV2 = TEXT(R"AS(
+UCLASS()
+class UDiscardRecompileTargetV2 : UObject
+{
+	UPROPERTY()
+	int Version;
+
+	default Version = 2;
+
+	UFUNCTION()
+	int GetVersion()
+	{
+		return Version;
+	}
+}
+)AS");
+
+	if (!TestTrue(TEXT("Compile reload target v1 should succeed"), CompileAnnotatedModuleFromMemory(&Engine, TEXT("DiscardRecompileMod"), TEXT("DiscardRecompileMod.as"), ScriptV1)))
+	{
+		return false;
+	}
+
+	UClass* ClassV1 = FindGeneratedClass(&Engine, TEXT("UDiscardRecompileTarget"));
+	if (!TestNotNull(TEXT("Reload target class v1 should exist"), ClassV1))
+	{
+		return false;
+	}
+
+	if (!TestTrue(TEXT("DiscardModule should succeed for reload target"), Engine.DiscardModule(TEXT("DiscardRecompileMod"))))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Module record should be gone after discard"), !Engine.GetModuleByModuleName(TEXT("DiscardRecompileMod")).IsValid());
+
+	if (!TestTrue(TEXT("Compile new class in same module should succeed after discard"), CompileAnnotatedModuleFromMemory(&Engine, TEXT("DiscardRecompileMod"), TEXT("DiscardRecompileMod.as"), ScriptV2)))
+	{
+		return false;
+	}
+
+	UClass* ClassV2 = FindGeneratedClass(&Engine, TEXT("UDiscardRecompileTargetV2"));
+	if (!TestNotNull(TEXT("New class v2 should exist after recompile"), ClassV2))
+	{
+		return false;
+	}
+
+	FIntProperty* VersionProperty = FindFProperty<FIntProperty>(ClassV2, TEXT("Version"));
+	if (!TestNotNull(TEXT("Version property should exist after recompile"), VersionProperty))
+	{
+		return false;
+	}
+
+	UObject* ObjV2 = NewObject<UObject>(GetTransientPackage(), ClassV2);
+	if (!TestNotNull(TEXT("Reload target object v2 should instantiate"), ObjV2))
+	{
+		return false;
+	}
+
+	TestEqual(TEXT("Version default should be 2 after discard and recompile"), VersionProperty->GetPropertyValue_InContainer(ObjV2), 2);
+	TestTrue(TEXT("Reload module record should exist after recompile"), Engine.GetModuleByModuleName(TEXT("DiscardRecompileMod")).IsValid());
+	return true;
+}
+
+bool FAngelscriptModuleWatcherQueuesFileChangesTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+
+	const FAngelscriptEngine::FFilenamePair FilenamePair{
+		TEXT("J:/UnrealEngine/Temp/UE-Angelscript/Saved/Automation/WatcherTest.as"),
+		TEXT("Automation/WatcherTest.as")
+	};
+
+	TestEqual(
+		TEXT("Hot reload watcher queue should start empty for this test"),
+		FAngelscriptHotReloadTestAccess::GetQueuedFileChangeCount(Engine),
+		0);
+
+	FAngelscriptHotReloadTestAccess::QueueFileChange(Engine, FilenamePair);
+	TestEqual(
+		TEXT("QueueFileChange should add the changed file once"),
+		FAngelscriptHotReloadTestAccess::GetQueuedFileChangeCount(Engine),
+		1);
+
+	FAngelscriptHotReloadTestAccess::QueueFileChange(Engine, FilenamePair);
+	return TestEqual(
+		TEXT("QueueFileChange should keep the queue de-duplicated"),
+		FAngelscriptHotReloadTestAccess::GetQueuedFileChangeCount(Engine),
+		1);
+}
+
+#endif

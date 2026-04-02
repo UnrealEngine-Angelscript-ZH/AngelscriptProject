@@ -1,0 +1,396 @@
+#include "Angelscript/AngelscriptTestSupport.h"
+#include "Misc/AutomationTest.h"
+
+#include "StartAngelscriptHeaders.h"
+#include "source/as_gc.h"
+#include "source/as_scriptengine.h"
+#include "EndAngelscriptHeaders.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptGCStatisticsTest,
+	"Angelscript.TestModule.Internals.GC.Statistics",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptGCEmptyCollectTest,
+	"Angelscript.TestModule.Internals.GC.EmptyCollect",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptGCInvalidObjectLookupTest,
+	"Angelscript.TestModule.Internals.GC.InvalidLookup",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptGCReportUndestroyedEmptyTest,
+	"Angelscript.TestModule.Internals.GC.ReportUndestroyedEmpty",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptGCManualCycleCollectionTest,
+	"Angelscript.TestModule.Internals.GC.ManualCycleCollection",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptGCCycleDetectionTest,
+	"Angelscript.TestModule.Internals.GC.CycleDetection",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+namespace
+{
+	struct FGCProbeObject;
+
+	static asIScriptEngine* GGCProbeScriptEngine = nullptr;
+
+	struct FGCProbeObject
+	{
+		static int32 LiveCount;
+
+		explicit FGCProbeObject()
+		{
+			++LiveCount;
+		}
+
+		~FGCProbeObject()
+		{
+			if (Peer != nullptr)
+			{
+				FGCProbeObject* Referenced = Peer;
+				Peer = nullptr;
+				Referenced->Release();
+			}
+
+			--LiveCount;
+		}
+
+		void AddRef()
+		{
+			++RefCount;
+		}
+
+		void Release()
+		{
+			if (--RefCount == 0)
+			{
+				delete this;
+			}
+		}
+
+		int GetRefCount() const
+		{
+			return RefCount;
+		}
+
+		void SetGCFlag()
+		{
+			bGCFlag = true;
+		}
+
+		bool GetGCFlag() const
+		{
+			return bGCFlag;
+		}
+
+		void EnumReferences(int&)
+		{
+			if (Peer != nullptr && GGCProbeScriptEngine != nullptr)
+			{
+				GGCProbeScriptEngine->GCEnumCallback(Peer);
+			}
+		}
+
+		void ReleaseAllReferences(int&)
+		{
+			if (Peer != nullptr)
+			{
+				FGCProbeObject* Referenced = Peer;
+				Peer = nullptr;
+				Referenced->Release();
+			}
+		}
+
+		void LinkTo(FGCProbeObject* Other)
+		{
+			if (Peer == Other)
+			{
+				return;
+			}
+
+			if (Peer != nullptr)
+			{
+				Peer->Release();
+			}
+
+			Peer = Other;
+			if (Peer != nullptr)
+			{
+				Peer->AddRef();
+			}
+		}
+
+		int RefCount = 1;
+		bool bGCFlag = false;
+		FGCProbeObject* Peer = nullptr;
+	};
+
+	int32 FGCProbeObject::LiveCount = 0;
+
+	void GCProbeAddRef(FGCProbeObject* Self)
+	{
+		Self->AddRef();
+	}
+
+	void GCProbeRelease(FGCProbeObject* Self)
+	{
+		Self->Release();
+	}
+
+	int GCProbeGetRefCount(FGCProbeObject* Self)
+	{
+		return Self->GetRefCount();
+	}
+
+	void GCProbeSetGCFlag(FGCProbeObject* Self)
+	{
+		Self->SetGCFlag();
+	}
+
+	bool GCProbeGetGCFlag(FGCProbeObject* Self)
+	{
+		return Self->GetGCFlag();
+	}
+
+	void GCProbeEnumReferences(FGCProbeObject* Self, int&)
+	{
+		int Dummy = 0;
+		Self->EnumReferences(Dummy);
+	}
+
+	void GCProbeReleaseAllReferences(FGCProbeObject* Self, int&)
+	{
+		int Dummy = 0;
+		Self->ReleaseAllReferences(Dummy);
+	}
+
+	struct FGCStatisticsSnapshot
+	{
+		asUINT CurrentSize = 0;
+		asUINT TotalDestroyed = 0;
+		asUINT TotalDetected = 0;
+		asUINT NewObjects = 0;
+		asUINT TotalNewDestroyed = 0;
+	};
+
+	FGCStatisticsSnapshot GetGCStatisticsSnapshot(asIScriptEngine& ScriptEngine)
+	{
+		FGCStatisticsSnapshot Snapshot;
+		ScriptEngine.GetGCStatistics(
+			&Snapshot.CurrentSize,
+			&Snapshot.TotalDestroyed,
+			&Snapshot.TotalDetected,
+			&Snapshot.NewObjects,
+			&Snapshot.TotalNewDestroyed);
+		return Snapshot;
+	}
+
+	bool RegisterGCProbeType(FAutomationTestBase& Test, asIScriptEngine& ScriptEngine, asITypeInfo*& OutType)
+	{
+		GGCProbeScriptEngine = &ScriptEngine;
+		OutType = ScriptEngine.GetTypeInfoByName("GCProbeObject");
+		if (OutType != nullptr)
+		{
+			return true;
+		}
+
+		const int RegisterTypeResult = ScriptEngine.RegisterObjectType("GCProbeObject", 0, asOBJ_REF | asOBJ_GC);
+		if (!Test.TestTrue(TEXT("GC probe object type should register successfully"), RegisterTypeResult >= 0 || RegisterTypeResult == asALREADY_REGISTERED))
+		{
+			return false;
+		}
+
+		const bool bBehavioursRegistered =
+			ScriptEngine.RegisterObjectBehaviour("GCProbeObject", asBEHAVE_ADDREF, "void f()", asFUNCTION(GCProbeAddRef), asCALL_CDECL_OBJFIRST) >= 0 &&
+			ScriptEngine.RegisterObjectBehaviour("GCProbeObject", asBEHAVE_RELEASE, "void f()", asFUNCTION(GCProbeRelease), asCALL_CDECL_OBJFIRST) >= 0 &&
+			ScriptEngine.RegisterObjectBehaviour("GCProbeObject", asBEHAVE_GETREFCOUNT, "int f()", asFUNCTION(GCProbeGetRefCount), asCALL_CDECL_OBJFIRST) >= 0 &&
+			ScriptEngine.RegisterObjectBehaviour("GCProbeObject", asBEHAVE_SETGCFLAG, "void f()", asFUNCTION(GCProbeSetGCFlag), asCALL_CDECL_OBJFIRST) >= 0 &&
+			ScriptEngine.RegisterObjectBehaviour("GCProbeObject", asBEHAVE_GETGCFLAG, "bool f()", asFUNCTION(GCProbeGetGCFlag), asCALL_CDECL_OBJFIRST) >= 0 &&
+			ScriptEngine.RegisterObjectBehaviour("GCProbeObject", asBEHAVE_ENUMREFS, "void f(int&in gcCycle)" , asFUNCTION(GCProbeEnumReferences), asCALL_CDECL_OBJFIRST) >= 0 &&
+			ScriptEngine.RegisterObjectBehaviour("GCProbeObject", asBEHAVE_RELEASEREFS, "void f(int&in gcCycle)", asFUNCTION(GCProbeReleaseAllReferences), asCALL_CDECL_OBJFIRST) >= 0;
+		if (!Test.TestTrue(TEXT("GC probe object should register all GC behaviours"), bBehavioursRegistered))
+		{
+			return false;
+		}
+
+		OutType = ScriptEngine.GetTypeInfoByName("GCProbeObject");
+		return Test.TestNotNull(TEXT("GC probe object should be visible through the type system"), OutType);
+	}
+
+	FGCProbeObject* CreateSelfCycle(asIScriptEngine& ScriptEngine, asITypeInfo& Type)
+	{
+		FGCProbeObject* Node = new FGCProbeObject();
+		Node->LinkTo(Node);
+		ScriptEngine.NotifyGarbageCollectorOfNewObject(Node, &Type);
+		return Node;
+	}
+
+	FGCProbeObject* CreateTwoNodeCycle(asIScriptEngine& ScriptEngine, asITypeInfo& Type)
+	{
+		FGCProbeObject* A = new FGCProbeObject();
+		FGCProbeObject* B = new FGCProbeObject();
+		A->LinkTo(B);
+		B->LinkTo(A);
+		ScriptEngine.NotifyGarbageCollectorOfNewObject(A, &Type);
+		ScriptEngine.NotifyGarbageCollectorOfNewObject(B, &Type);
+		return A;
+	}
+
+	bool RunFullGarbageCollection(asIScriptEngine& ScriptEngine)
+	{
+		for (int Iteration = 0; Iteration < 8; ++Iteration)
+		{
+			const int Result = ScriptEngine.GarbageCollect(asGC_FULL_CYCLE, 1);
+			if (Result < 0)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+}
+
+bool FAngelscriptGCStatisticsTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	asCGarbageCollector Collector;
+	Collector.engine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
+
+	asUINT CurrentSize = MAX_uint32;
+	asUINT TotalDestroyed = MAX_uint32;
+	asUINT TotalDetected = MAX_uint32;
+	asUINT NewObjects = MAX_uint32;
+	asUINT TotalNewDestroyed = MAX_uint32;
+	Collector.GetStatistics(&CurrentSize, &TotalDestroyed, &TotalDetected, &NewObjects, &TotalNewDestroyed);
+
+	TestEqual(TEXT("Fresh GC collector should start with zero tracked objects"), CurrentSize, 0u);
+	TestEqual(TEXT("Fresh GC collector should start with zero destroyed objects"), TotalDestroyed, 0u);
+	TestEqual(TEXT("Fresh GC collector should start with zero detected cycles"), TotalDetected, 0u);
+	TestEqual(TEXT("Fresh GC collector should start with zero new objects"), NewObjects, 0u);
+	TestEqual(TEXT("Fresh GC collector should start with zero newly destroyed objects"), TotalNewDestroyed, 0u);
+	return true;
+}
+
+bool FAngelscriptGCEmptyCollectTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	asCGarbageCollector Collector;
+	Collector.engine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
+
+	const int Result = Collector.GarbageCollect(asGC_FULL_CYCLE, 1);
+	TestEqual(TEXT("GC full cycle on an empty collector should complete immediately"), Result, 0);
+	return Result == 0;
+}
+
+bool FAngelscriptGCInvalidObjectLookupTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	asCGarbageCollector Collector;
+	Collector.engine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
+
+	asUINT SeqNbr = 123;
+	void* Object = reinterpret_cast<void*>(0x1);
+	asITypeInfo* Type = reinterpret_cast<asITypeInfo*>(0x1);
+	const int Result = Collector.GetObjectInGC(0, &SeqNbr, &Object, &Type);
+
+	TestEqual(TEXT("GetObjectInGC should reject out-of-range lookups on an empty collector"), Result, asINVALID_ARG);
+	TestEqual(TEXT("GetObjectInGC should zero the sequence number on failure"), SeqNbr, 0u);
+	TestEqual(TEXT("GetObjectInGC should null the object pointer on failure"), Object, static_cast<void*>(nullptr));
+	TestEqual(TEXT("GetObjectInGC should null the type pointer on failure"), Type, static_cast<asITypeInfo*>(nullptr));
+	return Result == asINVALID_ARG;
+}
+
+bool FAngelscriptGCReportUndestroyedEmptyTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	asCGarbageCollector Collector;
+	Collector.engine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
+
+	const int Result = Collector.ReportAndReleaseUndestroyedObjects();
+	TestEqual(TEXT("ReportAndReleaseUndestroyedObjects should return zero when no objects are tracked"), Result, 0);
+	return Result == 0;
+}
+
+bool FAngelscriptGCManualCycleCollectionTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
+	asITypeInfo* GCProbeType = nullptr;
+	if (!RegisterGCProbeType(*this, *ScriptEngine, GCProbeType))
+	{
+		return false;
+	}
+
+	FGCProbeObject::LiveCount = 0;
+	FGCProbeObject* Node = CreateSelfCycle(*ScriptEngine, *GCProbeType);
+	if (!TestNotNull(TEXT("Manual GC cycle test should create a self-referencing probe object"), Node))
+	{
+		return false;
+	}
+
+	const FGCStatisticsSnapshot BeforeRelease = GetGCStatisticsSnapshot(*ScriptEngine);
+	Node->Release();
+
+	if (!TestTrue(TEXT("Manual GC cycle test should finish a full collection pass"), RunFullGarbageCollection(*ScriptEngine)))
+	{
+		return false;
+	}
+
+	const FGCStatisticsSnapshot AfterCollect = GetGCStatisticsSnapshot(*ScriptEngine);
+	TestTrue(TEXT("Manual GC should destroy at least one released cyclic object"), AfterCollect.TotalDestroyed > BeforeRelease.TotalDestroyed);
+	TestTrue(TEXT("Manual GC should not increase the number of tracked objects after collecting a released cycle"), AfterCollect.CurrentSize <= BeforeRelease.CurrentSize);
+	TestEqual(TEXT("Manual GC should leave no probe objects alive after collecting a self-cycle"), FGCProbeObject::LiveCount, 0);
+	return true;
+}
+
+bool FAngelscriptGCCycleDetectionTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
+	asITypeInfo* GCProbeType = nullptr;
+	if (!RegisterGCProbeType(*this, *ScriptEngine, GCProbeType))
+	{
+		return false;
+	}
+
+	FGCProbeObject::LiveCount = 0;
+	FGCProbeObject* Root = CreateSelfCycle(*ScriptEngine, *GCProbeType);
+	if (!TestNotNull(TEXT("GC cycle detection test should create a self cycle"), Root))
+	{
+		return false;
+	}
+
+	const FGCStatisticsSnapshot BeforeRelease = GetGCStatisticsSnapshot(*ScriptEngine);
+	Root->Release();
+
+	if (!TestEqual(TEXT("GC cycle detection should accept a detect-only full cycle"), ScriptEngine->GarbageCollect(asGC_FULL_CYCLE | asGC_DETECT_GARBAGE, 1), 0))
+	{
+		return false;
+	}
+
+	const FGCStatisticsSnapshot AfterDetect = GetGCStatisticsSnapshot(*ScriptEngine);
+	TestTrue(TEXT("GC should detect at least one cyclic object after releasing a self-cycle"), AfterDetect.TotalDetected >= BeforeRelease.TotalDetected + 1);
+	TestTrue(TEXT("Detect-only GC should keep the cyclic object tracked until destroy runs"), AfterDetect.CurrentSize >= 1);
+
+	if (!TestTrue(TEXT("GC cycle detection test should complete subsequent collection passes"), RunFullGarbageCollection(*ScriptEngine)))
+	{
+		return false;
+	}
+
+	const FGCStatisticsSnapshot AfterCollect = GetGCStatisticsSnapshot(*ScriptEngine);
+	TestTrue(TEXT("GC should eventually destroy the detected cycle"), AfterCollect.TotalDestroyed >= AfterDetect.TotalDestroyed);
+	TestEqual(TEXT("GC should leave no probe objects alive after collecting the detected self-cycle"), FGCProbeObject::LiveCount, 0);
+	return true;
+}
+
+#endif

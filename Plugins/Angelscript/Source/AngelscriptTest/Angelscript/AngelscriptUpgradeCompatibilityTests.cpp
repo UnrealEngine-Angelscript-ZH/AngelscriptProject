@@ -1,0 +1,257 @@
+#include "Angelscript/AngelscriptTestSupport.h"
+
+#if WITH_DEV_AUTOMATION_TESTS
+
+using namespace AngelscriptTestSupport;
+
+namespace
+{
+	constexpr int32 P9BAutomaticImportsPropertyId = 41;
+	constexpr int32 P9BTypecheckSwitchEnumsPropertyId = 42;
+	constexpr int32 P9BAllowDoubleTypePropertyId = 43;
+	constexpr int32 P9BFloatIsFloat64PropertyId = 44;
+	constexpr int32 P9BWarnOnFloatConstantsForDoublesPropertyId = 45;
+	constexpr int32 P9BWarnIntegerDivisionPropertyId = 46;
+	constexpr uint64 P9BScriptObjectFlag = (uint64(1) << 21);
+	constexpr uint64 P9BSharedFlag = (uint64(1) << 22);
+	constexpr uint64 P9BNoInheritFlag = (uint64(1) << 23);
+	constexpr uint64 P9BFuncdefFlag = (uint64(1) << 24);
+	constexpr uint64 P9BListPatternFlag = (uint64(1) << 25);
+	constexpr uint64 P9BEnumFlag = (uint64(1) << 26);
+	constexpr uint64 P9BTemplateSubtypeFlag = (uint64(1) << 27);
+	constexpr uint64 P9BTypedefFlag = (uint64(1) << 28);
+	constexpr uint64 P9BAbstractFlag = (uint64(1) << 29);
+	constexpr uint64 P9BStockMoreConstructorsFlag = (uint64(1) << 31);
+	constexpr uint64 P9BStockUnionFlag = (uint64(1) << 32);
+	constexpr uint64 P9BCovariantSubtypeFlag = (uint64(1) << 48);
+	constexpr uint64 P9BDeterminesSizeFlag = (uint64(1) << 49);
+	constexpr uint64 P9BDisallowInstantiationFlag = (uint64(1) << 50);
+	constexpr uint64 P9BBasicMathTypeFlag = (uint64(1) << 51);
+	constexpr uint64 P9BEditorOnlyFlag = (uint64(1) << 52);
+
+	bool GUpgradeMessageCallbackInvoked = false;
+	FString GUpgradeMessageText;
+	asEMsgType GUpgradeMessageType = asMSGTYPE_INFORMATION;
+
+	void CaptureUpgradeMessage(asSMessageInfo* Message)
+	{
+		GUpgradeMessageCallbackInvoked = true;
+		GUpgradeMessageText = UTF8_TO_TCHAR(Message->message);
+		GUpgradeMessageType = Message->type;
+	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptUpgradeHeaderCompatibilityTest,
+	"Angelscript.TestModule.Angelscript.Upgrade.HeaderCompatibility",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FAngelscriptUpgradeHeaderCompatibilityTest::RunTest(const FString& Parameters)
+{
+	const bool bVersionMatches =
+		TestEqual(TEXT("Embedded Angelscript version should remain pinned to 2.33.0 until the 2.38 upgrade resumes"), ANGELSCRIPT_VERSION, 23300) &&
+		TestEqual(TEXT("Embedded Angelscript version string should report 2.33.0 WIP"), FString(ANSI_TO_TCHAR(ANGELSCRIPT_VERSION_STRING)), FString(TEXT("2.33.0 WIP")));
+
+	const bool bPropertyIdsMatch =
+		TestEqual(TEXT("Stock 2.38 init stack size property id should remain available"), static_cast<int32>(asEP_INIT_STACK_SIZE), 29) &&
+		TestEqual(TEXT("Stock 2.38 init call stack size property id should remain available"), static_cast<int32>(asEP_INIT_CALL_STACK_SIZE), 30) &&
+		TestEqual(TEXT("Stock 2.38 max call stack size property id should remain available"), static_cast<int32>(asEP_MAX_CALL_STACK_SIZE), 31) &&
+		TestEqual(TEXT("Stock 2.38 duplicate shared interface property id should remain available"), static_cast<int32>(asEP_IGNORE_DUPLICATE_SHARED_INTF), 32) &&
+		TestEqual(TEXT("Stock 2.38 no debug output property id should remain available"), static_cast<int32>(asEP_NO_DEBUG_OUTPUT), 33) &&
+		TestEqual(TEXT("Stock 2.38 disable script class GC property id should remain available"), static_cast<int32>(asEP_DISABLE_SCRIPT_CLASS_GC), 34) &&
+		TestEqual(TEXT("Stock 2.38 JIT interface version property id should remain available"), static_cast<int32>(asEP_JIT_INTERFACE_VERSION), 35) &&
+		TestEqual(TEXT("Stock 2.38 default copy property id should remain available"), static_cast<int32>(asEP_ALWAYS_IMPL_DEFAULT_COPY), 36) &&
+		TestEqual(TEXT("Stock 2.38 default copy construct property id should remain available"), static_cast<int32>(asEP_ALWAYS_IMPL_DEFAULT_COPY_CONSTRUCT), 37) &&
+		TestEqual(TEXT("Stock 2.38 member init mode property id should remain available"), static_cast<int32>(asEP_MEMBER_INIT_MODE), 38) &&
+		TestEqual(TEXT("Stock 2.38 bool conversion mode property id should remain available"), static_cast<int32>(asEP_BOOL_CONVERSION_MODE), 39) &&
+		TestEqual(TEXT("Stock 2.38 foreach support property id should remain available"), static_cast<int32>(asEP_FOREACH_SUPPORT), 40) &&
+		TestEqual(TEXT("APV2 automatic imports property id should move off the stock 2.38 property range"), static_cast<int32>(asEP_AUTOMATIC_IMPORTS), P9BAutomaticImportsPropertyId) &&
+		TestEqual(TEXT("APV2 typecheck switch enums property id should move off the stock 2.38 property range"), static_cast<int32>(asEP_TYPECHECK_SWITCH_ENUMS), P9BTypecheckSwitchEnumsPropertyId) &&
+		TestEqual(TEXT("APV2 allow double type property id should move off the stock 2.38 property range"), static_cast<int32>(asEP_ALLOW_DOUBLE_TYPE), P9BAllowDoubleTypePropertyId) &&
+		TestEqual(TEXT("APV2 float64 compatibility property id should move off the stock 2.38 property range"), static_cast<int32>(asEP_FLOAT_IS_FLOAT64), P9BFloatIsFloat64PropertyId) &&
+		TestEqual(TEXT("APV2 float warning property id should move off the stock 2.38 property range"), static_cast<int32>(asEP_WARN_ON_FLOAT_CONSTANTS_FOR_DOUBLES), P9BWarnOnFloatConstantsForDoublesPropertyId) &&
+		TestEqual(TEXT("APV2 integer division warning property id should move off the stock 2.38 property range"), static_cast<int32>(asEP_WARN_INTEGER_DIVISION), P9BWarnIntegerDivisionPropertyId);
+
+	const bool bTypeAndFlagLayoutMatches =
+		TestEqual(TEXT("asEObjTypeFlags should widen to preserve stock 2.38 and APV2 high-bit object flags"), static_cast<int32>(sizeof(asEObjTypeFlags)), static_cast<int32>(sizeof(asQWORD))) &&
+		TestEqual(TEXT("Stock 2.38 should restore asOBJ_SCRIPT_OBJECT to bit 21"), static_cast<uint64>(asOBJ_SCRIPT_OBJECT), P9BScriptObjectFlag) &&
+		TestEqual(TEXT("Stock 2.38 should restore asOBJ_SHARED to bit 22"), static_cast<uint64>(asOBJ_SHARED), P9BSharedFlag) &&
+		TestEqual(TEXT("Stock 2.38 should restore asOBJ_NOINHERIT to bit 23"), static_cast<uint64>(asOBJ_NOINHERIT), P9BNoInheritFlag) &&
+		TestEqual(TEXT("Stock 2.38 should restore asOBJ_FUNCDEF to bit 24"), static_cast<uint64>(asOBJ_FUNCDEF), P9BFuncdefFlag) &&
+		TestEqual(TEXT("Stock 2.38 should restore asOBJ_LIST_PATTERN to bit 25"), static_cast<uint64>(asOBJ_LIST_PATTERN), P9BListPatternFlag) &&
+		TestEqual(TEXT("Stock 2.38 should restore asOBJ_ENUM to bit 26"), static_cast<uint64>(asOBJ_ENUM), P9BEnumFlag) &&
+		TestEqual(TEXT("Stock 2.38 should restore asOBJ_TEMPLATE_SUBTYPE to bit 27"), static_cast<uint64>(asOBJ_TEMPLATE_SUBTYPE), P9BTemplateSubtypeFlag) &&
+		TestEqual(TEXT("Stock 2.38 should restore asOBJ_TYPEDEF to bit 28"), static_cast<uint64>(asOBJ_TYPEDEF), P9BTypedefFlag) &&
+		TestEqual(TEXT("Stock 2.38 should restore asOBJ_ABSTRACT to bit 29"), static_cast<uint64>(asOBJ_ABSTRACT), P9BAbstractFlag) &&
+		TestEqual(TEXT("Stock 2.38 should preserve asOBJ_APP_CLASS_MORE_CONSTRUCTORS on bit 31"), static_cast<uint64>(asOBJ_APP_CLASS_MORE_CONSTRUCTORS), P9BStockMoreConstructorsFlag) &&
+		TestEqual(TEXT("Stock 2.38 should preserve asOBJ_APP_CLASS_UNION on bit 32"), static_cast<uint64>(asOBJ_APP_CLASS_UNION), P9BStockUnionFlag) &&
+		TestEqual(TEXT("APV2 covariant subtype flag should move to the high-bit private range"), static_cast<uint64>(asOBJ_TEMPLATE_SUBTYPE_COVARIANT), P9BCovariantSubtypeFlag) &&
+		TestEqual(TEXT("APV2 template-size flag should move to the high-bit private range"), static_cast<uint64>(asOBJ_TEMPLATE_SUBTYPE_DETERMINES_SIZE), P9BDeterminesSizeFlag) &&
+		TestEqual(TEXT("APV2 disallow-instantiation flag should move to the high-bit private range"), static_cast<uint64>(asOBJ_DISALLOW_INSTANTIATION), P9BDisallowInstantiationFlag) &&
+		TestEqual(TEXT("APV2 basic-math flag should move to the high-bit private range"), static_cast<uint64>(asOBJ_BASICMATHTYPE), P9BBasicMathTypeFlag) &&
+		TestEqual(TEXT("APV2 editor-only flag should move to the high-bit private range"), static_cast<uint64>(asOBJ_EDITOR_ONLY), P9BEditorOnlyFlag) &&
+		TestEqual(TEXT("APV2 float32 alias should preserve the stock float type id"), static_cast<int32>(asTYPEID_FLOAT32), 10) &&
+		TestEqual(TEXT("APV2 float64 alias should preserve the stock double type id"), static_cast<int32>(asTYPEID_FLOAT64), 11) &&
+		TestEqual(TEXT("APV2 custom bytecodes should keep the extended bytecode max"), static_cast<int32>(asBC_MAXBYTECODE), 212);
+
+	return bVersionMatches && bPropertyIdsMatch && bTypeAndFlagLayoutMatches;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptUpgradeEnginePropertyCompatibilityTest,
+	"Angelscript.TestModule.Angelscript.Upgrade.EngineProperties",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptUpgradeMessageCallbackCompatibilityTest,
+	"Angelscript.TestModule.Angelscript.Upgrade.MessageCallback",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptUpgradeRegisterObjectTypeFlagCompatibilityTest,
+	"Angelscript.TestModule.Angelscript.Upgrade.RegisterObjectTypeFlags",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FAngelscriptUpgradeEnginePropertyCompatibilityTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
+	if (!TestNotNull(TEXT("Upgrade property test should create a script engine"), ScriptEngine))
+	{
+		return false;
+	}
+
+	const bool bCustomPropertiesStillWork =
+		TestTrue(TEXT("APV2 automatic imports property getter should reflect the value written through SetEngineProperty"),
+			[&]()
+			{
+				const int64 PreviousAutomaticImports = static_cast<int64>(ScriptEngine->GetEngineProperty(asEP_AUTOMATIC_IMPORTS));
+				ScriptEngine->SetEngineProperty(asEP_AUTOMATIC_IMPORTS, 1);
+				const bool bMatches = TestEqual(TEXT("APV2 automatic imports property should round-trip through the getter"), static_cast<int64>(ScriptEngine->GetEngineProperty(asEP_AUTOMATIC_IMPORTS)), int64(1));
+				ScriptEngine->SetEngineProperty(asEP_AUTOMATIC_IMPORTS, PreviousAutomaticImports);
+				return bMatches;
+			}()) &&
+		TestEqual(TEXT("Stock 2.38 default copy property should be forced to the APV2 compatibility value during engine initialization"), static_cast<int64>(ScriptEngine->GetEngineProperty(asEP_ALWAYS_IMPL_DEFAULT_COPY)), int64(1)) &&
+		TestEqual(TEXT("Stock 2.38 default copy construct property should be forced to the APV2 compatibility value during engine initialization"), static_cast<int64>(ScriptEngine->GetEngineProperty(asEP_ALWAYS_IMPL_DEFAULT_COPY_CONSTRUCT)), int64(1)) &&
+		TestEqual(TEXT("Stock 2.38 member init mode should be forced to the APV2 compatibility value during engine initialization"), static_cast<int64>(ScriptEngine->GetEngineProperty(asEP_MEMBER_INIT_MODE)), int64(0)) &&
+		TestEqual(TEXT("Stock property accessor mode should remain pinned to the APV2 compatibility mode during engine initialization"), static_cast<int64>(ScriptEngine->GetEngineProperty(asEP_PROPERTY_ACCESSOR_MODE)), int64(AS_PROPERTY_ACCESSOR_MODE)) &&
+		TestEqual(TEXT("APV2 typecheck switch enums property should still be enabled"), static_cast<int64>(ScriptEngine->GetEngineProperty(asEP_TYPECHECK_SWITCH_ENUMS)), int64(1)) &&
+		TestEqual(TEXT("APV2 double type property should remain enabled when settings allow it"), static_cast<int64>(ScriptEngine->GetEngineProperty(asEP_ALLOW_DOUBLE_TYPE)), int64(1)) &&
+		TestTrue(TEXT("Stock 2.38 engine properties should round-trip through SetEngineProperty/GetEngineProperty"),
+			[&]()
+			{
+				struct FPropertyCase
+				{
+					asEEngineProp Property;
+					asPWORD Value;
+				};
+
+				const FPropertyCase Cases[] = {
+					{ asEP_INIT_STACK_SIZE, 2048 },
+					{ asEP_INIT_CALL_STACK_SIZE, 32 },
+					{ asEP_MAX_CALL_STACK_SIZE, 64 },
+					{ asEP_IGNORE_DUPLICATE_SHARED_INTF, 1 },
+					{ asEP_NO_DEBUG_OUTPUT, 1 },
+					{ asEP_DISABLE_SCRIPT_CLASS_GC, 1 },
+					{ asEP_JIT_INTERFACE_VERSION, 2 },
+					{ asEP_ALWAYS_IMPL_DEFAULT_COPY, 1 },
+					{ asEP_ALWAYS_IMPL_DEFAULT_COPY_CONSTRUCT, 2 },
+					{ asEP_MEMBER_INIT_MODE, 1 },
+					{ asEP_BOOL_CONVERSION_MODE, 1 },
+					{ asEP_FOREACH_SUPPORT, 0 },
+				};
+
+				TArray<asPWORD, TInlineAllocator<12>> PreviousValues;
+				PreviousValues.Reserve(UE_ARRAY_COUNT(Cases));
+				for (const FPropertyCase& Case : Cases)
+				{
+					PreviousValues.Add(ScriptEngine->GetEngineProperty(Case.Property));
+				}
+
+				bool bAllMatched = true;
+				for (int32 Index = 0; Index < UE_ARRAY_COUNT(Cases); ++Index)
+				{
+					const FPropertyCase& Case = Cases[Index];
+					ScriptEngine->SetEngineProperty(Case.Property, Case.Value);
+					bAllMatched &= TestEqual(FString::Printf(TEXT("Stock engine property %d should round-trip through the getter"), static_cast<int32>(Case.Property)), static_cast<int64>(ScriptEngine->GetEngineProperty(Case.Property)), static_cast<int64>(Case.Value));
+				}
+
+				for (int32 Index = 0; Index < UE_ARRAY_COUNT(Cases); ++Index)
+				{
+					ScriptEngine->SetEngineProperty(Cases[Index].Property, PreviousValues[Index]);
+				}
+
+				return bAllMatched;
+			}());
+	return bCustomPropertiesStillWork;
+}
+
+bool FAngelscriptUpgradeMessageCallbackCompatibilityTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
+	if (!TestNotNull(TEXT("Upgrade message callback test should create a script engine"), ScriptEngine))
+	{
+		return false;
+	}
+
+	GUpgradeMessageCallbackInvoked = false;
+	GUpgradeMessageText.Reset();
+	GUpgradeMessageType = asMSGTYPE_INFORMATION;
+
+	if (!TestEqual(TEXT("SetMessageCallback should succeed for the upgrade compatibility callback"), ScriptEngine->SetMessageCallback(asFUNCTION(CaptureUpgradeMessage), nullptr, asCALL_CDECL), asSUCCESS))
+	{
+		return false;
+	}
+
+	asSFuncPtr CallbackPtr = {};
+	void* CallbackObject = nullptr;
+	asDWORD CallConv = 0;
+	if (!TestEqual(TEXT("GetMessageCallback should report the registered callback"), ScriptEngine->GetMessageCallback(&CallbackPtr, &CallbackObject, &CallConv), static_cast<int32>(asSUCCESS)))
+	{
+		return false;
+	}
+
+	if (!TestEqual(TEXT("GetMessageCallback should preserve the original call convention"), static_cast<int32>(CallConv), static_cast<int32>(asCALL_CDECL)))
+	{
+		return false;
+	}
+
+	if (!TestEqual(TEXT("WriteMessage should succeed after restoring the stock callback getter ABI"), ScriptEngine->WriteMessage("Upgrade", 1, 1, asMSGTYPE_WARNING, "CallbackRoundtrip"), asSUCCESS))
+	{
+		return false;
+	}
+
+	return TestTrue(TEXT("The registered upgrade callback should receive WriteMessage diagnostics"), GUpgradeMessageCallbackInvoked)
+		&& TestEqual(TEXT("The registered upgrade callback should receive the expected message text"), GUpgradeMessageText, FString(TEXT("CallbackRoundtrip")))
+		&& TestEqual(TEXT("The registered upgrade callback should receive the expected message type"), static_cast<int32>(GUpgradeMessageType), static_cast<int32>(asMSGTYPE_WARNING));
+}
+
+bool FAngelscriptUpgradeRegisterObjectTypeFlagCompatibilityTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
+	if (!TestNotNull(TEXT("Upgrade object-type registration test should create a script engine"), ScriptEngine))
+	{
+		return false;
+	}
+
+	static const char* TypeName = "FUpgradeEditorOnlyRegisteredType";
+	const int RegistrationResult = ScriptEngine->RegisterObjectType(TypeName, 4, asOBJ_VALUE | asOBJ_POD | asOBJ_APP_PRIMITIVE | asOBJ_EDITOR_ONLY);
+	if (!TestTrue(TEXT("RegisterObjectType should accept a migrated high-bit editor-only flag on an application value type"), RegistrationResult >= 0))
+	{
+		return false;
+	}
+
+	asITypeInfo* TypeInfo = ScriptEngine->GetTypeInfoByName(TypeName);
+	if (!TestNotNull(TEXT("RegisterObjectType should expose the registered type by name"), TypeInfo))
+	{
+		return false;
+	}
+
+	const asQWORD Flags = TypeInfo->GetFlags();
+	return TestTrue(TEXT("The registered type should preserve the migrated editor-only high-bit flag"), (Flags & asOBJ_EDITOR_ONLY) != 0)
+		&& TestFalse(TEXT("The registered type should not alias the stock more-constructors bit when using the migrated editor-only flag"), (Flags & asOBJ_APP_CLASS_MORE_CONSTRUCTORS) != 0);
+}
+
+#endif
