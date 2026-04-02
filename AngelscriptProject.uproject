@@ -1,0 +1,22 @@
+{
+	"FileVersion": 3,
+	"EngineAssociation": "{0B0B3C8C-41F3-0DAA-1E34-3DB97A41BE28}",
+	"Category": "",
+	"Description": "",
+	"Modules": [
+		{
+			"Name": "AngelscriptProject",
+			"Type": "Runtime",
+			"LoadingPhase": "Default"
+		}
+	],
+	"Plugins": [
+		{
+			"Name": "ModelingToolsEditorMode",
+			"Enabled": true,
+			"TargetAllowList": [
+				"Editor"
+			]
+		}
+	]
+}
