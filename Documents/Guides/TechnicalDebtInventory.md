@@ -99,3 +99,27 @@
 - `P0.3` 直接基于当前 worktree 的 `AgentConfig.ini` 做参数展开级 smoke check，优先验证 `ProjectFile` 空值回退是否正确解析到仓库根 `.uproject`。
 - `P0.4` 以本文件第 6 节作为候选文件清单，补齐“本地符号 / 参考行为 / 风险 / 测试落点 / sibling plan 去向”的矩阵列。
 - `P2.4` 与 `P6.2` 更新 `TestCatalog` 时，不再复用单一的 `275/275 PASS` 叙述，而应明确区分“已编目基线”与“实时扫描规模”。
+
+## 9. Phase 1 验证快照
+
+- 编辑器目标构建验证：`AngelscriptProjectEditor Win64 Development` 在当前 `technical-debt-plan` worktree 中可成功构建。
+- 本地前置说明：构建前需要先生成 `Plugins/Angelscript/Intermediate/Build/as_callfunc_x64_msvc_asm.lib`；这是当前仓库沿用的本地中间产物前置，不是本轮 `P1` 改动新引入的问题。
+- `P1.3` 目标测试验证：
+  - `Angelscript.TestModule.Delegate.UnicastSignatureMismatch`：PASS
+  - `Angelscript.TestModule.Delegate.MulticastSignatureMismatch`：PASS
+- `Automation RunTests Angelscript.TestModule` 全量回归结果：**未全绿**，但当前失败项均未直接指向 `P1.1`~`P1.5` 改动面。
+
+### 当前 full-suite 失败项（2026-04-03）
+
+- `Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2A`
+  - 失败摘要：`Expected 'Phase2A should load source from Script/Tests/Test_Enums.as' to be true.`
+  - 归因判断：更像测试输入文件缺失 / 路径基线问题，未触及本轮 `Binds`、`StaticJIT`、`DebugServer` 修复面。
+- `Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2B`
+  - 失败摘要：`Expected 'Phase2B should load source from Script/Tests/Test_GameplayTags.as' to be true.`
+  - 归因判断：同样更像 hot-reload 测试资产路径问题，未触及本轮 `P1` 改动面。
+- `Angelscript.TestModule.Editor.SourceNavigation.Functions`
+  - 失败摘要：`Unable to open script file .../Saved/Automation/Automation/RuntimeFunctionNavigationTest.as`，随后 `Generated function navigation class should exist` 断言失败。
+  - 归因判断：属于 editor/source-navigation 测试文件生成或清理路径问题，与 `BlueprintEvent`、`DebugServer`、`StaticJIT` 修复面无直接交集。
+- `Angelscript.TestModule.ScriptExamples.Actor`
+  - 失败摘要：`Cannot declare class AExampleActorType in module ScriptExamples.Example_Actor. A class with this name already exists in module Example_Actor.`
+  - 归因判断：属于 script example 模块命名 / 清理冲突，未触及本轮 `P1` 改动面。
