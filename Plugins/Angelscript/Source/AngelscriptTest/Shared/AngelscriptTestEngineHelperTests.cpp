@@ -111,6 +111,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	"Angelscript.TestModule.Shared.EngineHelper.SubsystemAttachedProductionEngineDoesNotHijackIsolatedTestEngine",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+
 bool FAngelscriptTestEngineHelperGeneratedSymbolLookupTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetSharedTestEngine();

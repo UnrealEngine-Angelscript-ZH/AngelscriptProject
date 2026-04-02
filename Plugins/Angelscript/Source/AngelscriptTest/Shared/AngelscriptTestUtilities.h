@@ -23,12 +23,23 @@ struct FAngelscriptTestEngineScopeAccess
 	{
 		return FAngelscriptEngine::TryGetGlobalEngine();
 	}
+
+	static bool DestroyGlobalEngine()
+	{
+		return FAngelscriptEngine::DestroyGlobal();
+	}
 	};
 
 namespace AngelscriptTestSupport
 {
 	using FScopedTestEngineGlobalScope = ::FScopedTestEngineGlobalScope;
 	using FAngelscriptTestEngineScopeAccess = ::FAngelscriptTestEngineScopeAccess;
+
+	inline TUniquePtr<FAngelscriptEngine>& GetSharedTestEngineStorage()
+	{
+		static TUniquePtr<FAngelscriptEngine> Storage;
+		return Storage;
+	}
 
 	struct FScopedTestWorldContextScope
 	{
@@ -85,7 +96,7 @@ namespace AngelscriptTestSupport
 
 	inline FAngelscriptEngine& GetSharedTestEngine()
 	{
-		static TUniquePtr<FAngelscriptEngine> SharedEngine;
+		auto& SharedEngine = GetSharedTestEngineStorage();
 		if (!SharedEngine.IsValid())
 		{
 			SharedEngine = CreateCloneTestEngine();
@@ -93,6 +104,12 @@ namespace AngelscriptTestSupport
 
 		check(SharedEngine.IsValid());
 		return *SharedEngine;
+	}
+
+	inline void DestroySharedTestEngine()
+	{
+		auto& SharedEngine = GetSharedTestEngineStorage();
+		SharedEngine.Reset();
 	}
 
 	inline FAngelscriptEngine& GetSharedInitializedTestEngine()
