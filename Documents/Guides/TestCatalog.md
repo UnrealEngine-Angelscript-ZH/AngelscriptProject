@@ -101,6 +101,13 @@
 | Parity.RuntimeCurveLinearColorCompile | `RuntimeCurveLinearColor` 编译 |
 | Parity.HitResultCompile | `FHitResult` 编译 |
 | Parity.DeprecationsMetadata | 弃用元数据暴露正确 |
+| Engine.LastFullDestroyClearsTypeState | 最后一个 full owner 销毁后类型元数据清空 |
+| Engine.FullDestroyAllowsCleanRecreate | full owner 销毁后可干净重建并再次编译执行 |
+| Core.Performance.Startup.Full | fresh full 启动基线与 startup 指标产物写出 |
+| Core.Performance.Startup.Clone | clone 启动基线与 0 bind replay 指标 |
+| Core.Performance.Startup.CreateForTestingFallbackFull | 无 source engine 时 CreateForTesting fallback 全量启动基线 |
+| Core.Performance.Startup.CreateForTestingClone | 有 source engine 时 CreateForTesting clone 启动基线 |
+| Core.Performance.ArtifactGeneration | metrics.json 产物结构与落盘回归 |
 
 ---
 
@@ -395,6 +402,10 @@
 | HotReload.DiscardModule | 丢弃模块后引擎状态符合预期 |
 | HotReload.DiscardAndRecompile | 丢弃后能重新编译同一/新模块 |
 | HotReload.ModuleWatcherQueuesFileChanges | 文件监视器将变更入队供重载 |
+| HotReload.Performance.SoftReloadLatency | body-only soft reload 延迟基线 |
+| HotReload.Performance.FullReloadLatency | 结构变化 full reload 延迟基线 |
+| HotReload.Performance.RenameWindowLatency | rename-window 建模下 full reload 延迟基线 |
+| HotReload.Performance.BurstChurnLatency | repeated soft/full/soft burst churn 延迟基线 |
 
 ### 属性保留
 
@@ -599,6 +610,16 @@
 ---
 
 ## 11. Editor — 编辑器
+
+> 源文件：`AngelscriptEditor/Private/Tests/AngelscriptDirectoryWatcherTests.cpp`
+
+| 测试名 | 验证内容 |
+|--------|----------|
+| Editor.DirectoryWatcher.Queue.ScriptAddAndRemove | `.as` 文件 add/remove 进入对应队列 |
+| Editor.DirectoryWatcher.Queue.IgnoresNonScriptFiles | 非 `.as` 文件被忽略 |
+| Editor.DirectoryWatcher.Queue.FolderAddScansContainedScripts | 新增目录递归扫描脚本 |
+| Editor.DirectoryWatcher.Queue.FolderRemoveUsesLoadedScriptEnumerator | 删除目录通过已加载脚本枚举生成删除队列 |
+| Editor.DirectoryWatcher.Queue.RenameWindowTracksRemoveAndAdd | rename-window 建模下 remove+add 同时入队 |
 
 > 源文件：`Editor/AngelscriptSourceNavigationTests.cpp`
 

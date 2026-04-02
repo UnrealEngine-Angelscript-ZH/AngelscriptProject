@@ -6,6 +6,12 @@
 - 性能采样与产物规范：`Documents/Guides/TestPerformance.md`
 - 测试目录总览：`Documents/Guides/TestCatalog.md`
 
+### Angelscript 性能采样快捷前缀
+
+- 启动基线：`Automation RunTests Angelscript.TestModule.Core.Performance.Startup`
+- 热重载延迟：`Automation RunTests Angelscript.TestModule.HotReload.Performance`
+- 产物回归：`Automation RunTests Angelscript.TestModule.Core.Performance.ArtifactGeneration`
+
 # 图形测试
 
 (目前项目中无图形测试,不考虑这种启动方式)

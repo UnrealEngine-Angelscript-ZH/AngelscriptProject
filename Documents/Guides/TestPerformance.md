@@ -102,6 +102,36 @@
   -ABSLOG="<Project>/Saved/Automation/AngelscriptPerformance/<RunId>/Logs/Editor.log"
 ```
 
+### 当前已落地的性能测试前缀
+
+- `Angelscript.TestModule.Core.Performance.Startup.Full`
+- `Angelscript.TestModule.Core.Performance.Startup.Clone`
+- `Angelscript.TestModule.Core.Performance.Startup.CreateForTestingFallbackFull`
+- `Angelscript.TestModule.Core.Performance.Startup.CreateForTestingClone`
+- `Angelscript.TestModule.HotReload.Performance.SoftReloadLatency`
+- `Angelscript.TestModule.HotReload.Performance.FullReloadLatency`
+- `Angelscript.TestModule.HotReload.Performance.RenameWindowLatency`
+- `Angelscript.TestModule.HotReload.Performance.BurstChurnLatency`
+- `Angelscript.TestModule.Core.Performance.ArtifactGeneration`
+
+### 推荐运行波次
+
+- 启动基线：`Automation RunTests Angelscript.TestModule.Core.Performance.Startup`
+- 热重载延迟：`Automation RunTests Angelscript.TestModule.HotReload.Performance`
+- 产物回归：`Automation RunTests Angelscript.TestModule.Core.Performance.ArtifactGeneration`
+
+### 当前产物示例
+
+- `Saved/Automation/AngelscriptPerformance/P3_1_StartupPerformance_Full/Metrics/metrics.json`
+- `Saved/Automation/AngelscriptPerformance/P3_1_StartupPerformance_Clone/Metrics/metrics.json`
+- `Saved/Automation/AngelscriptPerformance/P3_1_StartupPerformance_CreateForTestingFallback/Metrics/metrics.json`
+- `Saved/Automation/AngelscriptPerformance/P3_1_StartupPerformance_CreateForTestingClone/Metrics/metrics.json`
+- `Saved/Automation/AngelscriptPerformance/P3_2_HotReloadPerformance_Soft/Metrics/metrics.json`
+- `Saved/Automation/AngelscriptPerformance/P3_2_HotReloadPerformance_Full/Metrics/metrics.json`
+- `Saved/Automation/AngelscriptPerformance/P3_2_HotReloadPerformance_RenameWindow/Metrics/metrics.json`
+- `Saved/Automation/AngelscriptPerformance/P3_4_HotReloadPerformance_BurstChurn/Metrics/metrics.json`
+- `Saved/Automation/AngelscriptPerformance/P3_4_PerformanceArtifactGeneration/Metrics/metrics.json`
+
 ## 结果复核清单
 
 - 自动化报告目录已生成，且包含可读 JSON / HTML 报告。
