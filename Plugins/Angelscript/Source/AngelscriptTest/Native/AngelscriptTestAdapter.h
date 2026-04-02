@@ -231,7 +231,10 @@ namespace AngelscriptSDKTestSupport
 		if (BufferedOutStream != nullptr)
 		{
 			BufferedOutStream->Clear();
-			const int CallbackResult = ScriptEngine->SetMessageCallback(asMETHOD(FASSDKBufferedOutStream, Callback), BufferedOutStream, asCALL_THISCALL);
+			const int CallbackResult = ScriptEngine->SetMessageCallback(
+				asMETHODPR(FASSDKBufferedOutStream, Callback, (asSMessageInfo*), void),
+				BufferedOutStream,
+				asCALL_THISCALL);
 			if (CallbackResult < 0)
 			{
 				Adapter.Fail(TEXT("CreateASSDKTestEngine should install the buffered output callback"), __FILE__, __LINE__);
