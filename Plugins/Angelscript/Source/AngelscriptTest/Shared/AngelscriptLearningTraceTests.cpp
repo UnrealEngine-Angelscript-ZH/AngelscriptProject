@@ -18,6 +18,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	"Angelscript.TestModule.Shared.LearningTrace.FileExport",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptLearningTracePrettyPrinterTest,
+	"Angelscript.TestModule.Shared.LearningTrace.PrettyPrinters",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
 bool FAngelscriptLearningTraceSequenceTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptLearningTraceSinkConfig SinkConfig;
@@ -90,6 +95,39 @@ bool FAngelscriptLearningTraceFileExportTest::RunTest(const FString& Parameters)
 
 	TestTrue(TEXT("Saved trace file should contain the step id"), SavedText.Contains(TEXT("Execution.01")));
 	TestTrue(TEXT("Saved trace file should contain the recorded evidence"), SavedText.Contains(TEXT("Result: 42")));
+	return true;
+}
+
+bool FAngelscriptLearningTracePrettyPrinterTest::RunTest(const FString& Parameters)
+{
+	TArray<FAngelscriptLearningTraceKeyValue> EngineProperties;
+	EngineProperties.Add({TEXT("asEP_OPTIMIZE_BYTECODE"), TEXT("1")});
+	EngineProperties.Add({TEXT("asEP_ALLOW_DOUBLE_TYPE"), TEXT("1")});
+
+	const FString EnginePropertySummary = FormatLearningTraceKeyValueList(EngineProperties, TEXT("EngineProperties"));
+	TestTrue(TEXT("Engine property formatter should render the section label"), EnginePropertySummary.Contains(TEXT("EngineProperties")));
+	TestTrue(TEXT("Engine property formatter should render key/value pairs"), EnginePropertySummary.Contains(TEXT("asEP_OPTIMIZE_BYTECODE=1")));
+
+	TArray<FAngelscriptLearningTraceDiagnostic> Diagnostics;
+	Diagnostics.Add({TEXT("Sample.as"), 7, 3, TEXT("Error"), TEXT("Expected ';' before identifier")});
+
+	const FString DiagnosticSummary = FormatLearningTraceDiagnostics(Diagnostics);
+	TestTrue(TEXT("Diagnostic formatter should render file and line info"), DiagnosticSummary.Contains(TEXT("Sample.as:7:3")));
+	TestTrue(TEXT("Diagnostic formatter should render severity and message"), DiagnosticSummary.Contains(TEXT("[Error] Expected ';' before identifier")));
+
+	TArray<uint32> Bytecode = {0x2Au, 0x10u, 0x33u};
+	const FString BytecodeSummary = FormatLearningTraceBytecode(Bytecode, 2);
+	TestTrue(TEXT("Bytecode formatter should include the dword count"), BytecodeSummary.Contains(TEXT("3 dwords")));
+	TestTrue(TEXT("Bytecode formatter should truncate to the requested preview size"), BytecodeSummary.Contains(TEXT("0x0000002A, 0x00000010")));
+	TestFalse(TEXT("Bytecode formatter should omit values beyond the preview count"), BytecodeSummary.Contains(TEXT("0x00000033")));
+
+	TArray<FString> CallstackLines = {
+		TEXT("Compile.01 | BuildModule | Built a module"),
+		TEXT("Execution.01 | Execute | Returned 42")
+	};
+	const FString CallstackSummary = FormatLearningTraceStringList(CallstackLines, TEXT("Callstack"));
+	TestTrue(TEXT("Callstack formatter should render the list title"), CallstackSummary.Contains(TEXT("Callstack")));
+	TestTrue(TEXT("Callstack formatter should include each line item"), CallstackSummary.Contains(TEXT("Execution.01 | Execute | Returned 42")));
 	return true;
 }
 

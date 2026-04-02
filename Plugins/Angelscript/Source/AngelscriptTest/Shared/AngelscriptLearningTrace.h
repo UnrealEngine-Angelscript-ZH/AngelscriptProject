@@ -43,6 +43,15 @@ namespace AngelscriptTestSupport
 		TArray<FString> CodeBlocks;
 	};
 
+	struct FAngelscriptLearningTraceDiagnostic
+	{
+		FString Section;
+		int32 Row = 0;
+		int32 Column = 0;
+		FString Severity;
+		FString Message;
+	};
+
 	struct FAngelscriptLearningTraceSinkConfig
 	{
 		bool bEmitToAutomation = true;
@@ -84,4 +93,15 @@ namespace AngelscriptTestSupport
 		int32 CurrentPhaseStepIndex = 0;
 		int32 NextSequenceIndex = 1;
 	};
+
+	FString FormatLearningTraceKeyValueList(const TArray<FAngelscriptLearningTraceKeyValue>& Entries, const FString& Title);
+	FString FormatLearningTraceDiagnostics(const TArray<FAngelscriptLearningTraceDiagnostic>& Diagnostics);
+	FString FormatLearningTraceStringList(const TArray<FString>& Lines, const FString& Title);
+	FString FormatLearningTraceBytecode(const TArray<uint32>& Dwords, int32 PreviewCount);
+	FString FormatLearningTraceClassSummary(
+		const FString& ClassName,
+		const FString& SuperClassName,
+		bool bIsActorDerived,
+		const TArray<FString>& FunctionSummaries,
+		const TArray<FString>& PropertySummaries);
 }

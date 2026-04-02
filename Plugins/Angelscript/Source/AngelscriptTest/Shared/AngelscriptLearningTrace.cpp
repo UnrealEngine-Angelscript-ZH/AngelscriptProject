@@ -197,4 +197,91 @@ namespace AngelscriptTestSupport
 
 		return FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation/AngelscriptLearning"));
 	}
+
+	FString FormatLearningTraceKeyValueList(const TArray<FAngelscriptLearningTraceKeyValue>& Entries, const FString& Title)
+	{
+		FString Result = Title;
+		for (const FAngelscriptLearningTraceKeyValue& Entry : Entries)
+		{
+			Result += LINE_TERMINATOR;
+			Result += FString::Printf(TEXT("- %s=%s"), *Entry.Key, *Entry.Value);
+		}
+		return Result;
+	}
+
+	FString FormatLearningTraceDiagnostics(const TArray<FAngelscriptLearningTraceDiagnostic>& Diagnostics)
+	{
+		FString Result;
+		for (const FAngelscriptLearningTraceDiagnostic& Diagnostic : Diagnostics)
+		{
+			if (!Result.IsEmpty())
+			{
+				Result += LINE_TERMINATOR;
+			}
+			Result += FString::Printf(
+				TEXT("%s:%d:%d [%s] %s"),
+				*Diagnostic.Section,
+				Diagnostic.Row,
+				Diagnostic.Column,
+				*Diagnostic.Severity,
+				*Diagnostic.Message);
+		}
+		return Result;
+	}
+
+	FString FormatLearningTraceStringList(const TArray<FString>& Lines, const FString& Title)
+	{
+		FString Result = Title;
+		for (const FString& Line : Lines)
+		{
+			Result += LINE_TERMINATOR;
+			Result += FString::Printf(TEXT("- %s"), *Line);
+		}
+		return Result;
+	}
+
+	FString FormatLearningTraceBytecode(const TArray<uint32>& Dwords, int32 PreviewCount)
+	{
+		const int32 SafePreviewCount = FMath::Max(0, PreviewCount);
+		const int32 VisibleCount = FMath::Min(Dwords.Num(), SafePreviewCount);
+		FString Preview;
+		for (int32 Index = 0; Index < VisibleCount; ++Index)
+		{
+			if (!Preview.IsEmpty())
+			{
+				Preview += TEXT(", ");
+			}
+			Preview += FString::Printf(TEXT("0x%08X"), Dwords[Index]);
+		}
+
+		return FString::Printf(TEXT("%d dwords | %s"), Dwords.Num(), Preview.IsEmpty() ? TEXT("<empty>") : *Preview);
+	}
+
+	FString FormatLearningTraceClassSummary(
+		const FString& ClassName,
+		const FString& SuperClassName,
+		bool bIsActorDerived,
+		const TArray<FString>& FunctionSummaries,
+		const TArray<FString>& PropertySummaries)
+	{
+		FString Result = FString::Printf(
+			TEXT("Class=%s | Super=%s | ActorDerived=%s"),
+			*ClassName,
+			*SuperClassName,
+			bIsActorDerived ? TEXT("true") : TEXT("false"));
+
+		if (FunctionSummaries.Num() > 0)
+		{
+			Result += LINE_TERMINATOR;
+			Result += FormatLearningTraceStringList(FunctionSummaries, TEXT("Functions"));
+		}
+
+		if (PropertySummaries.Num() > 0)
+		{
+			Result += LINE_TERMINATOR;
+			Result += FormatLearningTraceStringList(PropertySummaries, TEXT("Properties"));
+		}
+
+		return Result;
+	}
 }
