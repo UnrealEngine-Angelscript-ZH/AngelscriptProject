@@ -435,6 +435,7 @@ Phase 6（性能验证与最终同步）── 作为最终收尾执行
 | 构建指南 | `Documents/Guides/Build.md` | 构建命令、PowerShell 包装与 AgentConfig 取值方式 |
 | 测试指南 | `Documents/Guides/Test.md` | 自动化测试入口、NullRHI 参数与 AI Agent 执行方式 |
 | 技术债实时盘点 | `Documents/Guides/TechnicalDebtInventory.md` | P0.2 的 live inventory、旧 helper 热点与全局状态调用快照 |
+| Bind 差距审计矩阵 | `Documents/Guides/BindGapAuditMatrix.md` | P0.4 的参考源对照矩阵、测试落点与留/拆结论 |
 | 测试目录基线 | `Documents/Guides/TestCatalog.md` | 已编目测试基线与目录说明 |
 | 单元测试扩张计划 | `Documents/Plans/Plan_AngelscriptUnitTestExpansion.md` | live inventory 与文档化基线漂移的配套计划 |
 | Interface 绑定计划 | `Documents/Plans/Plan_InterfaceBinding.md` | 高风险接口绑定差距的承接计划 |
