@@ -1,6 +1,7 @@
 #include "AngelscriptBinds.h"
 #include "AngelscriptEngine.h"
 #include "AngelscriptSettings.h"
+#include "Testing/AngelscriptBindExecutionObservation.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/Guid.h"
 #include "Misc/ScopeExit.h"
@@ -12,6 +13,21 @@ struct FAngelscriptBindConfigTestAccess
 	static void CallBinds(const TSet<FName>& DisabledBindNames)
 	{
 		FAngelscriptBinds::CallBinds(DisabledBindNames);
+	}
+
+	static void BindScriptTypes(FAngelscriptEngine& Engine)
+	{
+		Engine.BindScriptTypes();
+	}
+
+	static void SetRuntimeConfig(FAngelscriptEngine& Engine, const FAngelscriptEngineConfig& Config)
+	{
+		Engine.RuntimeConfig = Config;
+	}
+
+	static void DestroyGlobalEngine()
+	{
+		FAngelscriptEngine::DestroyGlobal();
 	}
 
 	static TSet<FName> CollectDisabledBindNames(const FAngelscriptEngine& Engine)
@@ -92,6 +108,41 @@ namespace
 		UE_SET_LOG_VERBOSITY(Angelscript, Log);
 	}
 
+	FAngelscriptBindExecutionSnapshot ObserveStartupBindPass(const FAngelscriptEngineConfig& Config)
+	{
+		if (FAngelscriptEngine::IsInitialized())
+		{
+			FAngelscriptBindConfigTestAccess::DestroyGlobalEngine();
+		}
+
+		FAngelscriptBindExecutionObservation::Reset();
+		const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
+		TUniquePtr<FAngelscriptEngine> Engine = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+		check(Engine.IsValid());
+		FAngelscriptBindExecutionSnapshot Snapshot = FAngelscriptBindExecutionObservation::GetLastSnapshot();
+		Engine.Reset();
+
+		if (FAngelscriptEngine::IsInitialized())
+		{
+			FAngelscriptBindConfigTestAccess::DestroyGlobalEngine();
+		}
+
+		return Snapshot;
+	}
+
+	int32 FindBindIndexByName(const TArray<FAngelscriptBinds::FBindInfo>& BindInfos, const FName BindName)
+	{
+		for (int32 BindIndex = 0; BindIndex < BindInfos.Num(); ++BindIndex)
+		{
+			if (BindInfos[BindIndex].BindName == BindName)
+			{
+				return BindIndex;
+			}
+		}
+
+		return INDEX_NONE;
+	}
+
 	const FAngelscriptBinds::FBindInfo* FindBindInfoByName(const TArray<FAngelscriptBinds::FBindInfo>& BindInfos, const FName BindName)
 	{
 		for (const FAngelscriptBinds::FBindInfo& BindInfo : BindInfos)
@@ -119,6 +170,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptUnnamedBindBackwardCompatibilityTest,
 	"Angelscript.TestModule.Engine.BindConfig.UnnamedBindBackwardCompatibility",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptStartupBindOrderCoverageTest,
+	"Angelscript.TestModule.Engine.BindConfig.StartupBindInfoPreservesOrder",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptStartupDisabledBindMergeCoverageTest,
+	"Angelscript.TestModule.Engine.BindConfig.StartupPathMergesDisabledBindNames",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FAngelscriptGlobalDisabledBindNamesTest::RunTest(const FString& Parameters)
@@ -279,6 +340,79 @@ bool FAngelscriptUnnamedBindBackwardCompatibilityTest::RunTest(const FString& Pa
 
 	TestEqual(TEXT("BindConfig.UnnamedBindBackwardCompatibility should continue executing unnamed binds"), FBindExecutionRecorder::Get(CounterKey), 1);
 	return true;
+}
+
+bool FAngelscriptStartupBindOrderCoverageTest::RunTest(const FString& Parameters)
+{
+	const FName EarlyBindName = MakeUniqueBindTestName(TEXT("Automation.BindConfig.StartupOrder.Early"));
+	const FName LateBindName = MakeUniqueBindTestName(TEXT("Automation.BindConfig.StartupOrder.Late"));
+	FAngelscriptBinds::FBind EarlyBind(EarlyBindName, -100, []() {});
+	FAngelscriptBinds::FBind LateBind(LateBindName, 100, []() {});
+
+	const TArray<FAngelscriptBinds::FBindInfo> BindInfos = FAngelscriptBinds::GetBindInfoList();
+	const int32 EarlyInfoIndex = FindBindIndexByName(BindInfos, EarlyBindName);
+	const int32 LateInfoIndex = FindBindIndexByName(BindInfos, LateBindName);
+	if (!TestTrue(TEXT("BindConfig.StartupBindInfoPreservesOrder should expose the early named bind in bind info"), EarlyInfoIndex != INDEX_NONE)
+		|| !TestTrue(TEXT("BindConfig.StartupBindInfoPreservesOrder should expose the late named bind in bind info"), LateInfoIndex != INDEX_NONE))
+	{
+		return false;
+	}
+
+	const FAngelscriptBindExecutionSnapshot Snapshot = ObserveStartupBindPass(FAngelscriptEngineConfig());
+	if (!TestEqual(TEXT("BindConfig.StartupBindInfoPreservesOrder should observe a single startup bind pass"), FAngelscriptBindExecutionObservation::GetInvocationCount(), 1))
+	{
+		return false;
+	}
+
+	const int32 EarlyExecutionIndex = Snapshot.ExecutedBindNames.IndexOfByKey(EarlyBindName);
+	const int32 LateExecutionIndex = Snapshot.ExecutedBindNames.IndexOfByKey(LateBindName);
+	if (!TestTrue(TEXT("BindConfig.StartupBindInfoPreservesOrder should execute the early named bind during startup"), EarlyExecutionIndex != INDEX_NONE)
+		|| !TestTrue(TEXT("BindConfig.StartupBindInfoPreservesOrder should execute the late named bind during startup"), LateExecutionIndex != INDEX_NONE))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("BindConfig.StartupBindInfoPreservesOrder should sort bind info by bind order"), EarlyInfoIndex < LateInfoIndex);
+	return TestTrue(TEXT("BindConfig.StartupBindInfoPreservesOrder should preserve the same order in the startup bind pass"), EarlyExecutionIndex < LateExecutionIndex);
+}
+
+bool FAngelscriptStartupDisabledBindMergeCoverageTest::RunTest(const FString& Parameters)
+{
+	UAngelscriptSettings* Settings = GetMutableDefault<UAngelscriptSettings>();
+	if (!TestNotNull(TEXT("BindConfig.StartupPathMergesDisabledBindNames should access mutable settings"), Settings))
+	{
+		return false;
+	}
+
+	const TArray<FName> PreviousDisabledBindNames = Settings->DisabledBindNames;
+	ON_SCOPE_EXIT
+	{
+		Settings->DisabledBindNames = PreviousDisabledBindNames;
+	};
+	Settings->DisabledBindNames.Reset();
+
+	const FName SettingsDisabledBindName = MakeUniqueBindTestName(TEXT("Automation.BindConfig.Startup.SettingsDisabled"));
+	const FName EngineDisabledBindName = MakeUniqueBindTestName(TEXT("Automation.BindConfig.Startup.EngineDisabled"));
+	const FName EnabledBindName = MakeUniqueBindTestName(TEXT("Automation.BindConfig.Startup.Enabled"));
+	FAngelscriptBinds::FBind SettingsDisabledBind(SettingsDisabledBindName, []() {});
+	FAngelscriptBinds::FBind EngineDisabledBind(EngineDisabledBindName, []() {});
+	FAngelscriptBinds::FBind EnabledBind(EnabledBindName, []() {});
+
+	Settings->DisabledBindNames = { SettingsDisabledBindName };
+	FAngelscriptEngineConfig Config;
+	Config.DisabledBindNames.Add(EngineDisabledBindName);
+
+	const FAngelscriptBindExecutionSnapshot Snapshot = ObserveStartupBindPass(Config);
+	if (!TestEqual(TEXT("BindConfig.StartupPathMergesDisabledBindNames should observe one startup bind pass"), FAngelscriptBindExecutionObservation::GetInvocationCount(), 1))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("BindConfig.StartupPathMergesDisabledBindNames should surface the settings-level disabled bind in the observed startup pass"), Snapshot.DisabledBindNames.Contains(SettingsDisabledBindName));
+	TestTrue(TEXT("BindConfig.StartupPathMergesDisabledBindNames should surface the engine-level disabled bind in the observed startup pass"), Snapshot.DisabledBindNames.Contains(EngineDisabledBindName));
+	TestFalse(TEXT("BindConfig.StartupPathMergesDisabledBindNames should skip the settings-disabled bind during startup"), Snapshot.ExecutedBindNames.Contains(SettingsDisabledBindName));
+	TestFalse(TEXT("BindConfig.StartupPathMergesDisabledBindNames should skip the engine-disabled bind during startup"), Snapshot.ExecutedBindNames.Contains(EngineDisabledBindName));
+	return TestTrue(TEXT("BindConfig.StartupPathMergesDisabledBindNames should keep enabled binds visible in the startup execution list"), Snapshot.ExecutedBindNames.Contains(EnabledBindName));
 }
 
 #endif
