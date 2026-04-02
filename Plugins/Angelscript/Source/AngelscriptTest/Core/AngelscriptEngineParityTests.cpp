@@ -1,4 +1,5 @@
 #include "AngelscriptEngine.h"
+#include "AngelscriptBinds.h"
 #include "AngelscriptType.h"
 #include "Angelscript/AngelscriptTestSupport.h"
 #include "Engine/CollisionProfile.h"
@@ -121,6 +122,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptDeprecationsBindingTest,
 	"Angelscript.TestModule.Parity.DeprecationsMetadata",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptStartupBindRegistryParityTest,
+	"Angelscript.TestModule.Parity.StartupBindRegistrySmoke",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FAngelscriptSkinnedMeshBindingTest::RunTest(const FString& Parameters)
@@ -635,6 +641,57 @@ bool FAngelscriptDeprecationsBindingTest::RunTest(const FString& Parameters)
 	const bool bHasMessage = TestEqual(TEXT("Niagara linear color setter should expose the expected deprecation message"), Function->GetMetaData(NAME_META_DeprecationMessage), TEXT("Use the SetVariable variant that takes FName instead"));
 
 	return bDeprecated && bHasMessage;
+}
+
+bool FAngelscriptStartupBindRegistryParityTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine* Engine = GetProductionEngineForParity(this);
+	if (!TestNotNull(TEXT("Startup bind registry smoke should access the production angelscript engine"), Engine))
+	{
+		return false;
+	}
+
+	const TArray<FName> RegisteredBindNames = FAngelscriptBinds::GetAllRegisteredBindNames();
+	const TArray<FAngelscriptBinds::FBindInfo> BindInfos = FAngelscriptBinds::GetBindInfoList();
+	if (!TestTrue(TEXT("Startup bind registry smoke should expose registered bind names after production startup"), RegisteredBindNames.Num() > 0)
+		|| !TestEqual(TEXT("Startup bind registry smoke should expose one bind info entry per registered bind name"), BindInfos.Num(), RegisteredBindNames.Num()))
+	{
+		return false;
+	}
+
+	for (int32 BindIndex = 1; BindIndex < BindInfos.Num(); ++BindIndex)
+	{
+		if (!TestTrue(TEXT("Startup bind registry smoke should keep bind info sorted by bind order"), BindInfos[BindIndex - 1].BindOrder <= BindInfos[BindIndex].BindOrder))
+		{
+			return false;
+		}
+	}
+
+	asIScriptModule* Module = Engine->GetScriptEngine()->GetModule("StartupBindRegistryParity", asGM_ALWAYS_CREATE);
+	if (!TestNotNull(TEXT("Startup bind registry smoke should create a script module"), Module))
+	{
+		return false;
+	}
+
+	const char* Source =
+		"int CheckStartupBindSurface() {\n"
+		"    USkinnedMeshComponent Component;\n"
+		"    FIntPoint Point(3, 4);\n"
+		"    FAngelscriptDelegateWithPayload Delegate;\n"
+		"    FHitResult Hit(FVector::ZeroVector, FVector::ForwardVector);\n"
+		"    return Point.X + Point.Y + (Delegate.IsBound() ? 1 : 0) + Hit.FaceIndex;\n"
+		"}";
+
+	asIScriptFunction* Function = nullptr;
+	const int CompileResult = Module->CompileFunction("StartupBindRegistryParity", Source, 0, 0, &Function);
+	const bool bCompiled = TestEqual(TEXT("Startup bind registry smoke should compile a representative multi-family startup bind snippet"), CompileResult, asSUCCESS);
+	const bool bHasFunction = TestNotNull(TEXT("Startup bind registry smoke should produce a function for the multi-family snippet"), Function);
+	if (Function != nullptr)
+	{
+		Function->Release();
+	}
+
+	return bCompiled && bHasFunction;
 }
 
 #endif
