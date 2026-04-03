@@ -4864,8 +4864,12 @@ void FAngelscriptClassGenerator::ReinitializeScriptObject(class asCScriptObject*
 	{
 		// Call the angelscript constructor of the scriptobject
 		auto& Manager = FAngelscriptEngine::Get();
-		FAngelscriptContext Context((UObject*)ScriptObject);
-		Context->Prepare(Manager.Engine->GetFunctionById(ObjectTypeToConstruct->beh.construct));
+		asIScriptFunction* ConstructFunction = Manager.Engine->GetFunctionById(ObjectTypeToConstruct->beh.construct);
+		FAngelscriptContext Context((UObject*)ScriptObject, ConstructFunction->GetEngine());
+		if (!PrepareAngelscriptContextWithLog(Context, ConstructFunction, TEXT("FAngelscriptClassGenerator::ReinitializeScriptObject")))
+		{
+			return;
+		}
 		Context->SetObject(ScriptObject);
 		Context->Execute();
 	}
@@ -5816,8 +5820,12 @@ void FAngelscriptClassGenerator::CallPostInitFunctions()
 				if (ScriptFunction->name != AnsiFunctionName.Get())
 					continue;
 
-				FAngelscriptContext Context;
-				Context->Prepare(ScriptFunction);
+				FAngelscriptContext Context(ScriptFunction->GetEngine());
+				if (!PrepareAngelscriptContextWithLog(Context, ScriptFunction, *InitFunctionName))
+				{
+					bFound = true;
+					break;
+				}
 				Context->Execute();
 				bFound = true;
 				break;

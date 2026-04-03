@@ -5,7 +5,6 @@
 #include "../../Shared/AngelscriptNativeScriptTestObject.h"
 
 #include "Components/ActorTestSpawner.h"
-#include "Core/AngelscriptActor.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
 #include "UObject/ScriptDelegates.h"
@@ -22,14 +21,7 @@ namespace
 		int32 Value = 0;
 		FString Label;
 	};
-
-	FAngelscriptEngine& AcquireFreshLearningEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
-
-	void InitializeLearningDelegateSpawner(FActorTestSpawner& Spawner)
+void InitializeLearningDelegateSpawner(FActorTestSpawner& Spawner)
 	{
 		Spawner.InitializeGameSubsystems();
 	}
@@ -42,7 +34,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningDelegateBridgeTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshLearningEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("LearningDelegateBridgeModule"));
 	ON_SCOPE_EXIT
 	{
@@ -54,7 +47,7 @@ bool FAngelscriptLearningDelegateBridgeTraceTest::RunTest(const FString& Paramet
 delegate void FLearningOnHealthChanged(int32 NewHealth, const FString& Label);
 
 UCLASS()
-class ALearningDelegateBridgeActor : AAngelscriptActor
+class ALearningDelegateBridgeActor : AActor
 {
 	UPROPERTY()
 	FLearningOnHealthChanged OnHealthChanged;

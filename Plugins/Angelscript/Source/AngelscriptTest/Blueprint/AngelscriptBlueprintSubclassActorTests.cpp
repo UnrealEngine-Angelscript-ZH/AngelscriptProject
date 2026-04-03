@@ -89,6 +89,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptScenarioBlueprintSubclassBeginPlayTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorBlueprintSubclassBeginPlay"));
 	UBlueprint* Blueprint = nullptr;
 	ON_SCOPE_EXIT
@@ -120,7 +121,7 @@ bool FAngelscriptScenarioBlueprintSubclassBeginPlayTest::RunTest(const FString& 
 		TEXT("ScenarioActorBlueprintSubclassBeginPlay.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorBlueprintSubclassBeginPlay : AAngelscriptActor
+class AScenarioActorBlueprintSubclassBeginPlay : AActor
 {
 	UPROPERTY()
 	int BeginPlayCalled = 0;

@@ -1,6 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "Components/ActorTestSpawner.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
@@ -44,6 +43,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptScenarioActorBeginPlayTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorBeginPlay"));
 	ON_SCOPE_EXIT
 	{
@@ -58,7 +58,7 @@ bool FAngelscriptScenarioActorBeginPlayTest::RunTest(const FString& Parameters)
 		TEXT("ScenarioActorBeginPlay.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorBeginPlay : AAngelscriptActor
+class AScenarioActorBeginPlay : AActor
 {
 	UPROPERTY()
 	int BeginPlayCalled = 0;
@@ -98,6 +98,7 @@ class AScenarioActorBeginPlay : AAngelscriptActor
 bool FAngelscriptScenarioActorTickTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorTick"));
 	ON_SCOPE_EXIT
 	{
@@ -112,7 +113,7 @@ bool FAngelscriptScenarioActorTickTest::RunTest(const FString& Parameters)
 		TEXT("ScenarioActorTick.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorTick : AAngelscriptActor
+class AScenarioActorTick : AActor
 {
 	UPROPERTY()
 	int TickCount = 0;
@@ -132,8 +133,8 @@ class AScenarioActorTick : AAngelscriptActor
 
 	FActorTestSpawner Spawner;
 	Spawner.InitializeGameSubsystems();
-	AAngelscriptActor* Actor = Cast<AAngelscriptActor>(SpawnScriptActor(*this, Spawner, ScriptClass));
-	if (!TestNotNull(TEXT("Scenario tick actor should spawn as an AAngelscriptActor"), Actor))
+	AActor* Actor = Cast<AActor>(SpawnScriptActor(*this, Spawner, ScriptClass));
+	if (!TestNotNull(TEXT("Scenario tick actor should spawn as an AActor"), Actor))
 	{
 		return false;
 	}
@@ -157,6 +158,7 @@ class AScenarioActorTick : AAngelscriptActor
 bool FAngelscriptScenarioActorReceiveEndPlayTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorReceiveEndPlay"));
 	ON_SCOPE_EXIT
 	{
@@ -171,7 +173,7 @@ bool FAngelscriptScenarioActorReceiveEndPlayTest::RunTest(const FString& Paramet
 		TEXT("ScenarioActorReceiveEndPlay.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorReceiveEndPlay : AAngelscriptActor
+class AScenarioActorReceiveEndPlay : AActor
 {
 	UPROPERTY()
 	int EndPlayCalled = 0;
@@ -214,6 +216,7 @@ class AScenarioActorReceiveEndPlay : AAngelscriptActor
 bool FAngelscriptScenarioActorReceiveDestroyedTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorReceiveDestroyed"));
 	ON_SCOPE_EXIT
 	{
@@ -228,7 +231,7 @@ bool FAngelscriptScenarioActorReceiveDestroyedTest::RunTest(const FString& Param
 		TEXT("ScenarioActorReceiveDestroyed.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorReceiveDestroyed : AAngelscriptActor
+class AScenarioActorReceiveDestroyed : AActor
 {
 	UPROPERTY()
 	int DestroyedCalled = 0;
@@ -271,6 +274,7 @@ class AScenarioActorReceiveDestroyed : AAngelscriptActor
 bool FAngelscriptScenarioActorResetTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorReset"));
 	ON_SCOPE_EXIT
 	{
@@ -285,7 +289,7 @@ bool FAngelscriptScenarioActorResetTest::RunTest(const FString& Parameters)
 		TEXT("ScenarioActorReset.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorReset : AAngelscriptActor
+class AScenarioActorReset : AActor
 {
 	UPROPERTY()
 	int ResetValue = 3;

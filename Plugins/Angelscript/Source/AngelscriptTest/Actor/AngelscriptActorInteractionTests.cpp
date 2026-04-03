@@ -1,6 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "Components/ActorTestSpawner.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/AutomationTest.h"
@@ -40,7 +39,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptScenarioActorPointDamageTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FScopedTestEngineGlobalScope GlobalScope(&Engine);
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorPointDamage"));
 	ON_SCOPE_EXIT
 	{
@@ -55,7 +54,7 @@ bool FAngelscriptScenarioActorPointDamageTest::RunTest(const FString& Parameters
 		TEXT("ScenarioActorPointDamage.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorPointDamage : AAngelscriptActor
+class AScenarioActorPointDamage : AActor
 {
 	UFUNCTION(BlueprintOverride)
 	void PointDamage(float Damage, TObjectPtr<UDamageType> DamageType, FVector HitLocation,
@@ -91,6 +90,7 @@ class AScenarioActorPointDamage : AAngelscriptActor
 bool FAngelscriptScenarioActorRadialDamageTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorRadialDamage"));
 	ON_SCOPE_EXIT
 	{
@@ -110,7 +110,7 @@ class UScenarioActorRadialDamageSphere : USphereComponent
 }
 
 UCLASS()
-class AScenarioActorRadialDamage : AAngelscriptActor
+class AScenarioActorRadialDamage : AActor
 {
 	UPROPERTY(DefaultComponent, RootComponent)
 	UScenarioActorRadialDamageSphere DamageSphere;
@@ -134,8 +134,8 @@ class AScenarioActorRadialDamage : AAngelscriptActor
 
 	FActorTestSpawner Spawner;
 	Spawner.InitializeGameSubsystems();
-	AAngelscriptActor* Actor = Cast<AAngelscriptActor>(SpawnScriptActor(*this, Spawner, ScriptClass));
-	if (!TestNotNull(TEXT("Scenario radial-damage actor should spawn as an AAngelscriptActor"), Actor))
+	AActor* Actor = Cast<AActor>(SpawnScriptActor(*this, Spawner, ScriptClass));
+	if (!TestNotNull(TEXT("Scenario radial-damage actor should spawn as an AActor"), Actor))
 	{
 		return false;
 	}
@@ -155,6 +155,7 @@ class AScenarioActorRadialDamage : AAngelscriptActor
 bool FAngelscriptScenarioActorMultiSpawnTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorMultiSpawn"));
 	ON_SCOPE_EXIT
 	{
@@ -169,7 +170,7 @@ bool FAngelscriptScenarioActorMultiSpawnTest::RunTest(const FString& Parameters)
 		TEXT("ScenarioActorMultiSpawn.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorMultiSpawn : AAngelscriptActor
+class AScenarioActorMultiSpawn : AActor
 {
 	UPROPERTY()
 	int BeginPlayCount = 0;
@@ -220,6 +221,7 @@ class AScenarioActorMultiSpawn : AAngelscriptActor
 bool FAngelscriptScenarioActorCrossCallTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorCrossCall"));
 	ON_SCOPE_EXIT
 	{
@@ -234,7 +236,7 @@ bool FAngelscriptScenarioActorCrossCallTest::RunTest(const FString& Parameters)
 		TEXT("ScenarioActorCrossCall.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorCrossCallB : AAngelscriptActor
+class AScenarioActorCrossCallB : AActor
 {
 	UPROPERTY()
 	int CallCount = 0;
@@ -247,7 +249,7 @@ class AScenarioActorCrossCallB : AAngelscriptActor
 }
 
 UCLASS()
-class AScenarioActorCrossCallA : AAngelscriptActor
+class AScenarioActorCrossCallA : AActor
 {
 	UPROPERTY()
 	AScenarioActorCrossCallB TargetActor;
@@ -276,7 +278,7 @@ class AScenarioActorCrossCallA : AAngelscriptActor
 
 	FActorTestSpawner Spawner;
 	Spawner.InitializeGameSubsystems();
-	AAngelscriptActor* ActorA = Cast<AAngelscriptActor>(SpawnScriptActor(*this, Spawner, ActorAClass));
+	AActor* ActorA = Cast<AActor>(SpawnScriptActor(*this, Spawner, ActorAClass));
 	AActor* ActorB = SpawnScriptActor(*this, Spawner, ActorBClass);
 	if (!TestNotNull(TEXT("Scenario cross-call actor A should spawn"), ActorA) || !TestNotNull(TEXT("Scenario cross-call actor B should spawn"), ActorB))
 	{

@@ -13,11 +13,6 @@ using namespace AngelscriptTestSupport;
 
 namespace
 {
-	FAngelscriptEngine& AcquireFreshHotReloadEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -85,7 +80,7 @@ struct FAngelscriptHotReloadTestAccess
 
 bool FAngelscriptModuleRecordTrackingTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	const FString ScriptA = TEXT(R"AS(
 UCLASS()
 class UTrackedObjectA : UObject
@@ -153,7 +148,7 @@ class UTrackedObjectB : UObject
 
 bool FAngelscriptDiscardModuleTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	const FString ScriptA = TEXT(R"AS(
 UCLASS()
 class UDiscardableObject : UObject
@@ -213,7 +208,7 @@ int SurvivorEntry()
 
 bool FAngelscriptDiscardAndRecompileTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
 class UDiscardRecompileTarget : UObject
@@ -296,7 +291,7 @@ class UDiscardRecompileTargetV2 : UObject
 
 bool FAngelscriptModuleWatcherQueuesFileChangesTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 
 	const FAngelscriptEngine::FFilenamePair FilenamePair{
 		TEXT("J:/UnrealEngine/Temp/UE-Angelscript/Saved/Automation/WatcherTest.as"),

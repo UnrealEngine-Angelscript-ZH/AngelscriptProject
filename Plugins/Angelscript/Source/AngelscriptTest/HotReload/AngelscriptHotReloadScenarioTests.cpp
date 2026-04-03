@@ -1,6 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "Components/ActorTestSpawner.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
@@ -13,14 +12,7 @@ using namespace AngelscriptTestSupport;
 namespace
 {
 	using namespace AngelscriptScenarioTestUtils;
-
-	FAngelscriptEngine& AcquireFreshHotReloadEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
-
-	void InitializeHotReloadScenarioSpawner(FActorTestSpawner& Spawner)
+void InitializeHotReloadScenarioSpawner(FActorTestSpawner& Spawner)
 	{
 		Spawner.InitializeGameSubsystems();
 	}
@@ -48,7 +40,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioHotReloadPropertyPreservedTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioHotReloadPropertyPreserved"));
 	ON_SCOPE_EXIT
 	{
@@ -58,7 +51,7 @@ bool FAngelscriptScenarioHotReloadPropertyPreservedTest::RunTest(const FString& 
 
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
-class AScenarioHotReloadPropertyPreserved : AAngelscriptActor
+class AScenarioHotReloadPropertyPreserved : AActor
 {
 	UPROPERTY()
 	int Counter = 0;
@@ -72,7 +65,7 @@ class AScenarioHotReloadPropertyPreserved : AAngelscriptActor
 )AS");
 	const FString ScriptV2 = TEXT(R"AS(
 UCLASS()
-class AScenarioHotReloadPropertyPreserved : AAngelscriptActor
+class AScenarioHotReloadPropertyPreserved : AActor
 {
 	UPROPERTY()
 	int Counter = 0;
@@ -155,7 +148,8 @@ class AScenarioHotReloadPropertyPreserved : AAngelscriptActor
 
 bool FAngelscriptScenarioHotReloadAddPropertyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioHotReloadAddProperty"));
 	ON_SCOPE_EXIT
 	{
@@ -165,7 +159,7 @@ bool FAngelscriptScenarioHotReloadAddPropertyTest::RunTest(const FString& Parame
 
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
-class AScenarioHotReloadAddProperty : AAngelscriptActor
+class AScenarioHotReloadAddProperty : AActor
 {
 	UPROPERTY()
 	int ExistingValue = 1;
@@ -173,7 +167,7 @@ class AScenarioHotReloadAddProperty : AAngelscriptActor
 )AS");
 	const FString ScriptV2 = TEXT(R"AS(
 UCLASS()
-class AScenarioHotReloadAddProperty : AAngelscriptActor
+class AScenarioHotReloadAddProperty : AActor
 {
 	UPROPERTY()
 	int ExistingValue = 1;
@@ -239,7 +233,8 @@ class AScenarioHotReloadAddProperty : AAngelscriptActor
 
 bool FAngelscriptScenarioHotReloadFunctionChangeTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioHotReloadFunctionChange"));
 	ON_SCOPE_EXIT
 	{
@@ -249,7 +244,7 @@ bool FAngelscriptScenarioHotReloadFunctionChangeTest::RunTest(const FString& Par
 
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
-class AScenarioHotReloadFunctionChange : AAngelscriptActor
+class AScenarioHotReloadFunctionChange : AActor
 {
 	UFUNCTION()
 	int GetValue()
@@ -260,7 +255,7 @@ class AScenarioHotReloadFunctionChange : AAngelscriptActor
 )AS");
 	const FString ScriptV2 = TEXT(R"AS(
 UCLASS()
-class AScenarioHotReloadFunctionChange : AAngelscriptActor
+class AScenarioHotReloadFunctionChange : AActor
 {
 	UFUNCTION()
 	int GetValue()
@@ -338,7 +333,8 @@ class AScenarioHotReloadFunctionChange : AAngelscriptActor
 
 bool FAngelscriptScenarioHotReloadPIEStructuralChangeNeedsFullReloadTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioHotReloadPIEStructuralChange"));
 	ON_SCOPE_EXIT
 	{
@@ -348,7 +344,7 @@ bool FAngelscriptScenarioHotReloadPIEStructuralChangeNeedsFullReloadTest::RunTes
 
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
-class AScenarioHotReloadPIEStructuralChange : AAngelscriptActor
+class AScenarioHotReloadPIEStructuralChange : AActor
 {
 	UPROPERTY()
 	int Value = 1;
@@ -356,7 +352,7 @@ class AScenarioHotReloadPIEStructuralChange : AAngelscriptActor
 )AS");
 	const FString ScriptV2 = TEXT(R"AS(
 UCLASS()
-class AScenarioHotReloadPIEStructuralChange : AAngelscriptActor
+class AScenarioHotReloadPIEStructuralChange : AActor
 {
 	UPROPERTY()
 	int Value = 1;

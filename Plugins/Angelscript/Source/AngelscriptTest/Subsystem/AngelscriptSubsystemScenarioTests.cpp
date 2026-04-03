@@ -174,7 +174,7 @@ class UScenarioWorldActorWatcher : UScriptWorldSubsystem
 }
 
 UCLASS()
-class AScenarioWorldSubsystemActorAccessActor : AAngelscriptActor
+class AScenarioWorldSubsystemActorAccessActor : AActor
 {
 }
 )AS"),

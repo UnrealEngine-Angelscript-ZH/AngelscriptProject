@@ -135,7 +135,7 @@ bool FAngelscriptTemplateBlueprintScriptParentTest::RunTest(const FString& Param
 		TEXT("TemplateBlueprintScriptParent.as"),
 		TEXT(R"AS(
 UCLASS()
-class ATemplateBlueprintScriptParent : AAngelscriptActor
+class ATemplateBlueprintScriptParent : AActor
 {
 	UPROPERTY()
 	int BlueprintTemplateMarker = 7;

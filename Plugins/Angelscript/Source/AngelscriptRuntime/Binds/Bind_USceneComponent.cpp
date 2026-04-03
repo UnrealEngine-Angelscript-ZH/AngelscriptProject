@@ -58,7 +58,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_USceneComponent_Base((int32)FA
 		}
 
 		asCObjectType* ObjectType = (asCObjectType*)(ScriptType);
-		if (ObjectType->templateBaseType != FAngelscriptType::ArrayTemplateTypeInfo)
+		if (ObjectType->templateBaseType != FAngelscriptType::GetArrayTemplateTypeInfo())
 		{
 			FAngelscriptEngine::Throw("GetChildrenComponentsByClass must take a TArray of scene components as its out argument.");
 			return;

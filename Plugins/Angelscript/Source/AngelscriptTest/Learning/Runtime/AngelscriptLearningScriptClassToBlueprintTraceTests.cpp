@@ -4,7 +4,6 @@
 #include "../../Shared/AngelscriptTestUtilities.h"
 
 #include "Components/ActorTestSpawner.h"
-#include "Core/AngelscriptActor.h"
 #include "Engine/Blueprint.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Misc/AutomationTest.h"
@@ -23,13 +22,7 @@ using namespace AngelscriptScenarioTestUtils;
 
 namespace
 {
-	FAngelscriptEngine& AcquireFreshLearningEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
-
-	UBlueprint* CreateTransientLearningBlueprintChild(
+UBlueprint* CreateTransientLearningBlueprintChild(
 		FAutomationTestBase& Test,
 		UClass* ParentClass,
 		FStringView Suffix,
@@ -121,7 +114,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningScriptClassToBlueprintTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshLearningEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("LearningScriptClassToBlueprintModule"));
 	ON_SCOPE_EXIT
 	{
@@ -131,7 +125,7 @@ bool FAngelscriptLearningScriptClassToBlueprintTraceTest::RunTest(const FString&
 
 	const FString ScriptSource = TEXT(R"AS(
 UCLASS()
-class ALearningScriptClassToBlueprintActor : AAngelscriptActor
+class ALearningScriptClassToBlueprintActor : AActor
 {
 	UPROPERTY()
 	int BeginPlayCount = 0;

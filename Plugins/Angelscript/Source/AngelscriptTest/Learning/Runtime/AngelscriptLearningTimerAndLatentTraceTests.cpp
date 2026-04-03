@@ -4,7 +4,6 @@
 #include "../../Shared/AngelscriptTestUtilities.h"
 
 #include "Components/ActorTestSpawner.h"
-#include "Core/AngelscriptActor.h"
 #include "GameFramework/Actor.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
@@ -27,6 +26,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptLearningTimerAndLatentTraceTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("LearningTimerModule"));
 	ON_SCOPE_EXIT
 	{
@@ -36,7 +36,7 @@ bool FAngelscriptLearningTimerAndLatentTraceTest::RunTest(const FString& Paramet
 
 	const FString ScriptSource = TEXT(R"AS(
 UCLASS()
-class ALearningTimerActor : AAngelscriptActor
+class ALearningTimerActor : AActor
 {
 	UPROPERTY()
 	int32 TimerCallCount = 0;

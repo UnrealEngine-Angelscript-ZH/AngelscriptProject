@@ -354,7 +354,12 @@ void FAngelscriptTest::StartTest(FAngelscriptContext& AngelscriptContext)
 	// test even on hot reloads etc.
 	AngelscriptForgetSeenEnsures();
 
-	AngelscriptContext->Prepare(TestFunction);
+	if (!PrepareAngelscriptContextWithLog(AngelscriptContext, TestFunction, *QualifiedTestName()))
+	{
+		ReportErrorOnCurrentLine(TEXT("Test failed to prepare for execution."));
+		return;
+	}
+
 	AngelscriptContext->SetArgObject(0, this);
 	switch (AngelscriptContext->Execute())
 	{

@@ -70,6 +70,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptScenarioDelegateUnicastTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshDelegateEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioDelegateUnicast"));
 	ON_SCOPE_EXIT
 	{
@@ -86,7 +87,7 @@ bool FAngelscriptScenarioDelegateUnicastTest::RunTest(const FString& Parameters)
 delegate void FOnHealthChanged(int32 NewHealth, const FString& Label);
 
 UCLASS()
-class AScenarioDelegateUnicast : AAngelscriptActor
+class AScenarioDelegateUnicast : AActor
 {
 	UPROPERTY()
 	FOnHealthChanged OnHealthChanged;
@@ -151,6 +152,7 @@ class AScenarioDelegateUnicast : AAngelscriptActor
 bool FAngelscriptScenarioDelegateMulticastTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshDelegateEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioDelegateMulticast"));
 	ON_SCOPE_EXIT
 	{
@@ -167,7 +169,7 @@ bool FAngelscriptScenarioDelegateMulticastTest::RunTest(const FString& Parameter
 event void FOnDamaged(int32 NewHealth, const FString& Label);
 
 UCLASS()
-class AScenarioDelegateMulticast : AAngelscriptActor
+class AScenarioDelegateMulticast : AActor
 {
 	UPROPERTY()
 	FOnDamaged OnDamaged;
@@ -239,6 +241,7 @@ class AScenarioDelegateMulticast : AAngelscriptActor
 bool FAngelscriptScenarioDelegateUnicastSignatureMismatchTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshDelegateEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioDelegateUnicastSignatureMismatch"));
 	ON_SCOPE_EXIT
 	{
@@ -255,7 +258,7 @@ bool FAngelscriptScenarioDelegateUnicastSignatureMismatchTest::RunTest(const FSt
 delegate void FOnHealthChanged(int32 NewHealth, const FString& Label);
 
 UCLASS()
-class AScenarioDelegateUnicastSignatureMismatch : AAngelscriptActor
+class AScenarioDelegateUnicastSignatureMismatch : AActor
 {
 	UPROPERTY()
 	FOnHealthChanged OnHealthChanged;
@@ -325,6 +328,7 @@ class AScenarioDelegateUnicastSignatureMismatch : AAngelscriptActor
 bool FAngelscriptScenarioDelegateMulticastSignatureMismatchTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshDelegateEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioDelegateMulticastSignatureMismatch"));
 	ON_SCOPE_EXIT
 	{
@@ -341,7 +345,7 @@ bool FAngelscriptScenarioDelegateMulticastSignatureMismatchTest::RunTest(const F
 event void FOnDamaged(int32 NewHealth, const FString& Label);
 
 UCLASS()
-class AScenarioDelegateMulticastSignatureMismatch : AAngelscriptActor
+class AScenarioDelegateMulticastSignatureMismatch : AActor
 {
 	UPROPERTY()
 	FOnDamaged OnDamaged;

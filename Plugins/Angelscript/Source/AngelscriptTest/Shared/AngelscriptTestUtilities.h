@@ -188,6 +188,12 @@ namespace AngelscriptTestSupport
 		}
 	}
 
+	inline FAngelscriptEngine& AcquireFreshSharedCloneEngine()
+	{
+		DestroySharedAndStrayGlobalTestEngine();
+		return AcquireCleanSharedCloneEngine();
+	}
+
 	inline TUniquePtr<FAngelscriptEngine> CreateFullTestEngine()
 	{
 		return CreateIsolatedFullEngine();

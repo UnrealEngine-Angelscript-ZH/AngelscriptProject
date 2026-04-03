@@ -1,6 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "Core/AngelscriptComponent.h"
 #include "Components/ActorTestSpawner.h"
 #include "GameFramework/Actor.h"
@@ -73,6 +72,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptScenarioGCActorDestroyTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioGCActorDestroy"));
 	ON_SCOPE_EXIT
 	{
@@ -87,7 +87,7 @@ bool FAngelscriptScenarioGCActorDestroyTest::RunTest(const FString& Parameters)
 		TEXT("ScenarioGCActorDestroy.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioGCActorDestroy : AAngelscriptActor
+class AScenarioGCActorDestroy : AActor
 {
 }
 )AS"),
@@ -118,6 +118,7 @@ class AScenarioGCActorDestroy : AAngelscriptActor
 bool FAngelscriptScenarioGCComponentDestroyTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioGCComponentDestroy"));
 	ON_SCOPE_EXIT
 	{
@@ -163,6 +164,7 @@ class UScenarioGCComponentDestroy : UAngelscriptComponent
 bool FAngelscriptScenarioGCWorldTeardownTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioGCWorldTeardown"));
 	ON_SCOPE_EXIT
 	{
@@ -177,7 +179,7 @@ bool FAngelscriptScenarioGCWorldTeardownTest::RunTest(const FString& Parameters)
 		TEXT("ScenarioGCWorldTeardown.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioGCWorldTeardownActor : AAngelscriptActor
+class AScenarioGCWorldTeardownActor : AActor
 {
 }
 

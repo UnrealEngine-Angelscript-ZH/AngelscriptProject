@@ -32,13 +32,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 namespace
 {
-	FAngelscriptEngine& AcquireFreshHotReloadEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
-
-	struct FHotReloadPerformanceSample
+struct FHotReloadPerformanceSample
 	{
 		double ReloadSeconds = 0.0;
 		ECompileResult CompileResult = ECompileResult::Error;
@@ -84,7 +78,7 @@ bool FAngelscriptHotReloadSoftLatencyTest::RunTest(const FString& Parameters)
 {
 	const auto Measure = [this]() -> FHotReloadPerformanceSample
 	{
-		FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+		FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 		static const FName ModuleName(TEXT("HotReloadPerformanceSoft"));
 		ResetSharedInitializedTestEngine(Engine);
 
@@ -133,7 +127,7 @@ bool FAngelscriptHotReloadFullLatencyTest::RunTest(const FString& Parameters)
 {
 	const auto Measure = [this]() -> FHotReloadPerformanceSample
 	{
-		FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+		FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 		static const FName ModuleName(TEXT("HotReloadPerformanceFull"));
 		ResetSharedInitializedTestEngine(Engine);
 
@@ -181,7 +175,7 @@ bool FAngelscriptHotReloadRenameWindowLatencyTest::RunTest(const FString& Parame
 
 	const auto Measure = [this]() -> FHotReloadPerformanceSample
 	{
-		FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+		FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 		static const FName ModuleName(TEXT("HotReloadPerformanceRename"));
 		ResetSharedInitializedTestEngine(Engine);
 
@@ -233,7 +227,7 @@ bool FAngelscriptHotReloadBurstChurnLatencyTest::RunTest(const FString& Paramete
 
 	const auto Measure = [this]() -> FHotReloadPerformanceSample
 	{
-		FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+		FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 		static const FName ModuleName(TEXT("HotReloadPerformanceBurst"));
 		ResetSharedInitializedTestEngine(Engine);
 

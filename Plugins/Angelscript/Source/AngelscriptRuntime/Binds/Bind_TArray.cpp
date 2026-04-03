@@ -553,8 +553,11 @@ struct FScriptArraySorter
 	int32 InvokeCompareFunction(void* A, void* B) const
 	{
 		ensure(Ops->CompareFunction != nullptr);
-		FAngelscriptContext Context;
-		Context->Prepare(Ops->CompareFunction);
+		FAngelscriptContext Context(Ops->CompareFunction->GetEngine());
+		if (!PrepareAngelscriptContextWithLog(Context, Ops->CompareFunction, TEXT("FScriptArraySorter::InvokeCompareFunction")))
+		{
+			return 0;
+		}
 		Context->SetObject(A);
 		Context->SetArgAddress(0, B);
 		Context->Execute();
@@ -1348,7 +1351,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_TArray(FAngelscriptBinds::EOrd
 
 	auto TArray_ = FAngelscriptBinds::ValueClass<FScriptArray>("TArray<class T>", Flags);
 	TArray_.Constructor("void f()", FUNC_TRIVIAL(FArrayOperations::Construct));
-	FAngelscriptType::ArrayTemplateTypeInfo = TArray_.GetTypeInfo();
+	FAngelscriptType::SetArrayTemplateTypeInfo(TArray_.GetTypeInfo());
 	FAngelscriptEngine::Get().Engine->RegisterDefaultArrayType("TArray<T>");
 
 	TArray_.Destructor("void f()", &FArrayOperations::Destruct);

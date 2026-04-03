@@ -1,6 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "Components/ActorTestSpawner.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
@@ -14,11 +13,6 @@ using namespace AngelscriptScenarioTestUtils;
 
 namespace
 {
-	FAngelscriptEngine& AcquireFreshInterfaceEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -70,7 +64,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioInterfaceInheritedInterfaceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceInherited"));
 	ON_SCOPE_EXIT
 	{
@@ -97,7 +92,7 @@ interface UIKillableChild : UIDamageableParent
 }
 
 UCLASS()
-class AScenarioInterfaceInherited : AAngelscriptActor, UIKillableChild
+class AScenarioInterfaceInherited : AActor, UIKillableChild
 {
 	UPROPERTY()
 	float DamageReceived = 0.0;
@@ -151,7 +146,8 @@ class AScenarioInterfaceInherited : AAngelscriptActor, UIKillableChild
 
 bool FAngelscriptScenarioInterfaceMissingMethodTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceMissingMethod"));
 	ON_SCOPE_EXIT
 	{
@@ -173,7 +169,7 @@ interface UIDamageableMissing
 }
 
 UCLASS()
-class AScenarioInterfaceMissingMethod : AAngelscriptActor, UIDamageableMissing
+class AScenarioInterfaceMissingMethod : AActor, UIDamageableMissing
 {
 	UFUNCTION()
 	void TakeDamage(float Amount) {}
@@ -207,7 +203,8 @@ class AScenarioInterfaceMissingMethod : AAngelscriptActor, UIDamageableMissing
 
 bool FAngelscriptScenarioInterfaceNoPropertyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceNoProperty"));
 	ON_SCOPE_EXIT
 	{
@@ -246,7 +243,8 @@ interface UINoProperty
 
 bool FAngelscriptScenarioInterfaceGCSafeTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceGCSafe"));
 	ON_SCOPE_EXIT
 	{
@@ -267,7 +265,7 @@ interface UIDamageableGC
 }
 
 UCLASS()
-class AScenarioInterfaceGCSafe : AAngelscriptActor, UIDamageableGC
+class AScenarioInterfaceGCSafe : AActor, UIDamageableGC
 {
 	UFUNCTION()
 	void TakeDamage(float Amount) {}
@@ -306,7 +304,8 @@ class AScenarioInterfaceGCSafe : AAngelscriptActor, UIDamageableGC
 #if 1
 bool FAngelscriptScenarioInterfaceHotReloadTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceHotReload"));
 	ON_SCOPE_EXIT
 	{
@@ -322,7 +321,7 @@ interface UIDamageableHR
 }
 
 UCLASS()
-class AScenarioInterfaceHotReload : AAngelscriptActor, UIDamageableHR
+class AScenarioInterfaceHotReload : AActor, UIDamageableHR
 {
 	UPROPERTY()
 	float DamageReceived = 0.0;
@@ -343,7 +342,7 @@ interface UIDamageableHR
 }
 
 UCLASS()
-class AScenarioInterfaceHotReload : AAngelscriptActor, UIDamageableHR
+class AScenarioInterfaceHotReload : AActor, UIDamageableHR
 {
 	UPROPERTY()
 	float DamageReceived = 0.0;
@@ -405,7 +404,8 @@ class AScenarioInterfaceHotReload : AAngelscriptActor, UIDamageableHR
 
 bool FAngelscriptScenarioInterfaceCppInterfaceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceCppInterface"));
 	ON_SCOPE_EXIT
 	{
@@ -426,7 +426,7 @@ interface UICppTestInterface
 }
 
 UCLASS()
-class AScenarioInterfaceCppBase : AAngelscriptActor, UICppTestInterface
+class AScenarioInterfaceCppBase : AActor, UICppTestInterface
 {
 	UPROPERTY()
 	int WorkDone = 0;
@@ -464,7 +464,8 @@ class AScenarioInterfaceCppBase : AAngelscriptActor, UICppTestInterface
 
 bool FAngelscriptScenarioInterfaceInheritedMethodDispatchTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceInheritedDispatch"));
 	ON_SCOPE_EXIT
 	{
@@ -491,7 +492,7 @@ interface UIKillableDispatch : UIDamageableDispatch
 }
 
 UCLASS()
-class AScenarioInterfaceInheritedDispatch : AAngelscriptActor, UIKillableDispatch
+class AScenarioInterfaceInheritedDispatch : AActor, UIKillableDispatch
 {
 	UPROPERTY()
 	int ParentCastWorked = 0;
@@ -574,7 +575,8 @@ class AScenarioInterfaceInheritedDispatch : AAngelscriptActor, UIKillableDispatc
 
 bool FAngelscriptScenarioInterfaceMultipleInheritanceChainTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceMultiChain"));
 	ON_SCOPE_EXIT
 	{
@@ -607,7 +609,7 @@ interface UILeafChain : UIMidChain
 }
 
 UCLASS()
-class AScenarioInterfaceMultiChain : AAngelscriptActor, UILeafChain
+class AScenarioInterfaceMultiChain : AActor, UILeafChain
 {
 	UFUNCTION()
 	void BaseMethod() {}
@@ -659,7 +661,8 @@ class AScenarioInterfaceMultiChain : AAngelscriptActor, UILeafChain
 
 bool FAngelscriptScenarioInterfaceMultipleInheritanceDispatchTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceMultiDispatch"));
 	ON_SCOPE_EXIT
 	{
@@ -692,7 +695,7 @@ interface UILeafDispatchChain : UIMidDispatchChain
 }
 
 UCLASS()
-class AScenarioInterfaceMultiDispatch : AAngelscriptActor, UILeafDispatchChain
+class AScenarioInterfaceMultiDispatch : AActor, UILeafDispatchChain
 {
 	UPROPERTY()
 	int BaseResult = 0;

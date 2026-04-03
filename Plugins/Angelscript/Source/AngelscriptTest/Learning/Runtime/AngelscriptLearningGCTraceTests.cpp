@@ -4,7 +4,6 @@
 #include "../../Shared/AngelscriptTestUtilities.h"
 
 #include "Components/ActorTestSpawner.h"
-#include "Core/AngelscriptActor.h"
 #include "GameFramework/Actor.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
@@ -23,6 +22,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptLearningGCTraceTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("LearningGCModule"));
 	ON_SCOPE_EXIT
 	{
@@ -32,7 +32,7 @@ bool FAngelscriptLearningGCTraceTest::RunTest(const FString& Parameters)
 
 	const FString ScriptSource = TEXT(R"AS(
 UCLASS()
-class ALearningGCTestActor : AAngelscriptActor
+class ALearningGCTestActor : AActor
 {
 	UPROPERTY()
 	int32 InstanceId = 0;

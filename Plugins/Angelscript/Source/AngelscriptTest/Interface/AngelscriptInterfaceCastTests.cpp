@@ -1,6 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "Components/ActorTestSpawner.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
@@ -13,11 +12,6 @@ using namespace AngelscriptScenarioTestUtils;
 
 namespace
 {
-	FAngelscriptEngine& AcquireFreshInterfaceEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -37,7 +31,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioInterfaceCastSuccessTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceCastSuccess"));
 	ON_SCOPE_EXIT
 	{
@@ -58,7 +53,7 @@ interface UIDamageableCastOk
 }
 
 UCLASS()
-class AScenarioInterfaceCastSuccess : AAngelscriptActor, UIDamageableCastOk
+class AScenarioInterfaceCastSuccess : AActor, UIDamageableCastOk
 {
 	UPROPERTY()
 	int CastSucceeded = 0;
@@ -106,7 +101,8 @@ class AScenarioInterfaceCastSuccess : AAngelscriptActor, UIDamageableCastOk
 
 bool FAngelscriptScenarioInterfaceCastFailTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceCastFail"));
 	ON_SCOPE_EXIT
 	{
@@ -127,7 +123,7 @@ interface UIDamageableCastFail
 }
 
 UCLASS()
-class AScenarioInterfaceCastFail : AAngelscriptActor
+class AScenarioInterfaceCastFail : AActor
 {
 	UPROPERTY()
 	int CastReturnedNull = 0;
@@ -172,7 +168,8 @@ class AScenarioInterfaceCastFail : AAngelscriptActor
 
 bool FAngelscriptScenarioInterfaceMethodCallTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceMethodCall"));
 	ON_SCOPE_EXIT
 	{
@@ -193,7 +190,7 @@ interface UIDamageableMethodCall
 }
 
 UCLASS()
-class AScenarioInterfaceMethodCall : AAngelscriptActor, UIDamageableMethodCall
+class AScenarioInterfaceMethodCall : AActor, UIDamageableMethodCall
 {
 	UPROPERTY()
 	int CastSucceeded = 0;

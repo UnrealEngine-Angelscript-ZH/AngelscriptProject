@@ -134,8 +134,13 @@ void RegisterComplexFunctions(
 		}
 		asIScriptFunction *GetTestFunction = ComplexTestGetTestsFunctions.FindAndRemoveChecked(GetTestFunctionName);
 		TArray<FString> OutTestCommands;
-		FAngelscriptContext AngelscriptContext;
-		AngelscriptContext->Prepare(GetTestFunction);
+		FAngelscriptContext AngelscriptContext(GetTestFunction->GetEngine());
+		if (!PrepareAngelscriptContextWithLog(AngelscriptContext, GetTestFunction, *GetTestFunctionName))
+		{
+			ComplexTestScriptCompileError(Module, GetTestFunction,
+				FString::Printf(TEXT("During test discovery I failed to prepare %s for execution."), *GetTestFunctionName));
+			continue;
+		}
 		AngelscriptContext->SetArgAddress(0, (void*)&OutTestCommands);
 		AngelscriptContext->Execute();
 		if (OutTestCommands.Num() == 0)

@@ -388,10 +388,42 @@ struct FToStringType
 	bool bIsHandleType;
 };
 
+static const void* GetLegacyToStringKey()
+{
+	static uint8 LegacyToStringKey = 0;
+	return &LegacyToStringKey;
+}
+
+static const void* ResolveToStringKey(const void* StateKey = nullptr)
+{
+	if (StateKey != nullptr)
+	{
+		return StateKey;
+	}
+
+	if (const void* CurrentKey = FAngelscriptEngine::GetCurrentIsolationStateKey())
+	{
+		return CurrentKey;
+	}
+
+	return GetLegacyToStringKey();
+}
+
+static TMap<const void*, TUniquePtr<TArray<FToStringType>>>& GetToStringLists()
+{
+	static TMap<const void*, TUniquePtr<TArray<FToStringType>>> ListsByState;
+	return ListsByState;
+}
+
 static TArray<FToStringType>& GetToStringList()
 {
-	static TArray<FToStringType> List;
-	return List;
+	TUniquePtr<TArray<FToStringType>>& List = GetToStringLists().FindOrAdd(ResolveToStringKey());
+	if (!List.IsValid())
+	{
+		List = MakeUnique<TArray<FToStringType>>();
+	}
+
+	return *List;
 }
 
 void FToStringHelper::Register(const FString& TypeName, FToStringHelper::FToStringFunction ToString, bool bImplicitConversion, bool bIsHandleType)
@@ -403,6 +435,18 @@ void FToStringHelper::Reset()
 {
 	GetToStringList().Reset();
 }
+
+void FToStringHelper::ResetForKey(const void* StateKey)
+{
+	GetToStringLists().Remove(ResolveToStringKey(StateKey));
+}
+
+#if WITH_DEV_AUTOMATION_TESTS
+int32 FToStringHelper::GetRegisteredTypeCountForTesting()
+{
+	return GetToStringList().Num();
+}
+#endif
 
 static FString Type_ToString(void* Obj, asCScriptFunction* ScriptFunction)
 {

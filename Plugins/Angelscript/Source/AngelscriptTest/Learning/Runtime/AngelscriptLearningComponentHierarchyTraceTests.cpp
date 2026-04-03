@@ -4,7 +4,6 @@
 #include "../../Shared/AngelscriptTestUtilities.h"
 
 #include "Components/ActorTestSpawner.h"
-#include "Core/AngelscriptActor.h"
 #include "Core/AngelscriptComponent.h"
 #include "Components/SceneComponent.h"
 #include "GameFramework/Actor.h"
@@ -34,6 +33,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptLearningComponentHierarchyTraceTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("LearningComponentHierarchyModule"));
 	ON_SCOPE_EXIT
 	{
@@ -64,7 +64,7 @@ class ULearningSampleComponent : UAngelscriptComponent
 }
 
 UCLASS()
-class ALearningComponentHierarchyActor : AAngelscriptActor
+class ALearningComponentHierarchyActor : AActor
 {
 	UPROPERTY(DefaultComponent)
 	ULearningSampleComponent FirstComponent;

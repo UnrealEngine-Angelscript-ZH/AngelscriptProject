@@ -103,7 +103,7 @@ bool FAngelscriptLearningPreprocessorTraceTest::RunTest(const FString& Parameter
 	const FString ImportingAbsolutePath = WriteLearningPreprocessorFixture(
 		ImportingRelativePath,
 		TEXT("import Tests.Learning.Preprocessor.Shared;\n")
-		TEXT("class ALearningMacroActor : AAngelscriptActor\n")
+		TEXT("class ALearningMacroActor : AActor\n")
 		TEXT("{\n")
 		TEXT("    UPROPERTY(EditAnywhere, BlueprintReadWrite)\n")
 		TEXT("    UStaticMesh Mesh;\n\n")

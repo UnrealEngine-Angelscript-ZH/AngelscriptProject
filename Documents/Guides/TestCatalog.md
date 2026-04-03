@@ -691,7 +691,7 @@
 
 | 测试名 | 验证内容 |
 |--------|----------|
-| ScriptClass.CompilesToUClass | 脚本类生成 `UClass` 且派生自 `AAngelscriptActor`，`SpawnMarker` 默认为 7 |
+| ScriptClass.CompilesToUClass | 脚本类生成 `UClass` 且派生自 `AActor`，`SpawnMarker` 默认为 7 |
 | ScriptClass.CanSpawnInTestWorld | 在测试世界中生成脚本 Actor，`BeginPlay` 后 `BeginPlayObserved` 为 1 |
 | ScriptClass.MultiSpawnKeepsStateIsolation | 同一类多实例：改其一 `LocalState` 不影响另一实例 |
 | ScriptClass.BlueprintChildCompiles | 以脚本类为父的蓝图可编译、继承关系正确 |

@@ -16,6 +16,33 @@
 - 性能采样与产物规范：`Documents/Guides/TestPerformance.md`
 - 测试目录总览：`Documents/Guides/TestCatalog.md`
 
+## 一键测试脚本（推荐）
+
+项目提供 `Tools\RunTests.ps1`，自动读取 `AgentConfig.ini`、创建带时间戳输出目录、运行测试并解析结果。
+
+### 快速使用
+
+```powershell
+# 运行全部 Angelscript 测试
+.\Tools\RunTests.ps1
+
+# 运行特定前缀
+.\Tools\RunTests.ps1 -TestPrefix "Angelscript.CppTests.MultiEngine"
+
+# 自定义标签便于识别
+.\Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.HotReload" -Label "HotReload_Verify"
+```
+
+### AI Agent 环境执行
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File "Tools\RunTests.ps1" -TestPrefix "Angelscript"
+```
+
+脚本输出到 `Saved/Automation/<timestamp>_<Label>/`，包含 `test.log` 和 `Reports/`。退出码 `0` 表示全通过，`1` 表示有失败。
+
+详细参数说明见 `Documents/Tools/Tool.md`。
+
 ### Angelscript 性能采样快捷前缀
 
 - 启动基线：`Automation RunTests Angelscript.TestModule.Core.Performance.Startup`

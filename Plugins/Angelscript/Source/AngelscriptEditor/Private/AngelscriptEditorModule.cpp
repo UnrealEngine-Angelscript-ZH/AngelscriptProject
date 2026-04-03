@@ -995,9 +995,9 @@ void FAngelscriptEditorModule::GenerateNativeBinds()
 
 	const uint32 ModuleCount = 10; //was 10
 	TArray<FString> Keys;	
-	FAngelscriptBinds::RuntimeClassDB.GetKeys(Keys);
+	FAngelscriptBinds::GetRuntimeClassDB().GetKeys(Keys);
 	TArray<FString> ModuleArray;
-	FAngelscriptBinds::BindModuleNames.Empty();
+	FAngelscriptBinds::GetBindModuleNames().Empty();
 
 	for (int i = 0; i < Keys.Num(); i++)
 	{
@@ -1009,7 +1009,7 @@ void FAngelscriptEditorModule::GenerateNativeBinds()
 			ModuleName += FString::FromInt(i - (ModuleArray.Num() - 1));
 			GenerateNewModule(ModuleName, ModuleArray, false);
 			ModuleArray.Empty();
-			FAngelscriptBinds::BindModuleNames.Add(ModuleName);
+			FAngelscriptBinds::GetBindModuleNames().Add(ModuleName);
 		}
 	}
 
@@ -1019,11 +1019,11 @@ void FAngelscriptEditorModule::GenerateNativeBinds()
 		ModuleName += FString::FromInt(Keys.Num() - ModuleArray.Num());
 		GenerateNewModule(ModuleName, ModuleArray, false);
 		ModuleArray.Empty();
-		FAngelscriptBinds::BindModuleNames.Add(ModuleName);
+		FAngelscriptBinds::GetBindModuleNames().Add(ModuleName);
 	}
 	
 	Keys.Empty();
-	FAngelscriptBinds::EditorClassDB.GetKeys(Keys);
+	FAngelscriptBinds::GetEditorClassDB().GetKeys(Keys);
 
 	for (int i = 0; i < Keys.Num(); i++)
 	{
@@ -1035,7 +1035,7 @@ void FAngelscriptEditorModule::GenerateNativeBinds()
 			ModuleName += FString::FromInt(i - (ModuleArray.Num() - 1));
 			GenerateNewModule(ModuleName, ModuleArray, true);
 			ModuleArray.Empty();
-			FAngelscriptBinds::BindModuleNames.Add(ModuleName);
+			FAngelscriptBinds::GetBindModuleNames().Add(ModuleName);
 		}
 	}
 
@@ -1045,7 +1045,7 @@ void FAngelscriptEditorModule::GenerateNativeBinds()
 		ModuleName += FString::FromInt(Keys.Num() - ModuleArray.Num());
 		GenerateNewModule(ModuleName, ModuleArray, true);
 		ModuleArray.Empty();
-		FAngelscriptBinds::BindModuleNames.Add(ModuleName);
+		FAngelscriptBinds::GetBindModuleNames().Add(ModuleName);
 	}
 
 	TArray<FString> PublicDepends
@@ -1126,27 +1126,27 @@ void FAngelscriptEditorModule::GenerateBindDatabases()
 
 		if (!HeaderPath.Contains("Editor/")) //Was !Class->EditorOnly which didn't work
 		{			
-			if (FAngelscriptBinds::RuntimeClassDB.Contains(Name))
-			{				
-				FAngelscriptBinds::RuntimeClassDB[Name].Add(Class);
+			if (FAngelscriptBinds::GetRuntimeClassDB().Contains(Name))
+			{
+				FAngelscriptBinds::GetRuntimeClassDB()[Name].Add(Class);
 			}
 
 			else
-			{				
-				FAngelscriptBinds::RuntimeClassDB.Add(Name, TArray<TObjectPtr<UClass>>()).Add(Class);
+			{
+				FAngelscriptBinds::GetRuntimeClassDB().Add(Name, TArray<TObjectPtr<UClass>>()).Add(Class);
 			}
 		}
 
 		else
 		{
-			if (FAngelscriptBinds::EditorClassDB.Contains(Name))
+			if (FAngelscriptBinds::GetEditorClassDB().Contains(Name))
 			{				
-				FAngelscriptBinds::EditorClassDB[Name].Add(Class);
+				FAngelscriptBinds::GetEditorClassDB()[Name].Add(Class);
 			}
 
 			else
 			{				
-				FAngelscriptBinds::EditorClassDB.Add(Name, TArray<TObjectPtr<UClass>>()).Add(Class);
+				FAngelscriptBinds::GetEditorClassDB().Add(Name, TArray<TObjectPtr<UClass>>()).Add(Class);
 			}
 		}
 	}
@@ -1326,7 +1326,7 @@ void FAngelscriptEditorModule::GenerateSourceFilesV2(FString NewModuleName, TArr
 
 		if (!bIsEditor)
 		{
-			if (TArray<TObjectPtr<UClass>>* list = FAngelscriptBinds::RuntimeClassDB.Find(Module))
+			if (TArray<TObjectPtr<UClass>>* list = FAngelscriptBinds::GetRuntimeClassDB().Find(Module))
 			{
 				Classes = *list;
 			}
@@ -1338,7 +1338,7 @@ void FAngelscriptEditorModule::GenerateSourceFilesV2(FString NewModuleName, TArr
 		}
 		else
 		{
-			if (TArray<TObjectPtr<UClass>>* list = FAngelscriptBinds::EditorClassDB.Find(Module))
+			if (TArray<TObjectPtr<UClass>>* list = FAngelscriptBinds::GetEditorClassDB().Find(Module))
 			{
 				Classes = *list;
 			}
@@ -1475,14 +1475,14 @@ void FAngelscriptEditorModule::GenerateSourceFiles(FString NewModuleName, TArray
 	{
 		if (!bIsEditor)
 		{
-			if (TArray<TObjectPtr<UClass>>* list = FAngelscriptBinds::RuntimeClassDB.Find(str))
+			if (TArray<TObjectPtr<UClass>>* list = FAngelscriptBinds::GetRuntimeClassDB().Find(str))
 			{
 				Classes += *list;
 			}
 		}
 		else
 		{
-			if (TArray<TObjectPtr<UClass>>* list = FAngelscriptBinds::EditorClassDB.Find(str))
+			if (TArray<TObjectPtr<UClass>>* list = FAngelscriptBinds::GetEditorClassDB().Find(str))
 			{
 				Classes += *list;
 			}			
@@ -3237,14 +3237,14 @@ void GenerateSourceFilesOG(FString NewModuleName, TArray<FString> IncludeList, b
 	{
 		if (!bIsEditor)
 		{
-			if (TArray<TObjectPtr<UClass>>* list = FAngelscriptBinds::RuntimeClassDB.Find(str))
+			if (TArray<TObjectPtr<UClass>>* list = FAngelscriptBinds::GetRuntimeClassDB().Find(str))
 			{
 				Classes += *list;
 			}
 		}
 		else
 		{
-			if (TArray<TObjectPtr<UClass>>* list = FAngelscriptBinds::EditorClassDB.Find(str))
+			if (TArray<TObjectPtr<UClass>>* list = FAngelscriptBinds::GetEditorClassDB().Find(str))
 			{
 				Classes += *list;
 			}

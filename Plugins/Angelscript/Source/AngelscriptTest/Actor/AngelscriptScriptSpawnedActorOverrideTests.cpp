@@ -1,6 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "Components/ActorTestSpawner.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
@@ -124,6 +123,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptScenarioScriptActorBeginPlayRunsInWorldTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshScriptActorEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptActorBeginPlayRunsInWorld"));
 	ON_SCOPE_EXIT
 	{
@@ -138,7 +138,7 @@ bool FAngelscriptScenarioScriptActorBeginPlayRunsInWorldTest::RunTest(const FStr
 		TEXT("ScenarioScriptActorBeginPlayRunsInWorld.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptActorBeginPlayRunsInWorld : AAngelscriptActor
+class AScenarioScriptActorBeginPlayRunsInWorld : AActor
 {
 	UPROPERTY()
 	int BeginPlayObserved = 0;
@@ -179,6 +179,7 @@ class AScenarioScriptActorBeginPlayRunsInWorld : AAngelscriptActor
 bool FAngelscriptScenarioScriptActorNativeUFunctionCanBeInvokedTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshScriptActorEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptActorNativeUFunctionCanBeInvoked"));
 	ON_SCOPE_EXIT
 	{
@@ -193,7 +194,7 @@ bool FAngelscriptScenarioScriptActorNativeUFunctionCanBeInvokedTest::RunTest(con
 		TEXT("ScenarioScriptActorNativeUFunctionCanBeInvoked.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptActorNativeUFunctionCanBeInvoked : AAngelscriptActor
+class AScenarioScriptActorNativeUFunctionCanBeInvoked : AActor
 {
 	UPROPERTY()
 	int NativeInvokeObserved = 0;
@@ -258,6 +259,7 @@ class AScenarioScriptActorNativeUFunctionCanBeInvoked : AAngelscriptActor
 bool FAngelscriptScenarioScriptActorBeginPlayCallsAnotherScriptUFunctionTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshScriptActorEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptActorBeginPlayCallsAnotherScriptUFunction"));
 	ON_SCOPE_EXIT
 	{
@@ -272,7 +274,7 @@ bool FAngelscriptScenarioScriptActorBeginPlayCallsAnotherScriptUFunctionTest::Ru
 		TEXT("ScenarioScriptActorBeginPlayCallsAnotherScriptUFunction.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptActorBeginPlayCallsAnotherScriptUFunction : AAngelscriptActor
+class AScenarioScriptActorBeginPlayCallsAnotherScriptUFunction : AActor
 {
 	UPROPERTY()
 	int ScriptDispatchObserved = 0;
@@ -319,6 +321,7 @@ class AScenarioScriptActorBeginPlayCallsAnotherScriptUFunction : AAngelscriptAct
 bool FAngelscriptScenarioScriptActorTickRunsNTimesTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshScriptActorEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptActorTickRunsNTimes"));
 	ON_SCOPE_EXIT
 	{
@@ -333,7 +336,7 @@ bool FAngelscriptScenarioScriptActorTickRunsNTimesTest::RunTest(const FString& P
 		TEXT("ScenarioScriptActorTickRunsNTimes.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptActorTickRunsNTimes : AAngelscriptActor
+class AScenarioScriptActorTickRunsNTimes : AActor
 {
 	UPROPERTY()
 	int LogicalTickCount = 0;
@@ -364,10 +367,10 @@ class AScenarioScriptActorTickRunsNTimes : AAngelscriptActor
 		return false;
 	}
 
-	AAngelscriptActor* Actor = nullptr;
+	AActor* Actor = nullptr;
 	FActorTestSpawner Spawner;
 	Spawner.InitializeGameSubsystems();
-	Actor = Cast<AAngelscriptActor>(SpawnScriptActor(*this, Spawner, ScriptClass));
+	Actor = Cast<AActor>(SpawnScriptActor(*this, Spawner, ScriptClass));
 	if (!TestNotNull(TEXT("Scenario script-tick actor should spawn as an Angelscript actor"), Actor))
 	{
 		return false;
@@ -397,6 +400,7 @@ class AScenarioScriptActorTickRunsNTimes : AAngelscriptActor
 bool FAngelscriptScenarioScriptActorCrossInstanceCallDoesNotLeakStateTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshScriptActorEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptActorCrossInstanceCallDoesNotLeakState"));
 	ON_SCOPE_EXIT
 	{
@@ -411,7 +415,7 @@ bool FAngelscriptScenarioScriptActorCrossInstanceCallDoesNotLeakStateTest::RunTe
 		TEXT("ScenarioScriptActorCrossInstanceCallDoesNotLeakState.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptActorCrossInstanceCallDoesNotLeakState : AAngelscriptActor
+class AScenarioScriptActorCrossInstanceCallDoesNotLeakState : AActor
 {
 	UPROPERTY()
 	AScenarioScriptActorCrossInstanceCallDoesNotLeakState TargetActor;
@@ -485,6 +489,7 @@ class AScenarioScriptActorCrossInstanceCallDoesNotLeakState : AAngelscriptActor
 bool FAngelscriptScenarioScriptActorDestroyedActorInvocationFailsSafelyTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshScriptActorEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptActorDestroyedActorInvocationFailsSafely"));
 	ON_SCOPE_EXIT
 	{
@@ -499,7 +504,7 @@ bool FAngelscriptScenarioScriptActorDestroyedActorInvocationFailsSafelyTest::Run
 		TEXT("ScenarioScriptActorDestroyedActorInvocationFailsSafely.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptActorDestroyedInvocationTarget : AAngelscriptActor
+class AScenarioScriptActorDestroyedInvocationTarget : AActor
 {
 	UPROPERTY()
 	int InvocationValue = 0;
@@ -512,7 +517,7 @@ class AScenarioScriptActorDestroyedInvocationTarget : AAngelscriptActor
 }
 
 UCLASS()
-class AScenarioScriptActorDestroyedInvocationSource : AAngelscriptActor
+class AScenarioScriptActorDestroyedInvocationSource : AActor
 {
 	UPROPERTY()
 	AScenarioScriptActorDestroyedInvocationTarget TargetActor;
@@ -608,6 +613,7 @@ class AScenarioScriptActorDestroyedInvocationSource : AAngelscriptActor
 bool FAngelscriptScenarioScriptActorMissingFunctionReportsExplicitFailureTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshScriptActorEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptActorMissingFunctionReportsExplicitFailure"));
 	ON_SCOPE_EXIT
 	{
@@ -622,7 +628,7 @@ bool FAngelscriptScenarioScriptActorMissingFunctionReportsExplicitFailureTest::R
 		TEXT("ScenarioScriptActorMissingFunctionReportsExplicitFailure.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptActorMissingFunctionReportsExplicitFailure : AAngelscriptActor
+class AScenarioScriptActorMissingFunctionReportsExplicitFailure : AActor
 {
 	UPROPERTY()
 	int StableValue = 1;

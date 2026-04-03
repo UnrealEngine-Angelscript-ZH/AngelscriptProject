@@ -2,7 +2,7 @@
 #include "../../Shared/AngelscriptTestEngineHelper.h"
 #include "../../Shared/AngelscriptTestUtilities.h"
 
-#include "Core/AngelscriptActor.h"
+#include "GameFramework/Actor.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
 #include "UObject/UnrealType.h"
@@ -13,13 +13,7 @@ using namespace AngelscriptTestSupport;
 
 namespace
 {
-	FAngelscriptEngine& AcquireFreshLearningEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
-
-	struct FLearningGeneratedPropertySummary
+struct FLearningGeneratedPropertySummary
 	{
 		FString Name;
 		FString Type;
@@ -83,7 +77,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningClassGenerationTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshLearningEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("LearningClassGenerationTraceModule"));
 	ON_SCOPE_EXIT
 	{
@@ -93,7 +87,7 @@ bool FAngelscriptLearningClassGenerationTraceTest::RunTest(const FString& Parame
 
 	const FString ScriptSource = TEXT(R"AS(
 UCLASS()
-class ALearningClassGenerationTraceActor : AAngelscriptActor
+class ALearningClassGenerationTraceActor : AActor
 {
 	UPROPERTY()
 	int Health;
@@ -129,7 +123,7 @@ class ALearningClassGenerationTraceActor : AAngelscriptActor
 	Trace.AddStep(TEXT("FindGeneratedClass"), GeneratedClass != nullptr ? TEXT("Resolved the generated UClass by its Unreal-facing script class name") : TEXT("Generated UClass lookup failed after compilation"));
 	Trace.AddKeyValue(TEXT("GeneratedClassName"), GeneratedClass != nullptr ? GeneratedClass->GetName() : TEXT("<null>"));
 	Trace.AddKeyValue(TEXT("SuperClass"), GeneratedClass != nullptr && GeneratedClass->GetSuperClass() != nullptr ? GeneratedClass->GetSuperClass()->GetName() : TEXT("<null>"));
-	Trace.AddKeyValue(TEXT("IsActorDerived"), GeneratedClass != nullptr && GeneratedClass->IsChildOf(AAngelscriptActor::StaticClass()) ? TEXT("true") : TEXT("false"));
+	Trace.AddKeyValue(TEXT("IsActorDerived"), GeneratedClass != nullptr && GeneratedClass->IsChildOf(AActor::StaticClass()) ? TEXT("true") : TEXT("false"));
 
 	UFunction* GeneratedFunction = GeneratedClass != nullptr ? FindGeneratedFunction(GeneratedClass, TEXT("GetHealthValue")) : nullptr;
 	Trace.AddStep(TEXT("FindGeneratedFunction"), GeneratedFunction != nullptr ? TEXT("Resolved the generated UFunction that mirrors the script-declared reflected method") : TEXT("Generated UFunction lookup failed for the reflected method"));
@@ -157,7 +151,7 @@ class ALearningClassGenerationTraceActor : AAngelscriptActor
 
 	const bool bCompiledOk = TestTrue(TEXT("Class generation learning script should compile"), bCompiled);
 	const bool bGeneratedClassFound = TestNotNull(TEXT("Class generation learning script should produce a generated UClass"), GeneratedClass);
-	const bool bIsActorDerived = TestTrue(TEXT("Generated class should derive from AAngelscriptActor"), GeneratedClass != nullptr && GeneratedClass->IsChildOf(AAngelscriptActor::StaticClass()));
+	const bool bIsActorDerived = TestTrue(TEXT("Generated class should derive from AActor"), GeneratedClass != nullptr && GeneratedClass->IsChildOf(AActor::StaticClass()));
 	const bool bGeneratedFunctionFound = TestNotNull(TEXT("Generated class should expose the reflected GetHealthValue function"), GeneratedFunction);
 	const bool bPropertyCountMatches = TestEqual(TEXT("Generated class should expose two reflected properties declared in the script"), Properties.Num(), 2);
 	const bool bHealthDefaultMatches = TestEqual(TEXT("Generated Health default should match the script default"), HealthDefault, 7);

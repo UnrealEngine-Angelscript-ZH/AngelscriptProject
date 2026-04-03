@@ -1486,7 +1486,7 @@ struct FCallScriptFunction
 			Context.Line("  asCScriptFunction* CallFunction = {0};", Context.ReferenceFunction(ScriptFunction));
 		}
 
-		Context.Line("  FAngelscriptContext CallContext;");
+		Context.Line("  FAngelscriptContext CallContext(CallFunction->GetEngine());");
 		Context.Line("  CallContext->Prepare(CallFunction);");
 
 		int32 StackOffset = 0;

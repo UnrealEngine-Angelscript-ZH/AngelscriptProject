@@ -3,7 +3,6 @@
 #include "Shared/AngelscriptNativeInterfaceTestTypes.h"
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "Components/ActorTestSpawner.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
@@ -15,11 +14,6 @@ using namespace AngelscriptScenarioTestUtils;
 
 namespace
 {
-	FAngelscriptEngine& AcquireFreshInterfaceEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
 }
 
 namespace
@@ -130,7 +124,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioInterfaceNativeImplementTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceNativeImplement"));
 	EnsureNativeInterfaceFixturesBound();
 	ON_SCOPE_EXIT
@@ -146,7 +141,7 @@ bool FAngelscriptScenarioInterfaceNativeImplementTest::RunTest(const FString& Pa
 		TEXT("ScenarioInterfaceNativeImplement.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioInterfaceNativeImplement : AAngelscriptActor, UAngelscriptNativeParentInterface
+class AScenarioInterfaceNativeImplement : AActor, UAngelscriptNativeParentInterface
 {
 	UPROPERTY()
 	int NativeValue = 123;
@@ -237,7 +232,8 @@ class AScenarioInterfaceNativeImplement : AAngelscriptActor, UAngelscriptNativeP
 
 bool FAngelscriptScenarioInterfaceNativeInheritedImplementTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceNativeInheritedImplement"));
 	EnsureNativeInterfaceFixturesBound();
 	ON_SCOPE_EXIT
@@ -253,7 +249,7 @@ bool FAngelscriptScenarioInterfaceNativeInheritedImplementTest::RunTest(const FS
 		TEXT("ScenarioInterfaceNativeInheritedImplement.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioInterfaceNativeInheritedImplement : AAngelscriptActor, UAngelscriptNativeChildInterface
+class AScenarioInterfaceNativeInheritedImplement : AActor, UAngelscriptNativeChildInterface
 {
 	UPROPERTY()
 	int ParentCastWorked = 0;

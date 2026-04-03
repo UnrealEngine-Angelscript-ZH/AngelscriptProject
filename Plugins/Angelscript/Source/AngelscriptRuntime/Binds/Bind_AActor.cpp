@@ -49,7 +49,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_AActor_Base((int32)FAngelscrip
 		}
 
 		asCObjectType* ObjectType = (asCObjectType*)(ScriptType);
-		if (ObjectType->templateBaseType != FAngelscriptType::ArrayTemplateTypeInfo)
+		if (ObjectType->templateBaseType != FAngelscriptType::GetArrayTemplateTypeInfo())
 		{
 			FAngelscriptEngine::Throw("GetComponentsByClass must take a TArray of components as its out argument.");
 			return;
@@ -99,7 +99,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_AActor_Base((int32)FAngelscrip
 		}
 
 		asCObjectType* ObjectType = (asCObjectType*)(ScriptType);
-		if (ObjectType->templateBaseType != FAngelscriptType::ArrayTemplateTypeInfo)
+		if (ObjectType->templateBaseType != FAngelscriptType::GetArrayTemplateTypeInfo())
 		{
 			FAngelscriptEngine::Throw("GetComponentsByClass must take a TArray of components as its out argument.");
 			return;
@@ -327,7 +327,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Actors((int32)FAngelscriptBind
 		}
 
 		asCObjectType* ObjectType = (asCObjectType*)(ScriptType);
-		if (ObjectType->templateBaseType != FAngelscriptType::ArrayTemplateTypeInfo)
+		if (ObjectType->templateBaseType != FAngelscriptType::GetArrayTemplateTypeInfo())
 		{
 			FAngelscriptEngine::Throw("GetAllActors must take a TArray of actors as its out argument.");
 			return;
@@ -365,7 +365,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Actors((int32)FAngelscriptBind
 		}
 
 		asCObjectType* ObjectType = (asCObjectType*)(ScriptType);
-		if (ObjectType->templateBaseType != FAngelscriptType::ArrayTemplateTypeInfo)
+		if (ObjectType->templateBaseType != FAngelscriptType::GetArrayTemplateTypeInfo())
 		{
 			FAngelscriptEngine::Throw("GetAllActors must take a TArray of actors as its out argument.");
 			return;
@@ -421,7 +421,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Actors((int32)FAngelscriptBind
 		}
 
 		asCObjectType* ObjectType = (asCObjectType*)(ScriptType);
-		if (ObjectType->templateBaseType != FAngelscriptType::ArrayTemplateTypeInfo)
+		if (ObjectType->templateBaseType != FAngelscriptType::GetArrayTemplateTypeInfo())
 		{
 			FAngelscriptEngine::Throw("GetAllActors must take a TArray of actors as its out argument.");
 			return;
