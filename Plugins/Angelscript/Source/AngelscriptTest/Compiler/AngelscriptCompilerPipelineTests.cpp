@@ -14,8 +14,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCompilerDelegateEnumClassCompileTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetSharedTestEngine();
-FAngelscriptEngine& Engine = AngelscriptTestSupport::GetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
+FAngelscriptEngine& Engine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	const bool bCompiled = AngelscriptTestSupport::CompileAnnotatedModuleFromMemory(
 		&Engine,
 		TEXT("CompilerDelegateEnumClassCompile"),
@@ -84,8 +84,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCompilerFunctionDefaultsAndClassLikeCompileTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetSharedTestEngine();
-FAngelscriptEngine& Engine = AngelscriptTestSupport::GetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
+FAngelscriptEngine& Engine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	const bool bCompiled = AngelscriptTestSupport::CompileAnnotatedModuleFromMemory(
 		&Engine,
 		TEXT("CompilerFunctionDefaultsAndClassLikeCompile"),
@@ -158,8 +158,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCompilerPropertyDefaultsCompileTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetSharedTestEngine();
-FAngelscriptEngine& Engine = AngelscriptTestSupport::GetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
+FAngelscriptEngine& Engine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	const bool bCompiled = AngelscriptTestSupport::CompileAnnotatedModuleFromMemory(
 		&Engine,
 		TEXT("CompilerPropertyDefaultsCompile"),
@@ -214,8 +214,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCompilerGeneratedClassConsistencyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetSharedTestEngine();
-FAngelscriptEngine& Engine = AngelscriptTestSupport::GetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
+FAngelscriptEngine& Engine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	const bool bCompiled = AngelscriptTestSupport::CompileAnnotatedModuleFromMemory(
 		&Engine,
 		TEXT("CompilerGeneratedClassConsistency"),
@@ -259,8 +259,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCompilerModuleFunctionInspectionTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetSharedTestEngine();
-FAngelscriptEngine& Engine = AngelscriptTestSupport::GetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
+FAngelscriptEngine& Engine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = AngelscriptTestSupport::BuildModule(
 		*this,
 		Engine,
@@ -306,8 +306,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCompilerEnumAvailabilityTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetSharedTestEngine();
-FAngelscriptEngine& Engine = AngelscriptTestSupport::GetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
+FAngelscriptEngine& Engine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	const bool bCompiled = AngelscriptTestSupport::CompileAnnotatedModuleFromMemory(
 		&Engine,
 		TEXT("CompilerEnumAvailability"),
@@ -345,8 +345,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCompilerDelegateSignatureConsistencyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetSharedTestEngine();
-FAngelscriptEngine& Engine = AngelscriptTestSupport::GetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
+FAngelscriptEngine& Engine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	const bool bCompiled = AngelscriptTestSupport::CompileAnnotatedModuleFromMemory(
 		&Engine,
 		TEXT("CompilerDelegateSignatureConsistency"),
@@ -391,8 +391,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCompilerClassLikeReflectionShapeTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetSharedTestEngine();
-FAngelscriptEngine& Engine = AngelscriptTestSupport::GetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
+FAngelscriptEngine& Engine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	const bool bCompiled = AngelscriptTestSupport::CompileAnnotatedModuleFromMemory(
 		&Engine,
 		TEXT("CompilerClassLikeReflectionShape"),

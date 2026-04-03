@@ -2726,9 +2726,6 @@ bool FAngelscriptStaticJIT::IsTypePotentiallyDifferent(asITypeInfo* TypeInfo)
 					TBaseStructure<FLinearColor>::Get(),
 					TBaseStructure<FVector4>::Get(),
 					TBaseStructure<FColor>::Get(),
-					//WILL-EDIT
-					//TBaseStructure<FBox>::Get(),
-					//TBaseStructure<FBoxSphereBounds>::Get(),
 					TBaseStructure<FFloatInterval>::Get(),
 					TBaseStructure<FFloatRange>::Get(),
 					TBaseStructure<FGuid>::Get(),

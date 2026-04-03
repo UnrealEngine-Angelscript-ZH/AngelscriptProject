@@ -316,6 +316,74 @@ struct FAngelscriptDataBreakpoint
 	}
 };
 
+struct FAngelscriptActiveDataBreakpoint
+{
+	int32 Id = -1;
+	uint64 Address = 0;
+	uint8 AddressSize = 0;
+	bool bCppBreakpoint = false;
+	TAtomic<int32> HitCount { 0 };
+	TAtomic<bool> bTriggered { false };
+	TAtomic<int8> Status { static_cast<int8>(EAngelscriptDataBreakpointStatus::Keep) };
+	TAtomic<UPTRINT> ContextPtr { 0 };
+
+	void Reset()
+	{
+		Id = -1;
+		Address = 0;
+		AddressSize = 0;
+		bCppBreakpoint = false;
+		HitCount.Store(0);
+		bTriggered.Store(false);
+		Status.Store(static_cast<int8>(EAngelscriptDataBreakpointStatus::Keep));
+		ContextPtr.Store(0);
+	}
+
+	EAngelscriptDataBreakpointStatus GetStatus() const
+	{
+		return static_cast<EAngelscriptDataBreakpointStatus>(Status.Load());
+	}
+
+	void SetStatus(EAngelscriptDataBreakpointStatus InStatus)
+	{
+		Status.Store(static_cast<int8>(InStatus));
+	}
+
+	class asCContext* GetContext() const
+	{
+		return reinterpret_cast<class asCContext*>(ContextPtr.Load());
+	}
+
+	void SetContext(class asCContext* InContext)
+	{
+		ContextPtr.Store(reinterpret_cast<UPTRINT>(InContext));
+	}
+
+	void CopyFrom(const FAngelscriptDataBreakpoint& Source)
+	{
+		Id = Source.Id;
+		Address = Source.Address;
+		AddressSize = Source.AddressSize;
+		bCppBreakpoint = Source.bCppBreakpoint;
+		HitCount.Store(Source.HitCount);
+		bTriggered.Store(Source.bTriggered);
+		SetStatus(Source.Status);
+		SetContext(Source.Context);
+	}
+
+	void CopyTo(FAngelscriptDataBreakpoint& Destination) const
+	{
+		Destination.Id = Id;
+		Destination.Address = Address;
+		Destination.AddressSize = AddressSize;
+		Destination.bCppBreakpoint = bCppBreakpoint;
+		Destination.HitCount = static_cast<int8>(HitCount.Load());
+		Destination.bTriggered = bTriggered.Load();
+		Destination.Status = GetStatus();
+		Destination.Context = GetContext();
+	}
+};
+
 struct FAngelscriptDataBreakpoints : FDebugMessage
 {
 	TArray<FAngelscriptDataBreakpoint> Breakpoints;
@@ -501,6 +569,7 @@ struct FAngelscriptReplaceAssetDefinition : FDebugMessage
 
 class FAngelscriptDebugServer
 {
+	FAngelscriptEngine* OwnerEngine;
 	class FTcpListener* Listener;
 	TQueue<class FSocket*, EQueueMode::Mpsc> PendingClients;
 	TArray<class FSocket*> Clients;
@@ -509,9 +578,10 @@ class FAngelscriptDebugServer
 	double NextPingDebuggerAliveTime = 0.0;
 
 	bool HandleConnectionAccepted(class FSocket* ClientSocket, const FIPv4Endpoint& ClientEndpoint);
+	FAngelscriptEngine* GetOwnerEngine() const { return OwnerEngine; }
 
 public:
-	bool bBreakNextScriptLine = false;
+	TAtomic<bool> bBreakNextScriptLine { false };
 	bool bIsPaused = false;
 	bool bIsEvaluatingDebuggerWatch = false;
 	bool bIsDebugging = false;
@@ -554,7 +624,7 @@ public:
 	void GoToDefinition(const FAngelscriptGoToDefinition GoTo);
 
 public:
-	FAngelscriptDebugServer(int Port);
+	FAngelscriptDebugServer(FAngelscriptEngine* InOwnerEngine, int Port);
 	~FAngelscriptDebugServer();
 
 	void Tick();
@@ -634,6 +704,8 @@ public:
 
 	static constexpr int DATA_BREAKPOINT_HARDWARE_LIMIT = 4;
 	TArray<FAngelscriptDataBreakpoint> DataBreakpoints;
+	FAngelscriptActiveDataBreakpoint ActiveDataBreakpoints[DATA_BREAKPOINT_HARDWARE_LIMIT];
+	TAtomic<int32> ActiveDataBreakpointCount { 0 };
 
 	int32 BreakpointCount = 0;
 	TMap<FString, TSharedPtr<FFileBreakpoints>> Breakpoints;
@@ -643,6 +715,8 @@ public:
 	void ClearAllBreakpoints();
 	void ClearAllDataBreakpoints();
 	void UpdateDataBreakpoints();
+	void RebuildActiveDataBreakpoints();
+	void SyncActiveDataBreakpointsToAuthoritativeState();
 
 	const char* IgnoreBreakSection = nullptr;
 	int32 IgnoreBreakLine = -1;

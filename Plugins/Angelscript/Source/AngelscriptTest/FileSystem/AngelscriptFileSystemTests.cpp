@@ -65,8 +65,8 @@ bool FAngelscriptModuleLookupByFilenameTest::RunTest(const FString& Parameters)
 {
 	CleanFileSystemTestRoot();
 
-	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
-FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
+FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	const FString Script = TEXT(R"AS(
 int PatrolEntry()
 {
@@ -108,8 +108,8 @@ bool FAngelscriptCompileFromDiskTest::RunTest(const FString& Parameters)
 {
 	CleanFileSystemTestRoot();
 
-	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
-FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
+FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	const FString Source = TEXT(R"AS(
 int Entry()
 {
@@ -151,8 +151,8 @@ bool FAngelscriptPartialFailurePreservesGoodModulesTest::RunTest(const FString& 
 {
 	CleanFileSystemTestRoot();
 
-	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
-FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
+FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	const FString GoodSource = TEXT(R"AS(
 int SurvivorEntry()
 {
@@ -212,8 +212,8 @@ bool FAngelscriptDiscoverScriptFilenamesTest::RunTest(const FString& Parameters)
 {
 	CleanFileSystemTestRoot();
 
-	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
-FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
+FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	FString UnusedPath;
 	if (!TestTrue(TEXT("Write root script file should succeed"), WriteFileSystemTestFile(TEXT("RootScript.as"), TEXT("int Entry() { return 1; }"), UnusedPath)) ||
 		!TestTrue(TEXT("Write nested script file should succeed"), WriteFileSystemTestFile(TEXT("Game/Player.as"), TEXT("int Entry() { return 2; }"), UnusedPath)) ||
@@ -253,8 +253,8 @@ bool FAngelscriptDiscoverySkipRulesTest::RunTest(const FString& Parameters)
 {
 	CleanFileSystemTestRoot();
 
-	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
-FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
+FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	FString UnusedPath;
 	if (!TestTrue(TEXT("Write gameplay script file should succeed"), WriteFileSystemTestFile(TEXT("Gameplay/Main.as"), TEXT("int GameplayEntry() { return 1; }"), UnusedPath)) ||
 		!TestTrue(TEXT("Write examples script file should succeed"), WriteFileSystemTestFile(TEXT("Examples/ExampleOnly.as"), TEXT("int ExampleEntry() { return 2; }"), UnusedPath)) ||

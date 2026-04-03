@@ -20,7 +20,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionDefaultArgumentsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -54,7 +54,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionNamedArgumentsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -88,7 +88,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionPointerAndOverloadTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -122,12 +122,12 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionPointerTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASFunctionPointer.as"));
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(TEXT("ASFunctionPointer"));
-		ResetSharedInitializedTestEngine(Engine);
+		ResetSharedCloneEngine(Engine);
 	};
 	ECompileResult CompileResult = ECompileResult::FullyHandled;
 	UE_SET_LOG_VERBOSITY(Angelscript, Fatal);
@@ -150,7 +150,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionConstructorTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -170,7 +170,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionDestructorTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -204,12 +204,12 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionTemplateTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASFunctionTemplate.as"));
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(TEXT("ASFunctionTemplate"));
-		ResetSharedInitializedTestEngine(Engine);
+		ResetSharedCloneEngine(Engine);
 	};
 	ECompileResult CompileResult = ECompileResult::FullyHandled;
 	UE_SET_LOG_VERBOSITY(Angelscript, Fatal);
@@ -232,12 +232,12 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionFactoryTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASFunctionFactory.as"));
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(TEXT("ASFunctionFactory"));
-		ResetSharedInitializedTestEngine(Engine);
+		ResetSharedCloneEngine(Engine);
 	};
 	ECompileResult CompileResult = ECompileResult::FullyHandled;
 	UE_SET_LOG_VERBOSITY(Angelscript, Fatal);

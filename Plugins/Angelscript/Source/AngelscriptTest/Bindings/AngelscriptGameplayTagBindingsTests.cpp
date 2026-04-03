@@ -23,7 +23,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptGameplayTagBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 
 	FGameplayTagContainer AllTags;
 	UGameplayTagsManager::Get().RequestAllGameplayTags(AllTags, false);
@@ -93,7 +93,7 @@ int Entry()
 
 bool FAngelscriptGameplayTagContainerBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 
 	FGameplayTagContainer AllTags;
 	UGameplayTagsManager::Get().RequestAllGameplayTags(AllTags, false);
@@ -183,7 +183,7 @@ int Entry()
 
 bool FAngelscriptGameplayTagQueryBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 
 	FGameplayTagContainer AllTags;
 	UGameplayTagsManager::Get().RequestAllGameplayTags(AllTags, false);

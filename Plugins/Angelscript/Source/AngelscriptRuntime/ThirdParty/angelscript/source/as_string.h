@@ -105,7 +105,19 @@ public:
 
 	friend uint32 GetTypeHash(const asCString& S)
 	{
-		return FCrc::Strihash_DEPRECATED(S.GetLength(), S.AddressOf());
+		uint32 CRC = ~0u;
+		const char* Data = S.AddressOf();
+		const int32 Length = static_cast<int32>(S.GetLength());
+		for (int32 Index = 0; Index < Length; ++Index)
+		{
+			const uint32 V = CRC ^ static_cast<uint8>(RemoveCase(Data[Index]));
+			CRC =
+				FCrc::CRCTablesSB8[3][ V        & 0xFF] ^
+				FCrc::CRCTablesSB8[2][(V >>  8) & 0xFF] ^
+				FCrc::CRCTablesSB8[1][(V >> 16) & 0xFF] ^
+				FCrc::CRCTablesSB8[0][ V >> 24        ];
+		}
+		return ~CRC;
 	}
 
 protected:

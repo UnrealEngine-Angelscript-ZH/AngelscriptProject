@@ -82,7 +82,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptParserDeclarationTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
 	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
 	asCModule* Module = CreateParserModule(ScriptEngine, "ParserDeclarations");
 	if (!TestNotNull(TEXT("Parser declaration test should create a backing module"), Module))
@@ -115,7 +115,7 @@ bool FAngelscriptParserDeclarationTest::RunTest(const FString& Parameters)
 
 bool FAngelscriptParserExpressionAstTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
 	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
 	asCModule* Module = CreateParserModule(ScriptEngine, "ParserExpressions");
 	if (!TestNotNull(TEXT("Parser expression test should create a backing module"), Module))
@@ -141,7 +141,7 @@ bool FAngelscriptParserExpressionAstTest::RunTest(const FString& Parameters)
 
 bool FAngelscriptParserControlFlowTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
 	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
 	asCModule* Module = CreateParserModule(ScriptEngine, "ParserControlFlow");
 	if (!TestNotNull(TEXT("Parser control-flow test should create a backing module"), Module))
@@ -169,7 +169,7 @@ bool FAngelscriptParserControlFlowTest::RunTest(const FString& Parameters)
 
 bool FAngelscriptParserSyntaxErrorTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
 	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
 	asCModule* Module = CreateParserModule(ScriptEngine, "ParserSyntaxErrors");
 	if (!TestNotNull(TEXT("Parser syntax-error test should create a backing module"), Module))

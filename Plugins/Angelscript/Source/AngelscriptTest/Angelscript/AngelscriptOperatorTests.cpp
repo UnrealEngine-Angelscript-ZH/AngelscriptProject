@@ -18,7 +18,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptOperatorOverloadTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -39,7 +39,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptOperatorGetSetTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
 	if (!TestNotNull(TEXT("Operators.GetSet should expose a script engine for the isolated compile-fail probe"), ScriptEngine))
 	{
@@ -72,7 +72,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptOperatorConstTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -93,7 +93,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptOperatorPowerTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,

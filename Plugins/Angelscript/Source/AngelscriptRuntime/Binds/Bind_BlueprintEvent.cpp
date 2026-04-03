@@ -2,6 +2,7 @@
 #include "AngelscriptEngine.h"
 #include "AngelscriptType.h"
 
+#include "Containers/StringConv.h"
 #include "UObject/UObjectIterator.h"
 #include "UObject/UnrealType.h"
 
@@ -20,6 +21,47 @@
 struct FScriptCall;
 static FScriptCall* GCurrentCall = nullptr;
 static FScriptCall* GStoredCall = nullptr;
+
+static bool DoesCallArgumentMatchProperty(const FAngelscriptTypeUsage& ArgumentType, const FProperty* Property)
+{
+	if (!ArgumentType.IsValid() || Property == nullptr)
+	{
+		return false;
+	}
+
+	const FAngelscriptType::EPropertyMatchType MatchType = Property->HasAnyPropertyFlags(CPF_ReturnParm)
+		? FAngelscriptType::EPropertyMatchType::OverrideReturnValue
+		: FAngelscriptType::EPropertyMatchType::OverrideArgument;
+	return ArgumentType.MatchesProperty(Property, MatchType);
+}
+
+static bool TryExtractMulticastFunctionNames(const FMulticastScriptDelegate& Delegate, TArray<FName>& OutFunctionNames)
+{
+	const FString DelegateString = Delegate.ToString<UObject>();
+	if (DelegateString == TEXT("<Unbound>"))
+	{
+		return true;
+	}
+
+	FString TrimmedString = DelegateString;
+	TrimmedString.RemoveFromStart(TEXT("["));
+	TrimmedString.RemoveFromEnd(TEXT("]"));
+
+	TArray<FString> Entries;
+	TrimmedString.ParseIntoArray(Entries, TEXT(", "), true);
+	for (const FString& Entry : Entries)
+	{
+		int32 LastDotIndex = INDEX_NONE;
+		if (!Entry.FindLastChar(TEXT('.'), LastDotIndex) || LastDotIndex == INDEX_NONE || LastDotIndex + 1 >= Entry.Len())
+		{
+			return false;
+		}
+
+		OutFunctionNames.Add(FName(*Entry.Mid(LastDotIndex + 1)));
+	}
+
+	return true;
+}
 
 TMap<UClass*, TMap<FString, UFunction*>> GBlueprintEventsByScriptName;
 
@@ -57,6 +99,68 @@ struct alignas(64) FScriptCall
 	FArgumentInBuffer ArgumentTypes[AS_EVENT_MAX_ARGS];
 	int32 ArgumentIndex = 0;
 	SIZE_T ArgumentOffset = 0;
+
+	SCRIPTCALL_INLINE void AbortExecution(const FString& ErrorMessage)
+	{
+		ResetArguments();
+
+		check(GCurrentCall == this);
+		GCurrentCall = nullptr;
+
+		if (GStoredCall == nullptr)
+		{
+			GStoredCall = this;
+		}
+		else
+		{
+			this->~FScriptCall();
+			FMemory::Free(this);
+		}
+
+		const FTCHARToUTF8 ErrorMessageUtf8(*ErrorMessage);
+		FAngelscriptEngine::Throw(ErrorMessageUtf8.Get());
+	}
+
+	SCRIPTCALL_INLINE bool ValidateAgainstFunction(const UFunction* Function, FString& OutErrorMessage) const
+	{
+		if (Function == nullptr)
+		{
+			OutErrorMessage = TEXT("Attempted to execute an event or delegate without a bound function.");
+			return false;
+		}
+
+		int32 PropertyIndex = 0;
+		for (TFieldIterator<FProperty> It(Function); It && (It->PropertyFlags & CPF_Parm); ++It)
+		{
+			if (PropertyIndex >= ArgumentIndex)
+			{
+				OutErrorMessage = FString::Printf(TEXT("Signature mismatch while executing '%s': too few arguments were pushed."), *Function->GetName());
+				return false;
+			}
+
+			if (!DoesCallArgumentMatchProperty(ArgumentTypes[PropertyIndex].Type, *It))
+			{
+				OutErrorMessage = FString::Printf(TEXT("Signature mismatch while executing '%s' at parameter '%s'."), *Function->GetName(), *It->GetName());
+				return false;
+			}
+
+			++PropertyIndex;
+		}
+
+		if (PropertyIndex != ArgumentIndex)
+		{
+			OutErrorMessage = FString::Printf(TEXT("Signature mismatch while executing '%s': too many arguments were pushed."), *Function->GetName());
+			return false;
+		}
+
+		if (Function->ParmsSize != ArgumentOffset)
+		{
+			OutErrorMessage = FString::Printf(TEXT("Signature mismatch while executing '%s': argument buffer size %d does not match expected parameter size %d."), *Function->GetName(), static_cast<int32>(ArgumentOffset), Function->ParmsSize);
+			return false;
+		}
+
+		return true;
+	}
 
 	SCRIPTCALL_INLINE void ResetNonArgumentVariables()
 	{
@@ -141,8 +245,6 @@ struct alignas(64) FScriptCall
 
 	SCRIPTCALL_INLINE void ExecutePreamble()
 	{
-		// TODO: Check argument types to event's argument list so we don't cause crashes
-
 		check(GCurrentCall == this);
 		check(IsInGameThread());
 		GCurrentCall = nullptr;
@@ -166,12 +268,15 @@ struct alignas(64) FScriptCall
 
 	SCRIPTCALL_INLINE void ExecuteEvent(UObject* Object, FName EventName)
 	{
-		// TODO: Check argument types to event's argument list so we don't cause crashes
 		UFunction* Function = Object->FindFunctionChecked(EventName);
+		FString ValidationError;
+		if (!ValidateAgainstFunction(Function, ValidationError))
+		{
+			AbortExecution(ValidationError);
+			return;
+		}
 
 		ExecutePreamble();
-
-		//check(Function->ParmsSize == ArgumentOffset);
 
 		Object->ProcessEvent(Function, &ArgumentBuffer[0]);
 
@@ -180,6 +285,15 @@ struct alignas(64) FScriptCall
 
 	SCRIPTCALL_INLINE void ExecuteDelegate(FScriptDelegate& Delegate)
 	{
+		UObject* BoundObject = Delegate.GetUObject();
+		UFunction* BoundFunction = BoundObject != nullptr ? BoundObject->FindFunction(Delegate.GetFunctionName()) : nullptr;
+		FString ValidationError;
+		if (!ValidateAgainstFunction(BoundFunction, ValidationError))
+		{
+			AbortExecution(ValidationError);
+			return;
+		}
+
 		ExecutePreamble();
 
 		Delegate.ProcessDelegate<UObject>(&ArgumentBuffer[0]);
@@ -189,6 +303,26 @@ struct alignas(64) FScriptCall
 
 	SCRIPTCALL_INLINE void ExecuteMulticastDelegate(FMulticastScriptDelegate& Delegate)
 	{
+		TArray<UObject*> BoundObjects = Delegate.GetAllObjects();
+		TArray<FName> BoundFunctionNames;
+		if (!TryExtractMulticastFunctionNames(Delegate, BoundFunctionNames) || BoundObjects.Num() != BoundFunctionNames.Num())
+		{
+			AbortExecution(TEXT("Signature mismatch while executing multicast delegate: failed to resolve bound functions."));
+			return;
+		}
+
+		for (int32 DelegateIndex = 0; DelegateIndex < BoundObjects.Num(); ++DelegateIndex)
+		{
+			UObject* BoundObject = BoundObjects[DelegateIndex];
+			UFunction* BoundFunction = BoundObject != nullptr ? BoundObject->FindFunction(BoundFunctionNames[DelegateIndex]) : nullptr;
+			FString ValidationError;
+			if (!ValidateAgainstFunction(BoundFunction, ValidationError))
+			{
+				AbortExecution(ValidationError);
+				return;
+			}
+		}
+
 		ExecutePreamble();
 
 		Delegate.ProcessMulticastDelegate<UObject>(&ArgumentBuffer[0]);
@@ -340,8 +474,6 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_BlueprintEvents(FAngelscriptBi
 	FAngelscriptBinds::BindGlobalFunction("void __Evt_ExecuteDelegate(const _FScriptDelegate& Delegate)",
 	[](FScriptDelegate& Delegate)
 	{
-		// TODO: Signature checking?
-
 		CurrentCall().ExecuteDelegate(Delegate);
 	});
 	SCRIPT_NATIVE_DELEGATE_EXECUTE();
@@ -350,8 +482,6 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_BlueprintEvents(FAngelscriptBi
 	FAngelscriptBinds::BindGlobalFunction("void __Evt_ExecuteDelegate(const _FMulticastScriptDelegate& Delegate)",
 	[](FMulticastScriptDelegate& Delegate)
 	{
-		// TODO: Signature checking?
-
 		CurrentCall().ExecuteMulticastDelegate(Delegate);
 	});
 	SCRIPT_NATIVE_MULTICAST_EXECUTE();

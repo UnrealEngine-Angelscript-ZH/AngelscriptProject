@@ -24,7 +24,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptGuidBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -94,7 +94,7 @@ int Entry()
 
 bool FAngelscriptPathsBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -169,7 +169,7 @@ int Entry()
 
 bool FAngelscriptNumberFormattingOptionsBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,

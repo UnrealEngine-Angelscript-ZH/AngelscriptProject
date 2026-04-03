@@ -27,6 +27,19 @@ namespace
 	{
 		Spawner.InitializeGameSubsystems();
 	}
+
+	void ExpectDelegateSignatureMismatchLogs(
+		FAutomationTestBase& Test,
+		const TCHAR* ScenarioName,
+		const TCHAR* DelegateCallSignature,
+		const TCHAR* TriggerSignature)
+	{
+		Test.AddExpectedErrorPlain(TEXT("Signature mismatch while executing 'MarkNativeFlagFromDelegate'"), EAutomationExpectedErrorFlags::Contains, 0);
+		Test.AddExpectedErrorPlain(FString::Printf(TEXT("Clone_1::%s"), ScenarioName), EAutomationExpectedErrorFlags::Contains, 0);
+		Test.AddExpectedErrorPlain(DelegateCallSignature, EAutomationExpectedErrorFlags::Contains, 0);
+		Test.AddExpectedErrorPlain(TriggerSignature, EAutomationExpectedErrorFlags::Contains, 0);
+		Test.AddExpectedErrorPlain(FString::Printf(TEXT("(Actor: %s_0"), ScenarioName), EAutomationExpectedErrorFlags::Contains, 0);
+	}
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -39,14 +52,24 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	"Angelscript.TestModule.Delegate.Multicast",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptScenarioDelegateUnicastSignatureMismatchTest,
+	"Angelscript.TestModule.Delegate.UnicastSignatureMismatch",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptScenarioDelegateMulticastSignatureMismatchTest,
+	"Angelscript.TestModule.Delegate.MulticastSignatureMismatch",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
 bool FAngelscriptScenarioDelegateUnicastTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioDelegateUnicast"));
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(*ModuleName.ToString());
-		ResetSharedInitializedTestEngine(Engine);
+		ResetSharedCloneEngine(Engine);
 	};
 
 	UClass* ScriptClass = CompileScriptModule(
@@ -122,12 +145,12 @@ class AScenarioDelegateUnicast : AAngelscriptActor
 
 bool FAngelscriptScenarioDelegateMulticastTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioDelegateMulticast"));
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(*ModuleName.ToString());
-		ResetSharedInitializedTestEngine(Engine);
+		ResetSharedCloneEngine(Engine);
 	};
 
 	UClass* ScriptClass = CompileScriptModule(
@@ -205,6 +228,181 @@ class AScenarioDelegateMulticast : AAngelscriptActor
 	}
 
 	TestTrue(TEXT("Scenario multicast delegate should invoke the script handler when broadcast from C++"), EventTriggerCount > InitialEventTriggerCount);
+	return true;
+}
+
+bool FAngelscriptScenarioDelegateUnicastSignatureMismatchTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	static const FName ModuleName(TEXT("ScenarioDelegateUnicastSignatureMismatch"));
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedCloneEngine(Engine);
+	};
+
+	UClass* ScriptClass = CompileScriptModule(
+		*this,
+		Engine,
+		ModuleName,
+		TEXT("ScenarioDelegateUnicastSignatureMismatch.as"),
+		TEXT(R"AS(
+delegate void FOnHealthChanged(int32 NewHealth, const FString& Label);
+
+UCLASS()
+class AScenarioDelegateUnicastSignatureMismatch : AAngelscriptActor
+{
+	UPROPERTY()
+	FOnHealthChanged OnHealthChanged;
+
+	UFUNCTION()
+	void TriggerHealthChanged(int32 NewHealth, const FString& Label)
+	{
+		if (OnHealthChanged.IsBound())
+		{
+			OnHealthChanged.Execute(NewHealth, Label);
+		}
+	}
+}
+)AS"),
+		TEXT("AScenarioDelegateUnicastSignatureMismatch"));
+	if (ScriptClass == nullptr)
+	{
+		return false;
+	}
+
+	FActorTestSpawner Spawner;
+	InitializeDelegateScenarioSpawner(Spawner);
+	AActor* Actor = SpawnScriptActor(*this, Spawner, ScriptClass);
+	if (!TestNotNull(TEXT("Scenario unicast mismatch actor should spawn"), Actor))
+	{
+		return false;
+	}
+	BeginPlayActor(*Actor);
+
+	UAngelscriptNativeScriptTestObject* NativeReceiver = NewObject<UAngelscriptNativeScriptTestObject>(GetTransientPackage());
+	if (!TestNotNull(TEXT("Scenario unicast mismatch test should create a native receiver"), NativeReceiver))
+	{
+		return false;
+	}
+	NativeReceiver->bNativeFlag = false;
+
+	FDelegateProperty* DelegateProperty = FindFProperty<FDelegateProperty>(Actor->GetClass(), TEXT("OnHealthChanged"));
+	if (!TestNotNull(TEXT("Scenario unicast mismatch delegate property should exist"), DelegateProperty))
+	{
+		return false;
+	}
+
+	FScriptDelegate BoundDelegate;
+	BoundDelegate.BindUFunction(NativeReceiver, TEXT("MarkNativeFlagFromDelegate"));
+	*DelegateProperty->ContainerPtrToValuePtr<FScriptDelegate>(Actor) = BoundDelegate;
+
+	UFunction* TriggerFunction = FindGeneratedFunction(ScriptClass, TEXT("TriggerHealthChanged"));
+	if (!TestNotNull(TEXT("Scenario unicast mismatch trigger function should exist"), TriggerFunction))
+	{
+		return false;
+	}
+
+	FScenarioIntStringParams Params;
+	Params.Value = 91;
+	Params.Label = TEXT("UnicastMismatch");
+	ExpectDelegateSignatureMismatchLogs(
+		*this,
+		TEXT("ScenarioDelegateUnicastSignatureMismatch"),
+		TEXT("void FOnHealthChanged::Execute(int, FString) const"),
+		TEXT("void AScenarioDelegateUnicastSignatureMismatch::TriggerHealthChanged(int, FString)"));
+	Actor->ProcessEvent(TriggerFunction, &Params);
+
+	TestFalse(TEXT("Scenario unicast mismatch should not invoke a zero-argument native receiver"), NativeReceiver->bNativeFlag);
+	return true;
+}
+
+bool FAngelscriptScenarioDelegateMulticastSignatureMismatchTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	static const FName ModuleName(TEXT("ScenarioDelegateMulticastSignatureMismatch"));
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedCloneEngine(Engine);
+	};
+
+	UClass* ScriptClass = CompileScriptModule(
+		*this,
+		Engine,
+		ModuleName,
+		TEXT("ScenarioDelegateMulticastSignatureMismatch.as"),
+		TEXT(R"AS(
+event void FOnDamaged(int32 NewHealth, const FString& Label);
+
+UCLASS()
+class AScenarioDelegateMulticastSignatureMismatch : AAngelscriptActor
+{
+	UPROPERTY()
+	FOnDamaged OnDamaged;
+
+	UFUNCTION()
+	void TriggerDamaged(int32 NewHealth, const FString& Label)
+	{
+		OnDamaged.Broadcast(NewHealth, Label);
+	}
+}
+)AS"),
+		TEXT("AScenarioDelegateMulticastSignatureMismatch"));
+	if (ScriptClass == nullptr)
+	{
+		return false;
+	}
+
+	FActorTestSpawner Spawner;
+	InitializeDelegateScenarioSpawner(Spawner);
+	AActor* Actor = SpawnScriptActor(*this, Spawner, ScriptClass);
+	if (!TestNotNull(TEXT("Scenario multicast mismatch actor should spawn"), Actor))
+	{
+		return false;
+	}
+	BeginPlayActor(*Actor);
+
+	UAngelscriptNativeScriptTestObject* NativeReceiver = NewObject<UAngelscriptNativeScriptTestObject>(GetTransientPackage());
+	if (!TestNotNull(TEXT("Scenario multicast mismatch test should create a native receiver"), NativeReceiver))
+	{
+		return false;
+	}
+	NativeReceiver->bNativeFlag = false;
+
+	FMulticastInlineDelegateProperty* MulticastProperty = FindFProperty<FMulticastInlineDelegateProperty>(Actor->GetClass(), TEXT("OnDamaged"));
+	if (!TestNotNull(TEXT("Scenario multicast mismatch delegate property should exist"), MulticastProperty))
+	{
+		return false;
+	}
+
+	FMulticastScriptDelegate* MulticastDelegate = MulticastProperty->ContainerPtrToValuePtr<FMulticastScriptDelegate>(Actor);
+	if (!TestNotNull(TEXT("Scenario multicast mismatch delegate storage should exist"), MulticastDelegate))
+	{
+		return false;
+	}
+
+	FScriptDelegate BoundDelegate;
+	BoundDelegate.BindUFunction(NativeReceiver, TEXT("MarkNativeFlagFromDelegate"));
+	MulticastDelegate->Add(BoundDelegate);
+
+	UFunction* TriggerFunction = FindGeneratedFunction(ScriptClass, TEXT("TriggerDamaged"));
+	if (!TestNotNull(TEXT("Scenario multicast mismatch trigger function should exist"), TriggerFunction))
+	{
+		return false;
+	}
+
+	FScenarioIntStringParams Params;
+	Params.Value = 45;
+	Params.Label = TEXT("MulticastMismatch");
+	ExpectDelegateSignatureMismatchLogs(
+		*this,
+		TEXT("ScenarioDelegateMulticastSignatureMismatch"),
+		TEXT("void FOnDamaged::Broadcast(int, FString) const"),
+		TEXT("void AScenarioDelegateMulticastSignatureMismatch::TriggerDamaged(int, FString)"));
+	Actor->ProcessEvent(TriggerFunction, &Params);
+
+	TestFalse(TEXT("Scenario multicast mismatch should not invoke a zero-argument native receiver"), NativeReceiver->bNativeFlag);
 	return true;
 }
 

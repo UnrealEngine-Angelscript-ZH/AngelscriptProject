@@ -59,7 +59,7 @@ namespace AngelscriptTestSupport
 			TArray<TSharedRef<FAngelscriptModuleDesc>> CompiledModules;
 			TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
 			FScopedAutomaticImportsOverride AutomaticImportsOverride(Engine->GetScriptEngine());
-			FScopedTestEngineGlobalScope GlobalScope(Engine);
+			FScopedGlobalEngineOverride GlobalScope(Engine);
 			const ECompileResult CompileResult = Engine->CompileModules(CompileType, ModulesToCompile, CompiledModules);
 			if (OutCompileResult != nullptr)
 			{
@@ -124,7 +124,7 @@ namespace AngelscriptTestSupport
 			TArray<TSharedRef<FAngelscriptModuleDesc>> CompiledModules;
 			TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
 			FScopedAutomaticImportsOverride AutomaticImportsOverride(Engine->GetScriptEngine());
-			FScopedTestEngineGlobalScope GlobalScope(Engine);
+			FScopedGlobalEngineOverride GlobalScope(Engine);
 			const ECompileResult CompileResult = Engine->CompileModules(CompileType, ModulesToCompile, CompiledModules);
 			if (OutCompileResult != nullptr)
 			{

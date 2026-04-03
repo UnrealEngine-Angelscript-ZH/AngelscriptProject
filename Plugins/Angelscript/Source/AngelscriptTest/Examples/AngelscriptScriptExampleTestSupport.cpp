@@ -32,7 +32,7 @@ namespace AngelscriptScriptExamples
 			return false;
 		}
 
-		FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+		FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 		const FName ModuleName(*ModuleNameString);
 		ON_SCOPE_EXIT
 		{

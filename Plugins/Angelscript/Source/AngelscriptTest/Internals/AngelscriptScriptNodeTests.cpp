@@ -56,7 +56,7 @@ bool FAngelscriptScriptNodeTypeTest::RunTest(const FString& Parameters)
 
 bool FAngelscriptScriptNodeTraversalTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
 	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
 	asCModule* Module = CreateScriptNodeModule(ScriptEngine, "ScriptNodeTraversal");
 	if (!TestNotNull(TEXT("ScriptNode traversal test should create a backing module"), Module))
@@ -91,7 +91,7 @@ bool FAngelscriptScriptNodeTraversalTest::RunTest(const FString& Parameters)
 
 bool FAngelscriptScriptNodeCopyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
 	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
 	asCModule* Module = CreateScriptNodeModule(ScriptEngine, "ScriptNodeCopy");
 	if (!TestNotNull(TEXT("ScriptNode copy test should create a backing module"), Module))

@@ -16,7 +16,7 @@ namespace
 		const TCHAR* GroupLabel,
 		const TArray<FString>& RelativeScriptPaths)
 	{
-		FAngelscriptEngine* ProductionEngine = GetProductionEngine(Test, TEXT("Native script hot reload tests require a production engine."));
+		FAngelscriptEngine* ProductionEngine = RequireRunningProductionEngine(Test, TEXT("Native script hot reload tests require a production engine."));
 		if (ProductionEngine == nullptr)
 		{
 			return false;

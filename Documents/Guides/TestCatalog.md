@@ -3,6 +3,11 @@
 > 自动化测试基线：**275/275 PASS**（0 失败，0 禁用）
 >
 > 测试模块路径：`Plugins/Angelscript/Source/AngelscriptTest/`
+>
+> 说明：这里的 `275/275 PASS` 表示**已编目基线**，不是当前源码实时扫描到的全部测试数量。实时扫描规模与新增覆盖请以 `Documents/Guides/TechnicalDebtInventory.md` 的 live inventory / verification snapshot 为准。
+>
+> 最终 closeout 口径：`P6.3` 在独立 worktree 上重新执行 `Automation RunTests Angelscript.TestModule` 后，full-suite 仍只保留 `TechnicalDebtInventory.md` 中记录的 4 个已知失败项，没有新增技术债收口相关回归。
+
 
 ---
 
@@ -62,9 +67,9 @@
 | Shared.EngineHelper.ExecuteIntFunction | `ExecuteIntFunction` 能执行入口并返回正确整型结果（42） |
 | Shared.EngineHelper.GeneratedSymbolLookup | 带注解模块编译后，`FindGeneratedClass` / `FindGeneratedFunction` 能定位生成的类与 UFUNCTION |
 | Shared.EngineHelper.FailedAnnotatedModuleDoesNotPolluteLaterCompiles | 无效注解模块编译失败后，后续有效模块仍能编译并生成符号 |
-| Shared.EngineHelper.SharedTestEngineNeverSilentlyAttachesToProductionEngine | 共享测试引擎不会静默附着到生产引擎 |
-| Shared.EngineHelper.ProductionHelperRejectsMissingProductionEngine | 无生产子系统/全局引擎时 `TryGetCurrentProductionEngine` 为 null |
-| Shared.EngineHelper.CompileUsesScopedGlobalEngine | 在 `FScopedTestEngineGlobalScope` 下编译后，全局引擎指针恢复为共享引擎 |
+| Shared.EngineHelper.SharedTestEngineNeverSilentlyAttachesToProductionEngine | `GetOrCreateSharedCloneEngine` / `AcquireCleanSharedCloneEngine` 始终指向同一个共享 clone 引擎，不会静默附着到生产引擎 |
+| Shared.EngineHelper.ProductionHelperRejectsMissingProductionEngine | 无生产子系统/全局引擎时 `TryGetRunningProductionEngine` 为 null |
+| Shared.EngineHelper.CompileUsesScopedGlobalEngine | 在 `FScopedGlobalEngineOverride` 下编译后，全局引擎指针恢复为共享 clone 引擎 |
 | Shared.EngineHelper.NestedGlobalEngineScopeRestoresPreviousEngine | 嵌套 scope 先装 B 再退出后恢复 A |
 | Shared.EngineHelper.WorldContextScopeRestoresPreviousContext | `FScopedTestWorldContextScope` 正确设置/恢复 `CurrentWorldContext` |
 | Shared.EngineHelper.ExecutingOneTestEngineDoesNotLeakContextIntoNextTest | 两个 clone 引擎分别编译执行不同模块，结果互不串线 |
@@ -257,6 +262,7 @@
 | Upgrade.EngineProperties | 引擎属性相关兼容 |
 | Upgrade.MessageCallback | 消息回调兼容 |
 | Upgrade.RegisterObjectTypeFlags | `RegisterObjectType` 标志兼容 |
+| Upgrade.CStringHash | `asCString` 的 `GetTypeHash` 在替换弃用 CRC API 后仍保持大小写无关 |
 
 ---
 
@@ -332,7 +338,7 @@
 
 | 测试名 | 验证内容 | 源文件 |
 |--------|----------|--------|
-| Bindings.MathExtendedCompat | `Math::` 扩展：`RandHelper`/`IsPowerOfTwo`/`VRand`/`ClampAngle`/`Clamp`/插值系列/三次插值等 | AngelscriptMathAndPlatformBindingsTests.cpp |
+| Bindings.MathExtendedCompat | `Math::` 扩展：`RandHelper`/`IsPowerOfTwo`/`VRand`/`ClampAngle`/`Clamp`/插值系列/三次插值，以及 `FVector2f::ToDirectionAndLength`、`Math::LinePlaneIntersection(FPlane)`、`int64 Abs/Sign/Min/Max/Square` 等低风险 parity 闭环 | AngelscriptMathAndPlatformBindingsTests.cpp |
 | Bindings.PlatformProcessCompat | `FPlatformProcess`：用户目录/设置/临时/可执行路径/计算机名/用户名/`CanLaunchURL` | AngelscriptMathAndPlatformBindingsTests.cpp |
 | Bindings.Logging | `Log`/`LogDisplay`/`Warning`/`Error` 可执行；`AddExpectedError` 捕获 Error 输出 | AngelscriptMathAndPlatformBindingsTests.cpp |
 
@@ -376,7 +382,7 @@
 | 测试名 | 验证内容 | 源文件 |
 |--------|----------|--------|
 | Bindings.NativeActorMethods | `GetActorLocation`/`GetActorRotation`/`GetClass`/`GetName`/`IsA` 等原生 Actor 桥接调用 | AngelscriptNativeEngineBindingsTests.cpp |
-| Bindings.NativeComponentMethods | `USceneComponent`：`Activate`/`Deactivate`/相对变换/`GetComponent`/标签 | AngelscriptNativeEngineBindingsTests.cpp |
+| Bindings.NativeComponentMethods | `USceneComponent`：`Activate`/`Deactivate`/相对变换/`GetComponent`/标签，以及 `SetComponentVelocity` / `GetComponentVelocity` / `FScopedMovementUpdate` | AngelscriptNativeEngineBindingsTests.cpp |
 | Bindings.ComponentDestroyCompat | 注解组件上 `DestroyComponent()` 可编译执行，组件进入 `IsBeingDestroyed()` | AngelscriptNativeEngineBindingsTests.cpp |
 
 ---
@@ -442,6 +448,8 @@
 |--------|----------|
 | Internals.Restore.RoundTrip | 脚本节点/字节码等序列化往返一致 |
 | Internals.Restore.StripDebugInfoRoundTrip | 去掉调试信息后仍可往返 |
+| Internals.Restore.EmptyStreamFails | 空字节流加载失败并报告 `Unexpected end of file`，且不崩溃 |
+| Internals.Restore.TruncatedStreamFails | 截断字节流加载失败并报告 `Unexpected end of file`，且不崩溃 |
 
 ### Compiler 编译器
 

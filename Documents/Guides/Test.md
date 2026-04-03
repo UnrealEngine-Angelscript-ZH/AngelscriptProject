@@ -1,5 +1,14 @@
 # 运行自动化测试
 
+## AI Agent 执行前置
+
+- 执行任何自动化测试前，先读取项目根目录 `AgentConfig.ini`。
+- 若 `AgentConfig.ini` 不存在，先运行 `Tools\GenerateAgentConfigTemplate.bat` 生成模板，再补齐本机配置；未补齐前不要继续执行测试。
+- `Paths.EngineRoot` 缺失或为空时，测试命令必须直接阻塞，不能继续猜本地引擎路径。
+- `Paths.ProjectFile` 允许留空；留空时统一回退到仓库根目录下的 `AngelscriptProject.uproject`。
+- `Test.DefaultTimeoutMs` 缺失时统一回退到 `600000ms`。
+- 在真正运行测试命令前，可先执行 `Tools\ResolveAgentCommandTemplates.ps1` 做参数展开级 smoke check。
+
 # 图形测试
 
 (目前项目中无图形测试,不考虑这种启动方式)
@@ -17,13 +26,13 @@
 使用 `UnrealEditor-Cmd.exe`，**不加 `-NullRHI`**（需要 GPU 进行渲染）：
 
 ```
-C:\UnrealEngine\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe "D:\Workspace\UnrealEvent\UnrealEvent.uproject" -ExecCmds="Automation RunTests <TestName>; Quit" -Unattended -NoPause -NoSplash -NOSOUND
+<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe "<ResolvedProjectFile>" -ExecCmds="Automation RunTests <TestName>; Quit" -Unattended -NoPause -NoSplash -NOSOUND
 ```
 
 在 AI Agent 环境中执行（通过 PowerShell + Start-Process）：
 
 ```
-powershell.exe -Command "Start-Process -FilePath 'C:\UnrealEngine\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"D:\Workspace\UnrealEvent\UnrealEvent.uproject\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
+powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"<ResolvedProjectFile>\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
 ```
 
 超时建议：600000ms（10 分钟），首次启动需要加载引擎和编译 shader
@@ -64,32 +73,16 @@ powershell.exe -Command "Start-Process -FilePath 'C:\UnrealEngine\UE_5.7\Engine\
 原始命令：
 
 ```
-C:\UnrealEngine\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe "D:\Workspace\UnrealEvent\UnrealEvent.uproject" -ExecCmds="Automation RunTests <TestName>; Quit" -Unattended -NoPause -NoSplash -NullRHI -NOSOUND
+<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe "<ResolvedProjectFile>" -ExecCmds="Automation RunTests <TestName>; Quit" -Unattended -NoPause -NoSplash -NullRHI -NOSOUND
 ```
 
 在 AI Agent 环境中执行（通过 PowerShell + Start-Process）：
 
 ```
-powershell.exe -Command "Start-Process -FilePath 'C:\UnrealEngine\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"D:\Workspace\UnrealEvent\UnrealEvent.uproject\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NullRHI','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
+powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"<ResolvedProjectFile>\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NullRHI','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
 ```
 
-超时建议：600000ms（10 分钟），首次启动需要加载引擎和编译 shader。
-
-### 另一个项目示例
-
-使用 `UnrealEditor-Cmd.exe` 配合 `-ExecCmds` 参数，在 NullRHI 模式下运行（不需要 GPU）：
-
-原始命令：
-
-```
-C:\UnrealEngine\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe "D:\Workspace\TAPathon\PythonUIProject\PythonUIProject.uproject" -ExecCmds="Automation RunTests PythonUIWidget; Quit" -Unattended -NoPause -NoSplash -NullRHI -NOSOUND
-```
-
-在 AI Agent 环境中执行（通过 PowerShell + Start-Process）：
-
-```
-powershell.exe -Command "Start-Process -FilePath 'C:\UnrealEngine\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"D:\Workspace\TAPathon\PythonUIProject\PythonUIProject.uproject\"','-ExecCmds=\"Automation RunTests PythonUIWidget; Quit\"','-Unattended','-NoPause','-NoSplash','-NullRHI','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
-```
+其中 `<ResolvedProjectFile>` 应先读取 `Paths.ProjectFile`；若为空，则回退到仓库根目录下的 `AngelscriptProject.uproject`。
 
 超时建议：600000ms（10 分钟），首次启动需要加载引擎和编译 shader。
 

@@ -252,7 +252,8 @@ void FStaticJITFunction::ScriptCallNative(FScriptExecution& Execution, asCScript
 			else
 				ReturnAddress = *(void**)StackArgs;
 
-			// TODO: Do we need to destroy the object here in case of exception?
+			// Return-on-stack uses caller-owned storage. If the native call throws, AngelScript unwinding is
+			// responsible for cleaning up the return slot, so this bridge must not try to destroy it here.
 		}
 		else if (descr->returnType.IsObjectHandle() && !descr->returnType.IsReference())
 		{

@@ -965,7 +965,7 @@ void FAngelscriptEngine::Initialize_AnyThread()
 #if WITH_AS_DEBUGSERVER
 	if ((!bUsePrecompiledData || bScriptDevelopmentMode) && FApp::HasProjectName())
 	{
-		DebugServer = new FAngelscriptDebugServer(RuntimeConfig.DebugServerPort);
+		DebugServer = new FAngelscriptDebugServer(this, RuntimeConfig.DebugServerPort);
 	}
 #endif
 

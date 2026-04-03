@@ -16,7 +16,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptSetIteratorBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -61,7 +61,7 @@ int Entry()
 
 bool FAngelscriptMapIteratorBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,

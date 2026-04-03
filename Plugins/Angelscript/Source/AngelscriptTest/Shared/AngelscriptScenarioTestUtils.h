@@ -20,7 +20,7 @@ namespace AngelscriptScenarioTestUtils
 		const FString& ScriptSource,
 		FName GeneratedClassName)
 	{
-		AngelscriptTestSupport::FScopedTestEngineGlobalScope GlobalScope(&Engine);
+		AngelscriptTestSupport::FScopedGlobalEngineOverride GlobalScope(&Engine);
 
 		if (!Test.TestTrue(
 			*FString::Printf(TEXT("Scenario module '%s' should compile"), *ModuleName.ToString()),

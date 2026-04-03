@@ -852,21 +852,3 @@ bool FAngelscriptType::GetDebuggerValueFromFunction(asIScriptFunction* InScriptF
 
 	return false;
 }
-
-//WILL-EDIT --The function below is in Class.cpp, should probably just exclude these unless
-//You can find a higher level form via UObject or UClass to find it
-//This probably involves UPackage
-UScriptStruct* TBaseStructure<FBox>::Get()
-{
-	//UPackage* Package = UObject::StaticClass()->GetPackage();	
-	//static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("Box"));
-	//return ScriptStruct;
-	return nullptr;
-}
-
-UScriptStruct* TBaseStructure<FBoxSphereBounds>::Get()
-{
-	//static auto ScriptStruct = StaticGetBaseStructureInternal(TEXT("BoxSphereBounds"));
-	//return ScriptStruct;
-	return nullptr;
-}

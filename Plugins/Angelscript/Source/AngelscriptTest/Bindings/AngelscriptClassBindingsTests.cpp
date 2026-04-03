@@ -37,7 +37,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptClassLookupBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -93,7 +93,7 @@ int Entry()
 
 bool FAngelscriptTSubclassOfBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -178,7 +178,7 @@ int Entry()
 
 bool FAngelscriptTSoftClassPtrBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -265,7 +265,7 @@ int Entry()
 
 bool FAngelscriptStaticClassCompatBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 
 	asIScriptModule* PlainModule = BuildModule(
 		*this,
@@ -408,7 +408,7 @@ int Entry()
 
 bool FAngelscriptNativeStaticClassNamespaceBindingTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptEngine* ScriptEngine = Engine.Engine;
 	if (!TestNotNull(TEXT("AngelScript engine should exist"), ScriptEngine))
 	{
@@ -434,7 +434,7 @@ bool FAngelscriptNativeStaticClassNamespaceBindingTest::RunTest(const FString& P
 
 bool FAngelscriptNativeStaticTypeGlobalBindingTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,

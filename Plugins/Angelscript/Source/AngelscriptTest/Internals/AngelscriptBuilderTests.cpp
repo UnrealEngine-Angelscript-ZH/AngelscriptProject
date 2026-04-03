@@ -39,7 +39,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptBuilderSingleModulePipelineTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
 	asIScriptModule* Module = AngelscriptTestSupport::BuildModule(
 		*this,
 		Engine,
@@ -67,7 +67,7 @@ bool FAngelscriptBuilderSingleModulePipelineTest::RunTest(const FString& Paramet
 
 bool FAngelscriptBuilderCompileErrorCollectionTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
 	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
 	asCModule* Module = CreateBuilderModule(ScriptEngine, "BuilderCompileErrors");
 	if (!TestNotNull(TEXT("Builder compile-error test should create a backing module"), Module))
@@ -86,7 +86,7 @@ bool FAngelscriptBuilderCompileErrorCollectionTest::RunTest(const FString& Param
 
 bool FAngelscriptBuilderRebuildModuleTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
 	asIScriptModule* ModuleV1 = AngelscriptTestSupport::BuildModule(
 		*this,
 		Engine,
@@ -135,7 +135,7 @@ bool FAngelscriptBuilderRebuildModuleTest::RunTest(const FString& Parameters)
 
 bool FAngelscriptBuilderImportBindingTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
 	asIScriptModule* SourceModule = AngelscriptTestSupport::BuildModule(
 		*this,
 		Engine,

@@ -60,7 +60,7 @@ bool FAngelscriptDataTypeComparisonTest::RunTest(const FString& Parameters)
 
 bool FAngelscriptDataTypeObjectHandleTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
 	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
 	asCTypeInfo* ActorType = static_cast<asCTypeInfo*>(ScriptEngine->GetTypeInfoByName("AActor"));
 	if (!TestNotNull(TEXT("AActor should exist in the script type system for data-type handle tests"), ActorType))
