@@ -335,7 +335,7 @@
 
 | 测试名 | 验证内容 | 源文件 |
 |--------|----------|--------|
-| Bindings.MathExtendedCompat | `Math::` 扩展：`RandHelper`/`IsPowerOfTwo`/`VRand`/`ClampAngle`/`Clamp`/插值系列/三次插值等 | AngelscriptMathAndPlatformBindingsTests.cpp |
+| Bindings.MathExtendedCompat | `Math::` 扩展：`RandHelper`/`IsPowerOfTwo`/`VRand`/`ClampAngle`/`Clamp`/插值系列/三次插值，以及 `FVector2f::ToDirectionAndLength`、`Math::LinePlaneIntersection(FPlane)`、`int64 Abs/Sign/Min/Max/Square` 等低风险 parity 闭环 | AngelscriptMathAndPlatformBindingsTests.cpp |
 | Bindings.PlatformProcessCompat | `FPlatformProcess`：用户目录/设置/临时/可执行路径/计算机名/用户名/`CanLaunchURL` | AngelscriptMathAndPlatformBindingsTests.cpp |
 | Bindings.Logging | `Log`/`LogDisplay`/`Warning`/`Error` 可执行；`AddExpectedError` 捕获 Error 输出 | AngelscriptMathAndPlatformBindingsTests.cpp |
 
@@ -379,7 +379,7 @@
 | 测试名 | 验证内容 | 源文件 |
 |--------|----------|--------|
 | Bindings.NativeActorMethods | `GetActorLocation`/`GetActorRotation`/`GetClass`/`GetName`/`IsA` 等原生 Actor 桥接调用 | AngelscriptNativeEngineBindingsTests.cpp |
-| Bindings.NativeComponentMethods | `USceneComponent`：`Activate`/`Deactivate`/相对变换/`GetComponent`/标签 | AngelscriptNativeEngineBindingsTests.cpp |
+| Bindings.NativeComponentMethods | `USceneComponent`：`Activate`/`Deactivate`/相对变换/`GetComponent`/标签，以及 `SetComponentVelocity` / `GetComponentVelocity` / `FScopedMovementUpdate` | AngelscriptNativeEngineBindingsTests.cpp |
 | Bindings.ComponentDestroyCompat | 注解组件上 `DestroyComponent()` 可编译执行，组件进入 `IsBeingDestroyed()` | AngelscriptNativeEngineBindingsTests.cpp |
 
 ---

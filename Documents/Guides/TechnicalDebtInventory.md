@@ -171,3 +171,19 @@
 - `Angelscript.TestModule.ScriptExamples.Actor`
   - 失败摘要：`Cannot declare class AExampleActorType in module ScriptExamples.Example_Actor. A class with this name already exists in module Example_Actor.`
   - 归因判断：script example 模块命名或清理冲突，helper 命名迁移未触及该路径。
+
+## 12. Phase 4 验证快照
+
+- `P4.2` 低风险 bind 收口已落地的主项：
+  - `Bind_FVector2f.cpp`：补齐 `ToDirectionAndLength`
+  - `Bind_FMath.cpp`：补齐 `LinePlaneIntersection(const FVector&, const FVector&, const FPlane&)`
+  - `Bind_USceneComponent.cpp`：补齐 `SetComponentVelocity`、`GetComponentVelocity`、`FScopedMovementUpdate`
+  - `Bind_Delegates.cpp`：补齐本地可承载的 no-discard metadata 标记
+- `P4.2` / `P4.4` focused regression：
+  - `Angelscript.TestModule.Bindings.MathExtendedCompat`：PASS
+  - `Angelscript.TestModule.Bindings.NativeComponentMethods`：PASS
+  - `Angelscript.TestModule.Delegate.Multicast`：PASS
+  - `Angelscript.TestModule.Delegate.MulticastSignatureMismatch`：PASS
+  - `Angelscript.TestModule.Delegate.Unicast`：PASS
+  - `Angelscript.TestModule.Delegate.UnicastSignatureMismatch`：PASS
+- `BindGapAuditMatrix.md` 已把超出主计划 low-risk 范围的项分流到 `Plan_AS238NonLambdaPort.md` 与 `Plan_HazelightBindModuleMigration.md`。
