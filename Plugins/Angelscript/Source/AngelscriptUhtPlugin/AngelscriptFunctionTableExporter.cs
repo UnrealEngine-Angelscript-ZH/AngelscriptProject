@@ -18,21 +18,25 @@ internal static class AngelscriptFunctionTableExporter
 		int packageCount = 0;
 		int classCount = 0;
 		int functionCount = 0;
+		int reconstructedCount = 0;
+		int skippedCount = 0;
 
 		foreach (UhtModule module in factory.Session.Modules)
 		{
 			packageCount++;
-			CountBlueprintCallableFunctions(module.ScriptPackage, ref classCount, ref functionCount);
+			CountBlueprintCallableFunctions(module.ScriptPackage, ref classCount, ref functionCount, ref reconstructedCount, ref skippedCount);
 		}
 
 		Console.WriteLine(
-			"AngelscriptUhtPlugin exporter visited {0} packages, {1} classes, {2} BlueprintCallable/Pure functions.",
+			"AngelscriptUhtPlugin exporter visited {0} packages, {1} classes, {2} BlueprintCallable/Pure functions, reconstructed {3}, skipped {4}.",
 			packageCount,
 			classCount,
-			functionCount);
+			functionCount,
+			reconstructedCount,
+			skippedCount);
 	}
 
-	private static void CountBlueprintCallableFunctions(UhtType type, ref int classCount, ref int functionCount)
+	private static void CountBlueprintCallableFunctions(UhtType type, ref int classCount, ref int functionCount, ref int reconstructedCount, ref int skippedCount)
 	{
 		if (type is UhtClass classObj)
 		{
@@ -42,13 +46,22 @@ internal static class AngelscriptFunctionTableExporter
 				if (child is UhtFunction function && IsBlueprintCallable(function))
 				{
 					functionCount++;
+					if (AngelscriptFunctionSignatureBuilder.TryBuild(classObj, function, out AngelscriptFunctionSignature? signature, out string? _))
+					{
+						_ = signature!.BuildEraseMacro();
+						reconstructedCount++;
+					}
+					else
+					{
+						skippedCount++;
+					}
 				}
 			}
 		}
 
 		foreach (UhtType child in type.Children)
 		{
-			CountBlueprintCallableFunctions(child, ref classCount, ref functionCount);
+			CountBlueprintCallableFunctions(child, ref classCount, ref functionCount, ref reconstructedCount, ref skippedCount);
 		}
 	}
 
