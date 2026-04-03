@@ -14,7 +14,7 @@ namespace
  * for itself using a construction script instead of a DefaultComponent,
  * and calculates a derived property.
  */
-class AExampleConstructionScript : AActor
+class AExampleConstructionScript_UnitTest : AActor
 {
 	UPROPERTY(NotVisible)
 	UBillboardComponent Billboard;

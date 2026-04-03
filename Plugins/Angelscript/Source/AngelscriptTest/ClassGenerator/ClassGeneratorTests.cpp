@@ -15,12 +15,12 @@ namespace
 {
 	FAngelscriptEngine* GetEngineForClassGeneratorTests(FAutomationTestBase* Test)
 	{
-		if (FAngelscriptEngine* ProductionEngine = AngelscriptTestSupport::TryGetCurrentProductionEngine())
+		if (FAngelscriptEngine* ProductionEngine = AngelscriptTestSupport::TryGetRunningProductionEngine())
 		{
 			return ProductionEngine;
 		}
 
-		return &AngelscriptTestSupport::GetSharedTestEngine();
+		return &AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	}
 }
 

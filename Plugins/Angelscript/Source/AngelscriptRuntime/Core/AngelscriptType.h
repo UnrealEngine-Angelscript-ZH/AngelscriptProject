@@ -727,14 +727,3 @@ struct FDebuggerScope
 {
 	TArray<FDebuggerValue> Values;
 };
-
-//WILL-EDIT
-template<> struct TBaseStructure<FBox>
-{
-	DLLEXPORT static UScriptStruct* Get();
-};
-
-template<> struct TBaseStructure<FBoxSphereBounds>
-{
-	DLLEXPORT static UScriptStruct* Get();
-};

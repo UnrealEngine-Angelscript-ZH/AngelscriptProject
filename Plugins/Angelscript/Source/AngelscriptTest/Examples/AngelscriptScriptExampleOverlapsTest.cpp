@@ -13,7 +13,7 @@ namespace
     ActorBeginOverlap and ActorEndOverlap functions,
     which provide the actor our overlap is with.
 */
-class AOverlapExampleActor : AActor
+class AExampleOverlapActor_UnitTest : AActor
 {
     UFUNCTION(BlueprintOverride)
     void ActorBeginOverlap(AActor OtherActor)
@@ -35,7 +35,7 @@ class AOverlapExampleActor : AActor
     You will need to bind a function to their OnComponentBeginOverlap
     and OnComponentEndOverlap events, like this:
 */
-class UOverlapExampleComponent : UPrimitiveComponent
+class UExampleOverlapComponent_UnitTest : UPrimitiveComponent
 {
     UFUNCTION(BlueprintOverride)
     void BeginPlay()

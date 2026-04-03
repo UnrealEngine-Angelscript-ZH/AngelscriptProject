@@ -9,7 +9,7 @@ namespace
 	const AngelscriptScriptExamples::FScriptExampleSource GFormatStringExample = {
 		TEXT("Example_FormatString.as"),
 		TEXT(R"ANGELSCRIPT(
-class AExampleFormatString : AActor
+class AExampleFormatString_UnitTest : AActor
 {
 	UFUNCTION(BlueprintOverride)
 	void Tick(float DeltaSeconds)

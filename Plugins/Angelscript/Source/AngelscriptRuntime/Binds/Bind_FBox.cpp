@@ -6,7 +6,7 @@
 #include "Helper_StructType.h"
 #include "Helper_ToString.h"
 
-struct FBoxType : TAngelscriptBaseStructType<FBox>
+struct FBoxType : TAngelscriptCoreStructType<FBox, FGetBox>
 {
 	FString GetAngelscriptTypeName() const override
 	{

@@ -13,7 +13,7 @@ namespace
     an object at a later point in time.
 */
 
-class AExampleTimerActor : AActor
+class AExampleTimerActor_UnitTest : AActor
 {
     UFUNCTION(BlueprintOverride)
     void BeginPlay()

@@ -46,8 +46,8 @@
 *.VC.opendb
 
 
-Content
-
+Content/*
+!Content/Test/
 
 # Precompiled Assets
 SourceArt/**/*.png

@@ -62,8 +62,6 @@
 #pragma clang diagnostic ignored "-Wself-assign"
 #endif
 
-PRAGMA_DISABLE_DEPRECATION_WARNINGS
-
 enum class EJITException : uint8
 {
 	NullPointer,

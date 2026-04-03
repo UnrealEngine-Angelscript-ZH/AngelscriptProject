@@ -52,6 +52,12 @@ namespace
 			ReadOffset = 0;
 		}
 
+		void Truncate(int32 NewSize)
+		{
+			Bytes.SetNum(FMath::Max(NewSize, 0), EAllowShrinking::No);
+			ReadOffset = FMath::Min(ReadOffset, Bytes.Num());
+		}
+
 		int32 Num() const
 		{
 			return Bytes.Num();
@@ -99,9 +105,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	"Angelscript.TestModule.Internals.Restore.StripDebugInfoRoundTrip",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptRestoreEmptyStreamFailsTest,
+	"Angelscript.TestModule.Internals.Restore.EmptyStreamFails",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptRestoreTruncatedStreamFailsTest,
+	"Angelscript.TestModule.Internals.Restore.TruncatedStreamFails",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
 bool FAngelscriptRestoreRoundTripTest::RunTest(const FString& Parameters)
 {
-	TUniquePtr<FAngelscriptEngine> SourceEngineOwner = AngelscriptTestSupport::CreateCloneTestEngine();
+	TUniquePtr<FAngelscriptEngine> SourceEngineOwner = AngelscriptTestSupport::CreateIsolatedCloneEngine();
 	if (!TestNotNull(TEXT("Restore roundtrip should create an isolated clone test engine"), SourceEngineOwner.Get()))
 	{
 		return false;
@@ -171,7 +187,7 @@ bool FAngelscriptRestoreRoundTripTest::RunTest(const FString& Parameters)
 
 bool FAngelscriptRestoreStripDebugInfoRoundTripTest::RunTest(const FString& Parameters)
 {
-	TUniquePtr<FAngelscriptEngine> SourceEngineOwner = AngelscriptTestSupport::CreateCloneTestEngine();
+	TUniquePtr<FAngelscriptEngine> SourceEngineOwner = AngelscriptTestSupport::CreateIsolatedCloneEngine();
 	if (!TestNotNull(TEXT("Restore strip roundtrip should create an isolated clone test engine"), SourceEngineOwner.Get()))
 	{
 		return false;
@@ -223,6 +239,83 @@ bool FAngelscriptRestoreStripDebugInfoRoundTripTest::RunTest(const FString& Para
 	}
 
 	return true;
+}
+
+bool FAngelscriptRestoreEmptyStreamFailsTest::RunTest(const FString& Parameters)
+{
+	TUniquePtr<FAngelscriptEngine> EngineOwner = AngelscriptTestSupport::CreateIsolatedCloneEngine();
+	if (!TestNotNull(TEXT("Restore empty stream test should create an isolated clone test engine"), EngineOwner.Get()))
+	{
+		return false;
+	}
+
+	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(EngineOwner->GetScriptEngine());
+	asCModule* RestoredModule = CreateRestoreModule(ScriptEngine, "RestoreEmptyStream");
+	if (!TestNotNull(TEXT("Restore empty stream test should create a destination module"), RestoredModule))
+	{
+		return false;
+	}
+
+	FMemoryBinaryStream Stream;
+	bool bWasDebugInfoStripped = false;
+	AddExpectedErrorPlain(TEXT("Unexpected end of file"), EAutomationExpectedErrorFlags::Contains, -1);
+	const int LoadResult = RestoredModule->LoadByteCode(&Stream, &bWasDebugInfoStripped);
+	return TestNotEqual(TEXT("Restore should reject an empty bytecode stream"), LoadResult, static_cast<int>(asSUCCESS));
+}
+
+bool FAngelscriptRestoreTruncatedStreamFailsTest::RunTest(const FString& Parameters)
+{
+	TUniquePtr<FAngelscriptEngine> SourceEngineOwner = AngelscriptTestSupport::CreateIsolatedCloneEngine();
+	if (!TestNotNull(TEXT("Restore truncated stream test should create an isolated clone test engine"), SourceEngineOwner.Get()))
+	{
+		return false;
+	}
+
+	FAngelscriptEngine& SourceEngine = *SourceEngineOwner;
+	ON_SCOPE_EXIT
+	{
+		SourceEngine.DiscardModule(TEXT("RestoreTruncatedSourceModule"));
+	};
+
+	asCModule* SourceModule = BuildRestoreModule(*this, SourceEngine, "RestoreTruncatedSourceModule");
+	if (!TestNotNull(TEXT("Restore truncated stream test should compile a source module"), SourceModule))
+	{
+		return false;
+	}
+
+	FMemoryBinaryStream Stream;
+	const int SaveResult = SourceModule->SaveByteCode(&Stream, false);
+	if (!TestEqual(TEXT("Restore truncated stream test should save bytecode successfully"), SaveResult, static_cast<int>(asSUCCESS)))
+	{
+		return false;
+	}
+	if (!TestTrue(TEXT("Restore truncated stream test should emit enough bytes to truncate"), Stream.Num() > 16))
+	{
+		return false;
+	}
+
+	Stream.Truncate(Stream.Num() - 16);
+	Stream.ResetReadOffset();
+	SourceModule->Discard();
+
+	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(SourceEngine.GetScriptEngine());
+	const asPWORD PreviousInitGlobalsAfterBuild = ScriptEngine->GetEngineProperty(asEP_INIT_GLOBAL_VARS_AFTER_BUILD);
+	ScriptEngine->SetEngineProperty(asEP_INIT_GLOBAL_VARS_AFTER_BUILD, 0);
+	ON_SCOPE_EXIT
+	{
+		ScriptEngine->SetEngineProperty(asEP_INIT_GLOBAL_VARS_AFTER_BUILD, PreviousInitGlobalsAfterBuild);
+	};
+
+	asCModule* RestoredModule = CreateRestoreModule(ScriptEngine, "RestoreTruncatedSourceModule");
+	if (!TestNotNull(TEXT("Restore truncated stream test should create a destination module"), RestoredModule))
+	{
+		return false;
+	}
+
+	bool bWasDebugInfoStripped = false;
+	AddExpectedErrorPlain(TEXT("Unexpected end of file"), EAutomationExpectedErrorFlags::Contains, -1);
+	const int LoadResult = RestoredModule->LoadByteCode(&Stream, &bWasDebugInfoStripped);
+	return TestNotEqual(TEXT("Restore should reject a truncated bytecode stream"), LoadResult, static_cast<int>(asSUCCESS));
 }
 
 #endif

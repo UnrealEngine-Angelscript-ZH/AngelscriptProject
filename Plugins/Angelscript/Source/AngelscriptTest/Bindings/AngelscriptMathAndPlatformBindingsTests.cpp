@@ -24,7 +24,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptMathExtendedBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -106,6 +106,29 @@ int Entry()
 	if (ScalarDerivative64 <= 0.0)
 		return 200;
 
+	FVector2f Direction;
+	float32 DirectionLength = 0.0f;
+	FVector2f(3.0f, 4.0f).ToDirectionAndLength(Direction, DirectionLength);
+	if (!Direction.Equals(FVector2f(0.6f, 0.8f), 0.001f))
+		return 205;
+	if (!Math::IsNearlyEqual(DirectionLength, 5.0f, 0.001f))
+		return 210;
+
+	if (Math::Abs(int64(-7)) != 7)
+		return 215;
+	if (Math::Sign(int64(-7)) != -1 || Math::Sign(int64(0)) != 0 || Math::Sign(int64(7)) != 1)
+		return 220;
+	if (Math::Min(int64(7), int64(-3)) != -3)
+		return 225;
+	if (Math::Max(int64(7), int64(-3)) != 7)
+		return 230;
+	if (Math::Square(int64(9)) != 81)
+		return 235;
+
+	FVector PlaneIntersection = Math::LinePlaneIntersection(FVector(0.0f, 0.0f, -5.0f), FVector(0.0f, 0.0f, 5.0f), FPlane(FVector::ZeroVector, FVector::UpVector));
+	if (!PlaneIntersection.Equals(FVector::ZeroVector, 0.001f))
+		return 240;
+
 	return 1;
 }
 )"));
@@ -132,7 +155,7 @@ int Entry()
 
 bool FAngelscriptPlatformProcessBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -189,7 +212,7 @@ bool FAngelscriptLoggingBindingsTest::RunTest(const FString& Parameters)
 {
 	AddExpectedError(TEXT("Test error message"), EAutomationExpectedErrorFlags::Contains, 1);
 
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,

@@ -32,8 +32,8 @@ struct FAngelscriptTestEngineScopeAccess
 
 namespace AngelscriptTestSupport
 {
-	using FScopedTestEngineGlobalScope = ::FScopedTestEngineGlobalScope;
 	using FAngelscriptTestEngineScopeAccess = ::FAngelscriptTestEngineScopeAccess;
+	using FScopedGlobalEngineOverride = ::FScopedGlobalEngineOverride;
 
 	inline TUniquePtr<FAngelscriptEngine>& GetSharedTestEngineStorage()
 	{
@@ -55,7 +55,7 @@ namespace AngelscriptTestSupport
 		TUniquePtr<FAngelscriptGameThreadScopeWorldContext> Scope;
 	};
 
-	inline FAngelscriptEngine* TryGetCurrentProductionEngine()
+	inline FAngelscriptEngine* TryGetRunningProductionEngine()
 	{
 		if (UAngelscriptGameInstanceSubsystem* Subsystem = UAngelscriptGameInstanceSubsystem::GetCurrent())
 		{
@@ -73,7 +73,7 @@ namespace AngelscriptTestSupport
 		return nullptr;
 	}
 
-	inline TUniquePtr<FAngelscriptEngine> CreateFullTestEngine()
+	inline TUniquePtr<FAngelscriptEngine> CreateIsolatedFullEngine()
 	{
 		FAngelscriptEngineConfig Config;
 		FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
@@ -82,42 +82,26 @@ namespace AngelscriptTestSupport
 		return Engine;
 	}
 
-	inline TUniquePtr<FAngelscriptEngine> CreateCloneTestEngine()
+	inline TUniquePtr<FAngelscriptEngine> CreateIsolatedCloneEngine()
 	{
 		FAngelscriptEngineConfig Config;
 		FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
 		return FAngelscriptEngine::CreateForTesting(Config, Dependencies, EAngelscriptEngineCreationMode::Clone);
 	}
 
-	inline TUniquePtr<FAngelscriptEngine> CreateInitializedTestEngine()
+	inline FAngelscriptEngine& GetOrCreateSharedCloneEngine()
 	{
-		return CreateFullTestEngine();
-	}
-
-	inline FAngelscriptEngine& GetSharedTestEngine()
-	{
-		auto& SharedEngine = GetSharedTestEngineStorage();
-		if (!SharedEngine.IsValid())
+		static TUniquePtr<FAngelscriptEngine> SharedCloneEngine;
+		if (!SharedCloneEngine.IsValid())
 		{
-			SharedEngine = CreateCloneTestEngine();
+			SharedCloneEngine = CreateIsolatedCloneEngine();
 		}
 
-		check(SharedEngine.IsValid());
-		return *SharedEngine;
+		check(SharedCloneEngine.IsValid());
+		return *SharedCloneEngine;
 	}
 
-	inline void DestroySharedTestEngine()
-	{
-		auto& SharedEngine = GetSharedTestEngineStorage();
-		SharedEngine.Reset();
-	}
-
-	inline FAngelscriptEngine& GetSharedInitializedTestEngine()
-	{
-		return GetSharedTestEngine();
-	}
-
-	inline void ResetSharedTestEngine(FAngelscriptEngine& Engine)
+	inline void ResetSharedCloneEngine(FAngelscriptEngine& Engine)
 	{
 		const TArray<TSharedRef<FAngelscriptModuleDesc>> ActiveModules = Engine.GetActiveModules();
 		for (const TSharedRef<FAngelscriptModuleDesc>& Module : ActiveModules)
@@ -128,40 +112,30 @@ namespace AngelscriptTestSupport
 		CollectGarbage(RF_NoFlags, true);
 	}
 
-	inline void ResetSharedInitializedTestEngine(FAngelscriptEngine& Engine)
+	inline FAngelscriptEngine& AcquireCleanSharedCloneEngine()
 	{
-		ResetSharedTestEngine(Engine);
-	}
-
-	inline FAngelscriptEngine& GetResetSharedTestEngine()
-	{
-		FAngelscriptEngine& Engine = GetSharedTestEngine();
-		ResetSharedTestEngine(Engine);
+		FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+		ResetSharedCloneEngine(Engine);
 		return Engine;
 	}
 
-	inline FAngelscriptEngine& GetResetSharedInitializedTestEngineWithGlobalScope(FScopedTestEngineGlobalScope& OutScope)
+	inline FAngelscriptEngine& AcquireCleanSharedCloneEngineAndOverrideGlobal(FScopedGlobalEngineOverride& OutScope)
 	{
-		FAngelscriptEngine& Engine = GetSharedTestEngine();
-		ResetSharedTestEngine(Engine);
-		OutScope = FScopedTestEngineGlobalScope(&Engine);
+		FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+		ResetSharedCloneEngine(Engine);
+		OutScope = FScopedGlobalEngineOverride(&Engine);
 		return Engine;
 	}
 
-	inline FAngelscriptEngine* GetProductionEngine(FAutomationTestBase& Test, const TCHAR* ErrorContext)
+	inline FAngelscriptEngine* RequireRunningProductionEngine(FAutomationTestBase& Test, const TCHAR* ErrorContext)
 	{
-		if (FAngelscriptEngine* ProductionEngine = TryGetCurrentProductionEngine())
+		if (FAngelscriptEngine* ProductionEngine = TryGetRunningProductionEngine())
 		{
 			return ProductionEngine;
 		}
 
 		Test.AddError(ErrorContext);
 		return nullptr;
-	}
-
-	inline FAngelscriptEngine* GetProductionEngineForParity(FAutomationTestBase& Test, const TCHAR* ErrorContext)
-	{
-		return GetProductionEngine(Test, ErrorContext);
 	}
 
 	inline void ReportCompileDiagnostics(FAutomationTestBase& Test, const FAngelscriptEngine& Engine, const FString& AbsoluteFilename)

@@ -30,7 +30,7 @@ void ExecuteExampleFunction(AActor InputActor)
 	Print("Called for actor: " + InputActor.GetName());
 }
 
-class AExampleFunctionActorType : AActor
+class AExampleFunctionActor_UnitTest : AActor
 {
 	/*
 	 * In order to declare a new event that can be overriden by

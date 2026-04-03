@@ -15,7 +15,7 @@ namespace
  * This allows a component to only allow certain capabilities
  * to call functions on it, for example.
  */
-class UAccessSpecifierExample
+class UAccessSpecifierExample_UnitTest
 {
 	// Access specifiers need to be declared in the class they are used in
 	// All access specifiers start with private or protected as a base.
@@ -29,7 +29,7 @@ class UAccessSpecifierExample
 
 	// From there, you can add a list of classes that should also be granted access
 	// on top of the private or protected access.
-	access InternalWithCapability = private, UAccessSpecifierComponent, APlayerController;
+	access InternalWithCapability = private, UAccessSpecifierComponent_UnitTest, APlayerController;
 
 	// This can be accessed as private, or by etiher of the two classes specified above
 	access:InternalWithCapability
@@ -51,9 +51,9 @@ class UAccessSpecifierExample
 	// readonly:
 	//  The class can only read properties or call const methods, not do anything that can modify it.
 	//
-	access SpecifierCapabilityCanOnlyRead = private, UAccessSpecifierComponent (readonly);
+	access SpecifierCapabilityCanOnlyRead = private, UAccessSpecifierComponent_UnitTest (readonly);
 
-	// This can be read from UAccessSpecifierCapability, but not changed
+	// This can be read from UAccessSpecifierComponent_UnitTest, but not changed
 	access:SpecifierCapabilityCanOnlyRead
 	float CapabilityReadOnlyValue = 0.0;
 
@@ -82,7 +82,7 @@ class UAccessSpecifierExample
 
 	// Global functions can also be given access just like classes
 	//  Note that neither classes nor functions need to be imported to be given access
-	access RestrictedToSpecificGlobalFunction = private, ExampleCallRestrictedFunction;
+	access RestrictedToSpecificGlobalFunction = private, ExampleCallRestricted_UnitTest;
 
 	access:RestrictedToSpecificGlobalFunction
 	void RestrictedFunction()
@@ -90,13 +90,13 @@ class UAccessSpecifierExample
 	}
 };
 
-void ExampleCallRestrictedFunction()
+void ExampleCallRestricted_UnitTest()
 {
-	UAccessSpecifierExample Example;
+	UAccessSpecifierExample_UnitTest Example;
 	Example.RestrictedFunction();
 }
 
-class UAccessSpecifierComponent : UActorComponent
+class UAccessSpecifierComponent_UnitTest : UActorComponent
 {
 };)ANGELSCRIPT"),
 		nullptr,

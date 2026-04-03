@@ -15,7 +15,7 @@ namespace
  * hot reload as well by changing the behavior.
  */
 
-class AExampleMovingObject : AActor
+class AExampleMovingObject_UnitTest : AActor
 {
 	/**
 	 * Properties set to DefaultComponent will be

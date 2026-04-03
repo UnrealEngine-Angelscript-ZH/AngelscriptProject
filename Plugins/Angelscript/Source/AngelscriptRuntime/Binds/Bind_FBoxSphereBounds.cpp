@@ -6,7 +6,7 @@
 #include "Helper_StructType.h"
 #include "Helper_ToString.h"
 
-struct FBoxSphereBoundsType : TAngelscriptBaseStructType<FBoxSphereBounds>
+struct FBoxSphereBoundsType : TAngelscriptCoreStructType<FBoxSphereBounds, FGetBoxSphereBounds>
 {
 	FString GetAngelscriptTypeName() const override
 	{

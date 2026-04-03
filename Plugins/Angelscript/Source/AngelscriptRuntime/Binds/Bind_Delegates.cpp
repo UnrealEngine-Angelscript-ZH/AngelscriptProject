@@ -441,10 +441,12 @@ void DeclareDelegate(UDelegateFunction* Function)
 	FBindFlags BindFlags;
 	auto Delegate_ = FAngelscriptBinds::ValueClass<FScriptDelegate>(Decl, BindFlags);
 	Delegate_.Constructor("void f()", FUNC_TRIVIAL(FAngelscriptDelegateOperations::Construct));
+	FAngelscriptBinds::SetPreviousBindNoDiscard(true);
 	Delegate_.Destructor("void f()", FUNC_TRIVIAL(FAngelscriptDelegateOperations::Destruct));
 
 	FString CopyDecl = FString::Printf(TEXT("void f(const %s& Other)"), *Decl);
 	Delegate_.Constructor(CopyDecl, FUNC_TRIVIAL(FAngelscriptDelegateOperations::CopyConstruct));
+	FAngelscriptBinds::SetPreviousBindNoDiscard(true);
 
 	FString AssignDecl = FString::Printf(TEXT("%s& opAssign(const %s& Other)"), *Decl, *Decl);
 	Delegate_.Method(AssignDecl, FUNC_TRIVIAL(FAngelscriptDelegateOperations::Assign));
@@ -620,6 +622,7 @@ void DeclareDelegateOperations(UDelegateFunction* Function)
 
 	Delegate_.Constructor("void f(UObject Object, const FName& FunctionName)", FUNC(FAngelscriptDelegateOperations::ConstructFromFunction), Ops);
 	FAngelscriptBinds::PreviousBindPassScriptFunctionAsFirstParam();
+	FAngelscriptBinds::SetPreviousBindNoDiscard(true);
 
 	Delegate_.Method("void BindUFunction(UObject Object, const FName& FunctionName)", FUNC(FAngelscriptDelegateOperations::BindUFunction), Ops);
 	FAngelscriptBinds::PreviousBindPassScriptFunctionAsFirstParam();

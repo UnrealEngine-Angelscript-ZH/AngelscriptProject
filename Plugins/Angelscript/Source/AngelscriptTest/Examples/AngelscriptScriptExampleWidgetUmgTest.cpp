@@ -15,7 +15,7 @@ namespace
  *  Then you can create certain functionality in script while designing the UI
  *  in the widget blueprint.
  */
-class UExampleWidget : UUserWidget
+class UExampleWidget_UnitTest : UUserWidget
 {
 	// BindWidget automatically assigns this property to the widget named MainText in the widget blueprint.
 	// If you don't have a widget called MainText in the widget blueprint you will get an error.
@@ -42,7 +42,7 @@ class UExampleWidget : UUserWidget
  *  This can be called for example from level blueprint to specify which widget blueprint to show.
  */
 UFUNCTION(Category = "Examples | Player HUD Widget")
-void Example_AddExampleWidgetToHUD(APlayerController OwningPlayer, TSubclassOf<UExampleWidget> WidgetClass)
+void Example_AddExampleWidgetToHUD(APlayerController OwningPlayer, TSubclassOf<UExampleWidget_UnitTest> WidgetClass)
 {
     UUserWidget UserWidget = WidgetBlueprint::CreateWidget(WidgetClass, OwningPlayer);
     UserWidget.AddToViewport();

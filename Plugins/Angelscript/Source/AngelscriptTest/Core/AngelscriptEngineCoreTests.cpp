@@ -56,13 +56,12 @@ bool FAngelscriptTestModuleLifecycleTest::RunTest(const FString& Parameters)
 
 bool FAngelscriptTestModuleCompileSnippetTest::RunTest(const FString& Parameters)
 {
-	AngelscriptTestSupport::DestroySharedTestEngine();
-	TUniquePtr<FAngelscriptEngine> Engine = AngelscriptTestSupport::CreateFullTestEngine();
-	if (!TestNotNull(TEXT("Compile test should create an initialized engine"), Engine.Get()))
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
+	if (!TestNotNull(TEXT("Compile test should create an initialized engine"), &Engine))
 	{
 		return false;
 	}
-	AngelscriptTestSupport::FScopedTestEngineGlobalScope GlobalScope(Engine.Get());
+	AngelscriptTestSupport::FScopedTestEngineGlobalScope GlobalScope(&Engine);
 
 	asIScriptModule* Module = Engine->GetScriptEngine()->GetModule("CompileSnippet", asGM_ALWAYS_CREATE);
 	if (!TestNotNull(TEXT("Compile test should create a script module"), Module))
@@ -84,13 +83,12 @@ bool FAngelscriptTestModuleCompileSnippetTest::RunTest(const FString& Parameters
 
 bool FAngelscriptTestModuleExecuteSnippetTest::RunTest(const FString& Parameters)
 {
-	AngelscriptTestSupport::DestroySharedTestEngine();
-	TUniquePtr<FAngelscriptEngine> Engine = AngelscriptTestSupport::CreateFullTestEngine();
-	if (!TestNotNull(TEXT("Execute test should create an initialized engine"), Engine.Get()))
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
+	if (!TestNotNull(TEXT("Execute test should create an initialized engine"), &Engine))
 	{
 		return false;
 	}
-	AngelscriptTestSupport::FScopedTestEngineGlobalScope GlobalScope(Engine.Get());
+	AngelscriptTestSupport::FScopedTestEngineGlobalScope GlobalScope(&Engine);
 
 	asIScriptModule* Module = Engine->GetScriptEngine()->GetModule("ExecuteSnippet", asGM_ALWAYS_CREATE);
 	if (!TestNotNull(TEXT("Execute test should create a script module"), Module))

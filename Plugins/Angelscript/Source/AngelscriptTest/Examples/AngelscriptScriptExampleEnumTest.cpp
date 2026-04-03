@@ -14,7 +14,7 @@ namespace AngelscriptScriptExamples
  * All enums from angelscript get bound to unreal by default,
  * nothing special is needed.
  */
-enum EExampleEnum
+enum EExampleEnum_UnitTest
 {
 	A,
 	B,
@@ -26,23 +26,23 @@ enum EExampleEnum
  * set as properties, whatever.
  */
 UFUNCTION()
-void TestExampleEnum(EExampleEnum Input)
+void TestExampleEnum_UnitTest(EExampleEnum_UnitTest Input)
 {
 	switch (Input)
 	{
-	case EExampleEnum::A:
+	case EExampleEnum_UnitTest::A:
 		Print("You selected A!", Duration=30);
 	break;
-	case EExampleEnum::B:
+	case EExampleEnum_UnitTest::B:
 		Print("You shouldn't select B.", Duration=30);
 	break;
-	case EExampleEnum::C:
+	case EExampleEnum_UnitTest::C:
 		Print("What is this even?", Duration=30);
 	break;
 	}
 
 	// You can cast an int to the enum thus:
-	EExampleEnum NumberAsEnum = EExampleEnum(0);
+	EExampleEnum_UnitTest NumberAsEnum = EExampleEnum_UnitTest(0);
 })ANGELSCRIPT"),
 			nullptr,
 			nullptr,

@@ -9,7 +9,7 @@ namespace
 	const AngelscriptScriptExamples::FScriptExampleSource GBehaviorTreeNodesExample = {
 		TEXT("Example_BehaviorTreeNodes.as"),
 		TEXT(R"ANGELSCRIPT(// An AI Behavior Tree Decorator written in Angelscript
-class UBTDecorator_ExampleDecorator : UBTDecorator_BlueprintBase
+class UBTDecorator_Example_UnitTest : UBTDecorator_BlueprintBase
 {
 	default NodeName = "Example Decorator";
 
@@ -36,7 +36,7 @@ class UBTDecorator_ExampleDecorator : UBTDecorator_BlueprintBase
 
 
 // An AI Behavior Tree Service written in Angelscript
-class UBTService_ExampleService : UBTService_BlueprintBase
+class UBTService_Example_UnitTest : UBTService_BlueprintBase
 {
 	default NodeName = "Example Service";
 
@@ -62,7 +62,7 @@ class UBTService_ExampleService : UBTService_BlueprintBase
 
 
 // An AI Behavior Tree Task written in Angelscript
-class UBTTask_ExampleTask : UBTTask_BlueprintBase
+class UBTTask_Example_UnitTest : UBTTask_BlueprintBase
 {
 	default NodeName = "Example Task";
 

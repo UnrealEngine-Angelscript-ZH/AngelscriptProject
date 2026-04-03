@@ -92,7 +92,7 @@ void ExecuteExampleMap()
  *  This will let you select actors from the level
  *  to associate strings with.
  */
-class AExampleMapActor : AActor
+class AExampleMapActor_UnitTest : AActor
 {
 	UPROPERTY()
 	TMap<AActor, FString> ActorMap;

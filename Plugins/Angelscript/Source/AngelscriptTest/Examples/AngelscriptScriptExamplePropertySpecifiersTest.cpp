@@ -8,7 +8,7 @@ namespace
 {
 	const AngelscriptScriptExamples::FScriptExampleSource GPropertySpecifiersExample = {
 		TEXT("Example_PropertySpecifiers.as"),
-		TEXT(R"ANGELSCRIPT(class AExamplePropertySpecifierActor : AActor
+		TEXT(R"ANGELSCRIPT(class AExamplePropertySpecifierActor_UnitTest : AActor
 {
     /* When declaring properties, Property Specifiers can be added to the declaration to control how
      * the property behaves with various aspects of the Engine and Editor.

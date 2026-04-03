@@ -16,7 +16,7 @@ namespace
  * in a struct requires a full reload, regardless of whether
  * they are UPROPERTY() or not.
  */
-struct FExampleStruct
+struct FExampleStruct_UnitTest
 {
 	/* Properties with UPROPERTY() in a struct are reflected on generated types.
 	 * Blueprint Make/Break exposure for script structs is currently disabled by default. */
@@ -31,10 +31,10 @@ struct FExampleStruct
 };
 
 /* Structs can be used as properties in classes, or as arguments to functions. */
-class AExampleStructActor : AActor
+class AExampleStructActor_UnitTest : AActor
 {
 	UPROPERTY()
-	FExampleStruct ExampleStruct;
+	FExampleStruct_UnitTest ExampleStruct;
 
 	UFUNCTION(BlueprintOverride)
 	void BeginPlay()

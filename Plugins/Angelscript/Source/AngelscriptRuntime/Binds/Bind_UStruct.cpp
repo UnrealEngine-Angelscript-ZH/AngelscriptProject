@@ -4,6 +4,7 @@
 #include "AngelscriptType.h"
 
 #include "Helper_PropertyBind.h"
+#include "Helper_StructType.h"
 #include "AngelscriptDocs.h"
 
 #include "UObject/UObjectIterator.h"
@@ -1047,7 +1048,7 @@ bool ShouldBindEngineType(UScriptStruct* Struct)
 		return false;
 	if (Struct == TVariantStructure<FRotator3f>::Get())
 		return false;
-	if (Struct == TBaseStructure<FBox>::Get())
+	if (Struct == FGetBox::Get())
 		return false;
 	if (Struct == FGetBox3f::Get())
 		return false;
@@ -1073,7 +1074,7 @@ bool ShouldBindEngineType(UScriptStruct* Struct)
 		return false;
 	if (Struct == FGetSphere3f::Get())
 		return false;
-	if (Struct == TBaseStructure<FBoxSphereBounds>::Get())
+	if (Struct == FGetBoxSphereBounds::Get())
 		return false;
 	if (Struct == FGetBoxSphereBounds3f::Get())
 		return false;

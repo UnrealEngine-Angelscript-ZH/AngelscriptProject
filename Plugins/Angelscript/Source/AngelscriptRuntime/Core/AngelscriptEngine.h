@@ -240,6 +240,7 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptEngine
 
 	/* If the angelscript debugger is attached, do an angelscript breakpoint. Returns whether we broke in AS debugging. */
 	static bool TryBreakpointAngelscriptDebugging(const TCHAR* Message = nullptr);
+	UObject* GetCurrentWorldContextObject() const { return CurrentWorldContext; }
 
 	/* Checks if the character is a valid alphanumeric character or an underscore. */
 	FORCEINLINE static bool IsValidIdentifierCharacter(TCHAR Character)
@@ -603,6 +604,8 @@ struct FScopedTestEngineGlobalScope
 private:
 	FAngelscriptEngine* PreviousGlobalEngine;
 };
+
+using FScopedGlobalEngineOverride = FScopedTestEngineGlobalScope;
 
 struct FAngelscriptContextPool
 {

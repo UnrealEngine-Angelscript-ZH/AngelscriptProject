@@ -13,7 +13,7 @@ namespace
  * This is an example for an ACharacter that takes input, which can be used as
  * a baseclass for your main game player / pawn.
  */
-class AExampleInputCharacter : ACharacter
+class AExampleInputCharacter_UnitTest : ACharacter
 {
     // An input component that we will set up to handle input from the player
     // that is possessing this pawn.

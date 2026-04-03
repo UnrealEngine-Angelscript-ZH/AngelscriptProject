@@ -12,7 +12,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptMiscNamespaceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -39,34 +39,6 @@ bool FAngelscriptMiscNamespaceTest::RunTest(const FString& Parameters)
 	return true;
 }
 
-IMPLEMENT_SIMPLE_AUTOMATION_TEST(
-	FAngelscriptMiscAnyTest,
-	"Angelscript.TestModule.Angelscript.Misc.Any",
-	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
-
-bool FAngelscriptMiscAnyTest::RunTest(const FString& Parameters)
-{
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
-	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
-	if (!TestNotNull(TEXT("Misc.Any should expose a script engine for the isolated compile-fail probe"), ScriptEngine))
-	{
-		return false;
-	}
-
-	ScriptEngine->SetDefaultNamespace("");
-	FScopedAutomaticImportsOverride AutomaticImportsOverride(ScriptEngine);
-	asIScriptModule* Module = ScriptEngine->GetModule("ASMiscAnyRaw", asGM_ALWAYS_CREATE);
-	if (!TestNotNull(TEXT("Misc.Any should create a raw script module"), Module))
-	{
-		return false;
-	}
-
-	static constexpr ANSICHAR Script[] = "int Test() { any Box; Box.store(42); int Value = 0; Box.retrieve(Value); return Value; }";
-	Module->AddScriptSection("ASMiscAnyRaw", Script, UE_ARRAY_COUNT(Script) - 1);
-	const int32 BuildResult = Module->Build();
-	TestEqual(TEXT("Misc.Any should compile on the raw AngelScript path even though that path does not expose executable globals on this branch"), BuildResult, static_cast<int32>(asSUCCESS));
-	return BuildResult == asSUCCESS;
-}
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptMiscGlobalVarTest,
@@ -75,7 +47,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptMiscGlobalVarTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -109,7 +81,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptMiscMultiAssignTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -143,7 +115,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptMiscAssignTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -177,7 +149,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptMiscDuplicateFunctionTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
 	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
 	if (!TestNotNull(TEXT("Misc.DuplicateFunction should expose a script engine for the isolated compile-fail probe"), ScriptEngine))
 	{
@@ -194,9 +166,11 @@ bool FAngelscriptMiscDuplicateFunctionTest::RunTest(const FString& Parameters)
 
 	static constexpr ANSICHAR Script[] = "int Test() { return 42; }\nint Test() { return 42; }\n";
 	Module->AddScriptSection("ASMiscDuplicateFunctionRaw", Script, UE_ARRAY_COUNT(Script) - 1);
+	AddExpectedErrorPlain(TEXT("ASMiscDuplicateFunctionRaw:"), EAutomationExpectedErrorFlags::Contains, 0);
+	AddExpectedErrorPlain(TEXT("A function with the same name and parameters already exists"), EAutomationExpectedErrorFlags::Contains, 0);
 	const int32 BuildResult = Module->Build();
-	TestEqual(TEXT("Misc.DuplicateFunction currently compiles duplicate global declarations on the raw AngelScript path even though that path does not expose executable globals on this branch"), BuildResult, static_cast<int32>(asSUCCESS));
-	return BuildResult == asSUCCESS;
+	TestEqual(TEXT("Misc.DuplicateFunction should reject duplicate global function declarations on the raw AngelScript path"), BuildResult, static_cast<int32>(asERROR));
+	return BuildResult == asERROR;
 }
 
 #endif

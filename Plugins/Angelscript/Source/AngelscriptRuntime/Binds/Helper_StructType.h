@@ -2,6 +2,7 @@
 #include "AngelscriptType.h"
 #include "AngelscriptEngine.h"
 
+#include "UObject/UObjectGlobals.h"
 #include "UObject/UnrealType.h"
 #include "UObject/ScriptMacros.h"
 
@@ -172,6 +173,24 @@ struct TAngelscriptCoreStructType : public TAngelscriptCppType<NativeType>
 		}
 
 		return false;
+	}
+};
+
+struct FGetBox
+{
+	static UScriptStruct* Get()
+	{
+		static UScriptStruct* ScriptStruct = FindObject<UScriptStruct>(nullptr, TEXT("/Script/CoreUObject.Box"));
+		return ScriptStruct;
+	}
+};
+
+struct FGetBoxSphereBounds
+{
+	static UScriptStruct* Get()
+	{
+		static UScriptStruct* ScriptStruct = FindObject<UScriptStruct>(nullptr, TEXT("/Script/CoreUObject.BoxSphereBounds"));
+		return ScriptStruct;
 	}
 };
 

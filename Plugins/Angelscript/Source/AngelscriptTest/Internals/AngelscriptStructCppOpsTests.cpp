@@ -36,7 +36,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptStructNotBlueprintTypeByDefaultTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
 	UScriptStruct* Struct = BuildScriptStruct(
 		*this,
 		Engine,

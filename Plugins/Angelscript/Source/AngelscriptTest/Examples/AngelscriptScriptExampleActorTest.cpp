@@ -15,7 +15,7 @@ namespace
 
 
 // For example, we can make a new Actor class
-class AExampleActorType : AActor
+class AExampleActor_UnitTest : AActor
 {
 	/* Any class variables declared as UPROPERTY() will be
 	 * accessible to be set in levels on the actor. */

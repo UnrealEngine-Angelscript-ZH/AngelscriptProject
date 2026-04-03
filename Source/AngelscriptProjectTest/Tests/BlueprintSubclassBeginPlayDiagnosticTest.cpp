@@ -30,15 +30,15 @@ bool FBlueprintSubclassBeginPlayDiagnosticTest::RunTest(const FString& Parameter
 	{
 		AddInfo(TEXT("=== BeginPlay Diagnostic — PIE World Inspection ==="));
 
-		// Find AExampleActorType1 script class
-		UClass* ScriptActorClass = FindFirstObject<UClass>(TEXT("AExampleActorType1"), EFindFirstObjectOptions::None);
+		// Find the current script actor class from Script/Example_Actor.as
+		UClass* ScriptActorClass = FindFirstObject<UClass>(TEXT("AExampleActorType"), EFindFirstObjectOptions::None);
 		if (ScriptActorClass == nullptr)
 		{
-			AddError(TEXT("AExampleActorType1 not found. Script/Example_Actor.as may not be compiled."));
+			AddError(TEXT("AExampleActorType not found. Script/Example_Actor.as may not be compiled."));
 			return true;
 		}
 
-		AddInfo(FString::Printf(TEXT("[ScriptClass] AExampleActorType1 — super: %s"),
+		AddInfo(FString::Printf(TEXT("[ScriptClass] AExampleActorType — super: %s"),
 			*ScriptActorClass->GetSuperClass()->GetName()));
 
 		// Dump BeginPlay-related functions on the script class
@@ -156,11 +156,11 @@ bool FBlueprintSubclassBeginPlayDiagnosticTest::RunTest(const FString& Parameter
 				Actor->GetIsReplicated() ? TEXT("YES") : TEXT("NO")));
 		}
 
-		AddInfo(FString::Printf(TEXT("[Summary] Total actors: %d, AExampleActorType1 children: %d"), TotalActors, ScriptChildCount));
+		AddInfo(FString::Printf(TEXT("[Summary] Total actors: %d, AExampleActorType children: %d"), TotalActors, ScriptChildCount));
 
 		if (ScriptChildCount == 0)
 		{
-			AddWarning(TEXT("No AExampleActorType1 or subclass found in map! Check that the Blueprint is placed in Test/ActorTestMap."));
+			AddWarning(TEXT("No AExampleActorType or subclass found in map! Check that the Blueprint is placed in Test/ActorTestMap."));
 		}
 
 		AddInfo(TEXT("=== Diagnostic complete. Check 'ScriptOnlyMethod Called' / 'Blueprint did not override this event.' in output log. ==="));

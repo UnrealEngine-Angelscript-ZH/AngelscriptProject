@@ -1,8 +1,18 @@
 # 运行自动化测试
 
+## AI Agent 执行前置
+
+- 执行任何自动化测试前，先读取项目根目录 `AgentConfig.ini`。
+- 若 `AgentConfig.ini` 不存在，先运行 `Tools\GenerateAgentConfigTemplate.bat` 生成模板，再补齐本机配置；未补齐前不要继续执行测试。
+- `Paths.EngineRoot` 缺失或为空时，测试命令必须直接阻塞，不能继续猜本地引擎路径。
+- `Paths.ProjectFile` 允许留空；留空时统一回退到仓库根目录下的 `AngelscriptProject.uproject`。
+- `Test.DefaultTimeoutMs` 缺失时统一回退到 `600000ms`。
+- 在真正运行测试命令前，可先执行 `Tools\ResolveAgentCommandTemplates.ps1` 做参数展开级 smoke check。
+
 ## Angelscript 插件专项文档
 
-- 启动 bind / watcher 验证矩阵：`Documents/Guides/AngelscriptValidationMatrix.md`
+- 启动 bind / watcher 验证矩阵与分层执行模板：`Documents/Guides/AngelscriptValidationMatrix.md`
+
 - 性能采样与产物规范：`Documents/Guides/TestPerformance.md`
 - 测试目录总览：`Documents/Guides/TestCatalog.md`
 
@@ -11,6 +21,66 @@
 - 启动基线：`Automation RunTests Angelscript.TestModule.Core.Performance.Startup`
 - 热重载延迟：`Automation RunTests Angelscript.TestModule.HotReload.Performance`
 - 产物回归：`Automation RunTests Angelscript.TestModule.Core.Performance.ArtifactGeneration`
+
+### 启动 Bind / Watcher / Rename 快捷前缀
+
+- 启动模式与 owner 烟雾：`Automation RunTests Angelscript.CppTests.MultiEngine`
+- 启动 bind 配置：`Automation RunTests Angelscript.TestModule.Engine.BindConfig`
+- 生产引擎 parity 烟雾：`Automation RunTests Angelscript.TestModule.Core.Parity`
+- editor callback 队列语义：`Automation RunTests Angelscript.Editor.DirectoryWatcher`
+- 热重载正确性：`Automation RunTests Angelscript.TestModule.HotReload`
+- generated class rename/切换：`Automation RunTests Angelscript.TestModule.ScriptClass`
+- 真实脚本语料热重载：`Automation RunTests Angelscript.TestModule.Angelscript.NativeScriptHotReload`
+
+### Phase 6 分层回归执行顺序（首轮基线）
+
+1. 构建 Editor 目标并确认 `AngelscriptEditor/Private/Tests` 已编译进入测试模块。
+2. 运行启动链路与引擎基线：`Angelscript.CppTests.MultiEngine`、`Angelscript.CppTests.Engine.DependencyInjection`、`Angelscript.CppTests.Subsystem`。
+3. 运行 bind 与 parity：`Angelscript.TestModule.Engine.BindConfig`、`Angelscript.TestModule.Core.Parity`。
+4. 运行 watcher + reload 功能层：`Angelscript.Editor.DirectoryWatcher`、`Angelscript.TestModule.HotReload`、`Angelscript.TestModule.ScriptClass`。
+5. 运行真实语料层：`Angelscript.TestModule.Angelscript.NativeScriptHotReload`。
+6. 最后运行性能与产物层：`Angelscript.TestModule.Core.Performance.Startup`、`Angelscript.TestModule.HotReload.Performance`、`Angelscript.TestModule.Core.Performance.ArtifactGeneration`。
+
+### Phase 6 执行记录要求
+
+- 每轮回归必须独立指定 `-ABSLOG` 与 `-ReportExportPath`，避免并行运行互相覆盖。
+- 记录项至少包含：测试前缀、命令、日志路径、报告目录、执行时间。
+- rename 场景按两层解释：callback deterministic 层（Editor.DirectoryWatcher）+ end-to-end reload 层（HotReload/ScriptClass/NativeScriptHotReload）。
+
+### Phase 6 首轮执行记录（2026-04-03，P5 重点用例）
+
+| 测试前缀 | 报告目录 | 日志路径 | 结果 |
+|------|------|------|------|
+| `Angelscript.TestModule.Angelscript.NativeScriptHotReload` | `Saved/Automation/AngelscriptPerformance/P5_NativeScriptHotReload_Rerun2/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P5_NativeScriptHotReload_Rerun2/native_hot_reload.log` | `Phase2A/Phase2B/Phase2C = Success` |
+| `Angelscript.TestModule.ScriptClass.RenameReplacesOldClass` | `Saved/Automation/AngelscriptPerformance/P5_ClassRename_Rerun2/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P5_ClassRename_Rerun2/run.log` | `Success` |
+| `Angelscript.TestModule.HotReload.AddModifyLookupFlow` | `Saved/Automation/AngelscriptPerformance/P5_AddModifyLookupFlow_Rerun2/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P5_AddModifyLookupFlow_Rerun2/run.log` | `Success` |
+| `Angelscript.TestModule.HotReload.FailureKeepsOldCodeAndDiagnostics` | `Saved/Automation/AngelscriptPerformance/P5_FailureKeepsOldCode_Rerun2/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P5_FailureKeepsOldCode_Rerun2/run.log` | `Success` |
+| `Angelscript.TestModule.FileSystem.MixedSuccessFailureRecoveryAndRemap` | `Saved/Automation/AngelscriptPerformance/P5_5_MixedSuccessFailureRecovery_Rerun6/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P5_5_MixedSuccessFailureRecovery_Rerun6/run.log` | `Success` |
+
+### Phase 6 分层矩阵执行记录（2026-04-03，P6 全波次）
+
+| 层级 | 测试前缀 | 报告目录 | 日志路径 | 结果 |
+|------|------|------|------|------|
+| 构建 | `AngelscriptProjectEditor` | `Binaries/Win64/AngelscriptProjectEditor.target` | `N/A` | `Build.bat Succeeded` |
+| 快速烟雾层 | `Angelscript.CppTests.MultiEngine` | `Saved/Automation/AngelscriptPerformance/P6_MultiEngine/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P6_MultiEngine/run.log` | `Success (16 warnings, 0 failed)` |
+| 快速烟雾层 | `Angelscript.CppTests.Engine.DependencyInjection` | `Saved/Automation/AngelscriptPerformance/P6_DependencyInjection/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P6_DependencyInjection/run.log` | `Success (6 warnings, 0 failed)` |
+| 快速烟雾层 | `Angelscript.CppTests.Subsystem` | `Saved/Automation/AngelscriptPerformance/P6_Subsystem/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P6_Subsystem/run.log` | `Success (10 passed incl. warnings, 0 failed)` |
+| 快速烟雾层 | `Angelscript.TestModule.Engine.BindConfig` | `Saved/Automation/AngelscriptPerformance/P6_BindConfig/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P6_BindConfig/run.log` | `Success (5 passed incl. warnings, 0 failed)` |
+| 快速烟雾层 | `Angelscript.TestModule.Parity` | `Saved/Automation/AngelscriptPerformance/P6_Parity/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P6_Parity/run.log` | `Success (15 passed, 0 failed)` |
+| 功能正确性层 | `Angelscript.Editor.DirectoryWatcher` | `Saved/Automation/AngelscriptPerformance/P6_EditorDirectoryWatcher/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P6_EditorDirectoryWatcher/run.log` | `Success (5 passed, 0 failed)` |
+| 功能正确性层 | `Angelscript.TestModule.HotReload` | `Saved/Automation/AngelscriptPerformance/P6_HotReload/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P6_HotReload/run.log` | `Failed (BurstChurnLatency requires full reload but environment cannot perform it)` |
+| 功能正确性层 | `Angelscript.TestModule.ScriptClass` | `Saved/Automation/AngelscriptPerformance/P6_ScriptClass/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P6_ScriptClass/run.log` | `Success (8 passed incl. warnings, 0 failed)` |
+| 功能正确性层 | `Angelscript.TestModule.FileSystem` | `Saved/Automation/AngelscriptPerformance/P6_FileSystem/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P6_FileSystem/run.log` | `Success (8 passed, 0 failed)` |
+| 功能正确性层 | `Angelscript.TestModule.FileSystem.MixedSuccessFailureRecoveryAndRemap` | `Saved/Automation/AngelscriptPerformance/P5_5_MixedSuccessFailureRecovery_Rerun6/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P5_5_MixedSuccessFailureRecovery_Rerun6/run.log` | `Success` |
+| 真实语料层 | `Angelscript.TestModule.Angelscript.NativeScriptHotReload` | `Saved/Automation/AngelscriptPerformance/P6_NativeScriptHotReload/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P6_NativeScriptHotReload/run.log` | `Success (3 passed, 0 failed)` |
+| 长时压力层 | `Angelscript.TestModule.Core.Performance.Startup` | `Saved/Automation/AngelscriptPerformance/P6_PerfStartup/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P6_PerfStartup/run.log` | `Success (4 warnings, 0 failed)` |
+| 长时压力层 | `Angelscript.TestModule.HotReload.Performance` | `Saved/Automation/AngelscriptPerformance/P6_PerfHotReload/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P6_PerfHotReload/run.log` | `Failed (BurstChurnLatency requires full reload but environment cannot perform it)` |
+| 产物验证层 | `Angelscript.TestModule.Core.Performance.ArtifactGeneration` | `Saved/Automation/AngelscriptPerformance/P6_PerfArtifactGeneration/Reports/index.json` | `Saved/Automation/AngelscriptPerformance/P6_PerfArtifactGeneration/run.log` | `Success (1 passed, 0 failed)` |
+
+### Phase 6 已知不稳定项（首轮）
+
+- `Angelscript.TestModule.HotReload.Performance.BurstChurnLatency` 在 `P6_HotReload` 与 `P6_PerfHotReload` 中失败，报错为 `Full Reload is required due to UPROPERTY() or UFUNCTION() changes, but cannot perform a full reload right now.`。
+- 该失败在本次环境下稳定复现，属于性能波次中的环境/执行窗口限制；其余功能与产物层命令均完成并产生报告。
 
 # 图形测试
 
@@ -29,13 +99,13 @@
 使用 `UnrealEditor-Cmd.exe`，**不加 `-NullRHI`**（需要 GPU 进行渲染）：
 
 ```
-C:\UnrealEngine\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe "D:\Workspace\UnrealEvent\UnrealEvent.uproject" -ExecCmds="Automation RunTests <TestName>; Quit" -Unattended -NoPause -NoSplash -NOSOUND
+<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe "<ResolvedProjectFile>" -ExecCmds="Automation RunTests <TestName>; Quit" -Unattended -NoPause -NoSplash -NOSOUND
 ```
 
 在 AI Agent 环境中执行（通过 PowerShell + Start-Process）：
 
 ```
-powershell.exe -Command "Start-Process -FilePath 'C:\UnrealEngine\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"D:\Workspace\UnrealEvent\UnrealEvent.uproject\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
+powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"<ResolvedProjectFile>\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
 ```
 
 超时建议：600000ms（10 分钟），首次启动需要加载引擎和编译 shader
@@ -76,32 +146,16 @@ powershell.exe -Command "Start-Process -FilePath 'C:\UnrealEngine\UE_5.7\Engine\
 原始命令：
 
 ```
-C:\UnrealEngine\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe "D:\Workspace\UnrealEvent\UnrealEvent.uproject" -ExecCmds="Automation RunTests <TestName>; Quit" -Unattended -NoPause -NoSplash -NullRHI -NOSOUND
+<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe "<ResolvedProjectFile>" -ExecCmds="Automation RunTests <TestName>; Quit" -Unattended -NoPause -NoSplash -NullRHI -NOSOUND
 ```
 
 在 AI Agent 环境中执行（通过 PowerShell + Start-Process）：
 
 ```
-powershell.exe -Command "Start-Process -FilePath 'C:\UnrealEngine\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"D:\Workspace\UnrealEvent\UnrealEvent.uproject\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NullRHI','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
+powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"<ResolvedProjectFile>\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NullRHI','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
 ```
 
-超时建议：600000ms（10 分钟），首次启动需要加载引擎和编译 shader。
-
-### 另一个项目示例
-
-使用 `UnrealEditor-Cmd.exe` 配合 `-ExecCmds` 参数，在 NullRHI 模式下运行（不需要 GPU）：
-
-原始命令：
-
-```
-C:\UnrealEngine\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe "D:\Workspace\TAPathon\PythonUIProject\PythonUIProject.uproject" -ExecCmds="Automation RunTests PythonUIWidget; Quit" -Unattended -NoPause -NoSplash -NullRHI -NOSOUND
-```
-
-在 AI Agent 环境中执行（通过 PowerShell + Start-Process）：
-
-```
-powershell.exe -Command "Start-Process -FilePath 'C:\UnrealEngine\UE_5.7\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"D:\Workspace\TAPathon\PythonUIProject\PythonUIProject.uproject\"','-ExecCmds=\"Automation RunTests PythonUIWidget; Quit\"','-Unattended','-NoPause','-NoSplash','-NullRHI','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
-```
+其中 `<ResolvedProjectFile>` 应先读取 `Paths.ProjectFile`；若为空，则回退到仓库根目录下的 `AngelscriptProject.uproject`。
 
 超时建议：600000ms（10 分钟），首次启动需要加载引擎和编译 shader。
 
@@ -307,6 +361,58 @@ CQTest (Code Quality Test) 是 `FAutomationTestBase` 的扩展，提供测试夹
 - 只想验证原生脚本引擎是否还能编译/执行一个最小片段：放 `Native/`。
 - 需要 `FAngelscriptEngine`、`BuildModule()`、`CompileModuleFromMemory()`、模块记录或热重载封装行为：放 Runtime Integration。
 - 需要 `UWorld`、`Actor`、`Blueprint`、`Component`、`Interface`、GC 生命周期或生成类交互：放 UE Scenario。
+
+## Learning 测试 — 教学型可观测测试
+
+`Learning/` 目录包含教学型可观测测试（Educational Trace Tests），目标是**解释机制如何工作**，而非仅验证功能回归。
+
+### 目标与定位
+
+| 目录 | 目标 |
+|------|------|
+| `Learning/Native/` | 解释原生 AngelScript 引擎的启动、绑定、字节码、handles、调试器上下文 |
+| `Learning/Runtime/` | 解释编译管线、预处理、模块解析、热重载判定、类生成、UE 桥接、接口、委托、组件层次、GC、计时器、子系统生命周期 |
+| `Learning/Scenario/` | 解释复杂场景中多系统协作的学习路径 |
+| `Learning/Editor/` | 解释编辑器相关功能（源码导航、调试器集成等） |
+
+### 运行方式
+
+运行所有 Learning 测试：
+
+```
+Automation RunTests Angelscript.TestModule.Learning
+```
+
+运行特定主题：
+
+```
+Automation RunTests Angelscript.TestModule.Learning.Runtime.Compiler
+Automation RunTests Angelscript.TestModule.Learning.Runtime.ClassGeneration
+```
+
+导出详细报告：
+
+```
+-ReportExportPath="<ProjectRoot>/Saved/AutomationReports/LearningTests"
+-LogCmds="Angelscript Display,LogAutomationTest Verbose"
+```
+
+### 输出特征
+
+每个 Learning 测试输出包含：
+
+1. **Phase 标签**：标识当前操作阶段（Compile、ClassGeneration、Execution、UEBridge 等）
+2. **Step 标识**：每个关键操作有唯一 StepId 和说明
+3. **Key-Value 观测**：关键值（类名、函数声明、属性值、判定结果）
+4. **Observation 总结**：课程要点总结
+
+测试既打印过程，也保留最小必要断言，保证输出结构完整且非空。
+
+### 与其他测试的关系
+
+- `Learning/` 与 `Examples/` 区分：Learning 侧重解释，Examples 侧重功能示例
+- `Learning/` 与 `Internals/` 区分：Learning 使用公共/内部 API 解释行为，Internals 验证内部正确性
+- 同一机制可跨目录存在，但每个目录承担的叙事职责要清晰
 
 ## 源文件位置约定
 

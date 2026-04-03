@@ -14,10 +14,10 @@ namespace
  * can be used as arguments to functions, and are equivalent to
  * C++ DECLARE_DYNAMIC_DELEGATE() macros.
  */
-delegate void FExampleDelegateSignature(UObject Object, float Value);
+delegate void FExampleDelegate_UnitTest(UObject Object, float Value);
 
 UFUNCTION()
-void ExecuteExampleDelegate(FExampleDelegateSignature InDelegate)
+void ExecuteExampleDelegate(FExampleDelegate_UnitTest InDelegate)
 {
 	// You can check if a delegate is bound before executing it
 	if (!InDelegate.IsBound())
@@ -43,13 +43,13 @@ void ExecuteExampleDelegate(FExampleDelegateSignature InDelegate)
  *
  * Events are equivalent to C++ DECLARE_DYNAMIC_MULTICAST_DELEGATE() macros.
  */
-event void FExampleEventSignature(UObject Object, float Value);
+event void FExampleEvent_UnitTest(UObject Object, float Value);
 
-class AExampleEventActor : AActor
+class AExampleEventActor_UnitTest : AActor
 {
 	// Events declared as UPROPERTY() will become assignable by blueprint
 	UPROPERTY(Category = "Example Events")
-	FExampleEventSignature ExampleEvent;
+	FExampleEvent_UnitTest ExampleEvent;
 
 	UFUNCTION(BlueprintOverride)
 	void BeginPlay()
@@ -83,7 +83,7 @@ class AExampleEventActor : AActor
 		ExampleEvent.Broadcast(nullptr, 12.5);
 
 		// Create a new delegate with the previously declared signature.
-		FExampleDelegateSignature ExampleLocalDelegate;
+		FExampleDelegate_UnitTest ExampleLocalDelegate;
 
 		// Immediately bind our example method to the delegate
 		//  Note the n"" prefix to the string, this indicates a literal FName.

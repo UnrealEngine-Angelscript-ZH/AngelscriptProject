@@ -8,7 +8,7 @@ namespace
 {
 	const AngelscriptScriptExamples::FScriptExampleSource GFunctionSpecifiersExample = {
 		TEXT("Example_FunctionSpecifiers.as"),
-		TEXT(R"ANGELSCRIPT(class AExampleFunctionSpecifierActor : AActor
+		TEXT(R"ANGELSCRIPT(class AExampleFunctionSpecifierActor_UnitTest : AActor
 {
     /*
         When declaring functions, Function Specifiers can be added to the declaration to control how the function behaves with various aspects of the Engine and Editor.

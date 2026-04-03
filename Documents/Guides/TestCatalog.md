@@ -5,6 +5,10 @@
 > 测试模块路径：`Plugins/Angelscript/Source/AngelscriptTest/`
 >
 > 启动 bind / watcher / 性能分层矩阵：`Documents/Guides/AngelscriptValidationMatrix.md`
+>
+> 说明：这里的 `275/275 PASS` 表示**已编目基线**，不是当前源码实时扫描到的全部测试数量。实时扫描规模与新增覆盖请以 `Documents/Guides/TechnicalDebtInventory.md` 的 live inventory / verification snapshot 为准。
+>
+> 最终 closeout 口径：`P6.3` 在独立 worktree 上重新执行 `Automation RunTests Angelscript.TestModule` 后，full-suite 仍只保留 `TechnicalDebtInventory.md` 中记录的 4 个已知失败项，没有新增技术债收口相关回归。
 
 ---
 
@@ -49,8 +53,11 @@
   - [12.13 GC 垃圾回收](#1213-gc-垃圾回收)
   - [12.14 Subsystem 子系统](#1214-subsystem-子系统)
   - [12.15 HotReload 热重载场景](#1215-hotreload-热重载场景)
-- [13. Examples — 示例脚本编译](#13-examples--示例脚本编译)
-- [14. Template — 模板场景](#14-template--模板场景)
+- [13. Learning — 教学型可观测测试](#13-learning--教学型可观测测试)
+  - [13.1 Native 层学习测试](#131-native-层学习测试)
+  - [13.2 Runtime 层学习测试](#132-runtime-层学习测试)
+- [14. Examples — 示例脚本编译](#14-examples--示例脚本编译)
+- [15. Template — 模板场景](#15-template--模板场景)
 
 ---
 
@@ -64,9 +71,9 @@
 | Shared.EngineHelper.ExecuteIntFunction | `ExecuteIntFunction` 能执行入口并返回正确整型结果（42） |
 | Shared.EngineHelper.GeneratedSymbolLookup | 带注解模块编译后，`FindGeneratedClass` / `FindGeneratedFunction` 能定位生成的类与 UFUNCTION |
 | Shared.EngineHelper.FailedAnnotatedModuleDoesNotPolluteLaterCompiles | 无效注解模块编译失败后，后续有效模块仍能编译并生成符号 |
-| Shared.EngineHelper.SharedTestEngineNeverSilentlyAttachesToProductionEngine | 共享测试引擎不会静默附着到生产引擎 |
-| Shared.EngineHelper.ProductionHelperRejectsMissingProductionEngine | 无生产子系统/全局引擎时 `TryGetCurrentProductionEngine` 为 null |
-| Shared.EngineHelper.CompileUsesScopedGlobalEngine | 在 `FScopedTestEngineGlobalScope` 下编译后，全局引擎指针恢复为共享引擎 |
+| Shared.EngineHelper.SharedTestEngineNeverSilentlyAttachesToProductionEngine | `GetOrCreateSharedCloneEngine` / `AcquireCleanSharedCloneEngine` 始终指向同一个共享 clone 引擎，不会静默附着到生产引擎 |
+| Shared.EngineHelper.ProductionHelperRejectsMissingProductionEngine | 无生产子系统/全局引擎时 `TryGetRunningProductionEngine` 为 null |
+| Shared.EngineHelper.CompileUsesScopedGlobalEngine | 在 `FScopedGlobalEngineOverride` 下编译后，全局引擎指针恢复为共享 clone 引擎 |
 | Shared.EngineHelper.NestedGlobalEngineScopeRestoresPreviousEngine | 嵌套 scope 先装 B 再退出后恢复 A |
 | Shared.EngineHelper.WorldContextScopeRestoresPreviousContext | `FScopedTestWorldContextScope` 正确设置/恢复 `CurrentWorldContext` |
 | Shared.EngineHelper.ExecutingOneTestEngineDoesNotLeakContextIntoNextTest | 两个 clone 引擎分别编译执行不同模块，结果互不串线 |
@@ -266,6 +273,7 @@
 | Upgrade.EngineProperties | 引擎属性相关兼容 |
 | Upgrade.MessageCallback | 消息回调兼容 |
 | Upgrade.RegisterObjectTypeFlags | `RegisterObjectType` 标志兼容 |
+| Upgrade.CStringHash | `asCString` 的 `GetTypeHash` 在替换弃用 CRC API 后仍保持大小写无关 |
 
 ---
 
@@ -341,7 +349,7 @@
 
 | 测试名 | 验证内容 | 源文件 |
 |--------|----------|--------|
-| Bindings.MathExtendedCompat | `Math::` 扩展：`RandHelper`/`IsPowerOfTwo`/`VRand`/`ClampAngle`/`Clamp`/插值系列/三次插值等 | AngelscriptMathAndPlatformBindingsTests.cpp |
+| Bindings.MathExtendedCompat | `Math::` 扩展：`RandHelper`/`IsPowerOfTwo`/`VRand`/`ClampAngle`/`Clamp`/插值系列/三次插值，以及 `FVector2f::ToDirectionAndLength`、`Math::LinePlaneIntersection(FPlane)`、`int64 Abs/Sign/Min/Max/Square` 等低风险 parity 闭环 | AngelscriptMathAndPlatformBindingsTests.cpp |
 | Bindings.PlatformProcessCompat | `FPlatformProcess`：用户目录/设置/临时/可执行路径/计算机名/用户名/`CanLaunchURL` | AngelscriptMathAndPlatformBindingsTests.cpp |
 | Bindings.Logging | `Log`/`LogDisplay`/`Warning`/`Error` 可执行；`AddExpectedError` 捕获 Error 输出 | AngelscriptMathAndPlatformBindingsTests.cpp |
 
@@ -385,7 +393,7 @@
 | 测试名 | 验证内容 | 源文件 |
 |--------|----------|--------|
 | Bindings.NativeActorMethods | `GetActorLocation`/`GetActorRotation`/`GetClass`/`GetName`/`IsA` 等原生 Actor 桥接调用 | AngelscriptNativeEngineBindingsTests.cpp |
-| Bindings.NativeComponentMethods | `USceneComponent`：`Activate`/`Deactivate`/相对变换/`GetComponent`/标签 | AngelscriptNativeEngineBindingsTests.cpp |
+| Bindings.NativeComponentMethods | `USceneComponent`：`Activate`/`Deactivate`/相对变换/`GetComponent`/标签，以及 `SetComponentVelocity` / `GetComponentVelocity` / `FScopedMovementUpdate` | AngelscriptNativeEngineBindingsTests.cpp |
 | Bindings.ComponentDestroyCompat | 注解组件上 `DestroyComponent()` 可编译执行，组件进入 `IsBeingDestroyed()` | AngelscriptNativeEngineBindingsTests.cpp |
 
 ---
@@ -455,6 +463,8 @@
 |--------|----------|
 | Internals.Restore.RoundTrip | 脚本节点/字节码等序列化往返一致 |
 | Internals.Restore.StripDebugInfoRoundTrip | 去掉调试信息后仍可往返 |
+| Internals.Restore.EmptyStreamFails | 空字节流加载失败并报告 `Unexpected end of file`，且不崩溃 |
+| Internals.Restore.TruncatedStreamFails | 截断字节流加载失败并报告 `Unexpected end of file`，且不崩溃 |
 
 ### Compiler 编译器
 
@@ -813,7 +823,51 @@
 
 ---
 
-## 13. Examples — 示例脚本编译
+## 13. Learning — 教学型可观测测试
+
+> 源文件：`Learning/` 目录下所有测试
+>
+> 目标：解释机制如何工作，而非仅验证功能回归。输出包含阶段、步骤、观测值和教学总结。
+
+### 13.1 Native 层学习测试
+
+> 源文件：`Learning/Native/AngelscriptLearningNative*.cpp`
+>
+> 解释原生 AngelScript 引擎的启动、绑定、字节码、handles、调试器上下文。
+
+| 测试名 | 教学目标 |
+|--------|----------|
+| Learning.Native.Bootstrap | 解释 `asCreateScriptEngine`、引擎属性、模块创建、函数声明收集 |
+| Learning.Native.Binding | 解释 `RegisterGlobalFunction`、`RegisterGlobalProperty`、`RegisterObjectType`、值类型绑定 |
+| Learning.Native.Bytecode | 解释函数声明、参数计数、局部变量、字节码长度、`Prepare`/`Execute` 流程 |
+| Learning.Native.HandleAndScriptObject | 解释 script object 编译、类型元数据可见性、handle 声明边界 |
+| Learning.Native.DebuggerContext | 解释异常上下文中的 `GetExceptionString`、`GetCallstackSize`、栈变量读取 |
+
+### 13.2 Runtime 层学习测试
+
+> 源文件：`Learning/Runtime/AngelscriptLearning*.cpp`
+>
+> 解释编译管线、预处理、模块解析、热重载判定、类生成、UE 桥接等。
+
+| 测试名 | 教学目标 |
+|--------|----------|
+| Learning.Runtime.Compiler | 解释 `BuildModule()` vs `CompileModuleFromMemory()` vs `CompileAnnotatedModuleFromMemory()` 的差异 |
+| Learning.Runtime.Preprocessor | 解释 `FilenameToModuleName()`、chunk 拆分、macro 记录、import 移除 |
+| Learning.Runtime.FileSystemAndModule | 解释磁盘编译、`GetModule`/`GetModuleByFilename`、模块发现跳过规则 |
+| Learning.Runtime.RestoreAndBytecodePersistence | 解释 `SaveByteCode`/`LoadByteCode`、debug info strip 标志、restored function discoverability |
+| Learning.Runtime.HotReloadDecision | 解释软重载/完整重载判定触发条件（no-change、body-only、property-count、super-class、class-add/remove、signature-change） |
+| Learning.Runtime.ClassGeneration | 解释 `UCLASS()` 脚本如何生成 `UClass`、属性枚举、CDO 默认值、actor-derived 检测 |
+| Learning.Runtime.ScriptClassToBlueprint | 解释脚本类如何作为 Blueprint 父类、继承验证、BeginPlay override、属性传播 |
+| Learning.Runtime.InterfaceDispatch | 解释 `UINTERFACE` 生成、接口继承链、`ImplementsInterface` 验证、dispatch 可见性 |
+| Learning.Runtime.DelegateBridge | 解释 unicast delegate 绑定、`BindUFunction`、native->script dispatch |
+| Learning.Runtime.ComponentHierarchy | 解释 `DefaultComponent` specifier、组件生命周期（BeginPlay/Tick） |
+| Learning.Runtime.BlueprintSubclass | 解释 Blueprint 继承脚本类、属性继承、运行时 override 行为 |
+| Learning.Runtime.ExecutionLifecycle | 解释 `CreateContext`/`Prepare`/`Execute`/`GetReturnValue` 原生执行生命周期 |
+| Learning.Runtime.UEBridge | 解释脚本函数如何成为 UFunction、ProcessEvent 调用、属性读写桥接 |
+
+---
+
+## 14. Examples — 示例脚本编译
 
 > 源文件：`Examples/AngelscriptScriptExample*Test.cpp`（各文件对应一个示例 `.as`）
 >
@@ -844,7 +898,7 @@
 
 ---
 
-## 14. Template — 模板场景
+## 15. Template — 模板场景
 
 > 源文件：`Template/Template_Blueprint.cpp`、`Template_BlueprintWorldTick.cpp`、`Template_WorldTick.cpp`
 
