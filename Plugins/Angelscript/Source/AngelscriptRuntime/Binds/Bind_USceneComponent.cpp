@@ -1,6 +1,8 @@
 #include "Components/SceneComponent.h"
 #include "Components/SphereComponent.h"
 
+#include "Engine/ScopedMovementUpdate.h"
+
 #include "UObject/UObjectThreadContext.h"
 
 #include "AngelscriptEngine.h"
@@ -130,6 +132,40 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_USceneComponent_Base((int32)FA
 	{
 		Component->SetRelativeLocation(NewLocation);
 		Component->UpdateComponentToWorld();
+	});
+	USceneComponent_.Method("void SetComponentVelocity(const FVector& Velocity)", [](USceneComponent* SceneComponent, const FVector& Velocity)
+	{
+		SceneComponent->ComponentVelocity = Velocity;
+	});
+	USceneComponent_.Method("FVector GetComponentVelocity() const", METHOD_TRIVIAL(USceneComponent, GetComponentVelocity));
+
+	struct FScriptScopedMovementUpdate : public FScopedMovementUpdate
+	{
+		void* operator new(std::size_t Count, void* Ptr)
+		{
+			return Ptr;
+		}
+
+		void operator delete(void*) {}
+
+		explicit FScriptScopedMovementUpdate(USceneComponent* Component)
+			: FScopedMovementUpdate(Component)
+		{
+		}
+
+		~FScriptScopedMovementUpdate() {}
+	};
+
+	auto FScopedMovementUpdate_ = FAngelscriptBinds::ValueClass<FScriptScopedMovementUpdate>("FScopedMovementUpdate", FBindFlags());
+	FScopedMovementUpdate_.Constructor("void f(USceneComponent Component)", [](FScriptScopedMovementUpdate* Address, USceneComponent* SceneComp)
+	{
+		new(Address) FScriptScopedMovementUpdate(SceneComp);
+	});
+	FAngelscriptBinds::SetPreviousBindNoDiscard(true);
+
+	FScopedMovementUpdate_.Destructor("void f()", [](FScriptScopedMovementUpdate& Scope)
+	{
+		Scope.~FScriptScopedMovementUpdate();
 	});
 
 	#if WITH_EDITOR

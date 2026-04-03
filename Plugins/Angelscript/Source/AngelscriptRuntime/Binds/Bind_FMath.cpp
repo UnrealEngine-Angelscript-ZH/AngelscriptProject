@@ -251,6 +251,8 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_FMath([]
 
 	FAngelscriptBinds::BindGlobalFunction("FVector LinePlaneIntersection(const FVector& Point1, const FVector& Point2, const FVector& PlaneOrigin, const FVector& PlaneNormal) no_discard",
 		FUNCPR_TRIVIAL(FVector, FMath::LinePlaneIntersection, (const FVector&, const FVector&, const FVector&, const FVector&)));
+	FAngelscriptBinds::BindGlobalFunction("FVector LinePlaneIntersection(const FVector& Point1, const FVector& Point2, const FPlane& Plane) no_discard",
+		FUNCPR_TRIVIAL(FVector, FMath::LinePlaneIntersection, (const FVector&, const FVector&, const FPlane&)));
 
 	FAngelscriptBinds::BindGlobalFunction("FVector3f LinePlaneIntersection(const FVector3f& Point1, const FVector3f& Point2, const FVector3f& PlaneOrigin, const FVector3f& PlaneNormal) no_discard",
 		FUNCPR_TRIVIAL(FVector3f, FMath::LinePlaneIntersection, (const FVector3f&, const FVector3f&, const FVector3f&, const FVector3f&)));

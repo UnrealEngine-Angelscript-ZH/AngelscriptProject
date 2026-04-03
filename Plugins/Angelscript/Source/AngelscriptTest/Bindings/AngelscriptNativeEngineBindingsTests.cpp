@@ -98,6 +98,7 @@ class UBindingSceneComponent : USceneComponent
 	UFUNCTION()
 	int ReadComponentBindings()
 	{
+		FScopedMovementUpdate ScopedMove(this);
 		if (!IsValid(GetOwner()))
 			return 10;
 		if (!IsValid(GetPackage()) || !IsValid(GetOutermost()))
@@ -107,13 +108,17 @@ class UBindingSceneComponent : USceneComponent
 		Activate();
 
 		SetRelativeLocation(FVector(1.0, 2.0, 3.0));
+		SetComponentVelocity(FVector(4.0, 5.0, 6.0));
 		FVector Relative = GetRelativeLocation();
 		FTransform Transform = GetComponentTransform();
+		FVector Velocity = GetComponentVelocity();
 
 		if (!Relative.Equals(FVector(1.0, 2.0, 3.0)))
 			return 30;
 		if (!Transform.GetTranslation().Equals(Relative))
 			return 40;
+		if (!Velocity.Equals(FVector(4.0, 5.0, 6.0)))
+			return 45;
 		if (GetNumChildrenComponents() != 0)
 			return 50;
 		UActorComponent FoundByClass = GetOwner().GetComponent(USceneComponent::StaticClass());

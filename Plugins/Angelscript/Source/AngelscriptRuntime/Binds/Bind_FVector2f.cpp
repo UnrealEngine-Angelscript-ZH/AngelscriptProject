@@ -184,6 +184,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_FVector2f(FAngelscriptBinds::E
 
 	FVector2f_.Method("void Normalize(float32 Tolerance = __SMALL_NUMBER_flt)", METHOD_TRIVIAL(FVector2f, Normalize));
 	FVector2f_.Method("FVector2f GetSafeNormal(float32 Tolerance = __SMALL_NUMBER_flt) const", METHOD_TRIVIAL(FVector2f, GetSafeNormal));
+	FVector2f_.Method("void ToDirectionAndLength(FVector2f& OutDir, float32& OutLength) const", METHODPR_TRIVIAL(void, FVector2f, ToDirectionAndLength, (FVector2f&, float&) const));
 
 	FVector2f_.Method("bool ContainsNaN() const", METHOD_TRIVIAL(FVector2f, ContainsNaN));
 	FVector2f_.Method("FVector2f GetSignVector() const", METHOD_TRIVIAL(FVector2f, GetSignVector));
