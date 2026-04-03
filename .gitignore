@@ -80,6 +80,9 @@ Intermediate
 Intermediate/*
 Plugins/*/Intermediate/*
 
+# C# / UBT plugin intermediate outputs
+Plugins/*/Source/*/obj/
+
 # Cache files for the editor to use
 DerivedDataCache/*
 
