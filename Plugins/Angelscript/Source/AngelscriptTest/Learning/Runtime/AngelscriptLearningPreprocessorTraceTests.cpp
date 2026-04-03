@@ -27,7 +27,7 @@ namespace
 		return AbsolutePath;
 	}
 
-	const FAngelscriptModuleDesc* FindModuleByName(const TArray<TSharedRef<FAngelscriptModuleDesc>>& Modules, const FString& ModuleName)
+	const FAngelscriptModuleDesc* FindLearningPreprocessorModuleByName(const TArray<TSharedRef<FAngelscriptModuleDesc>>& Modules, const FString& ModuleName)
 	{
 		for (const TSharedRef<FAngelscriptModuleDesc>& Module : Modules)
 		{
@@ -40,7 +40,7 @@ namespace
 		return nullptr;
 	}
 
-	TArray<const FAngelscriptPreprocessor::FMacro*> GatherMacros(const FAngelscriptPreprocessor& Preprocessor)
+	TArray<const FAngelscriptPreprocessor::FMacro*> GatherLearningPreprocessorMacros(const FAngelscriptPreprocessor& Preprocessor)
 	{
 		TArray<const FAngelscriptPreprocessor::FMacro*> Macros;
 		for (const FAngelscriptPreprocessor::FFile& File : Preprocessor.Files)
@@ -150,7 +150,7 @@ bool FAngelscriptLearningPreprocessorTraceTest::RunTest(const FString& Parameter
 		Trace.AddCodeBlock(FormatLearningTraceStringList(HookEvents, TEXT("PreprocessHooks")));
 	}
 
-	const FAngelscriptModuleDesc* ImportingModule = FindModuleByName(Modules, TEXT("Tests.Learning.Preprocessor.UsesImport"));
+	const FAngelscriptModuleDesc* ImportingModule = FindLearningPreprocessorModuleByName(Modules, TEXT("Tests.Learning.Preprocessor.UsesImport"));
 	TArray<FString> MacroSummaries;
 	TArray<FString> ChunkSummaries;
 	for (const FAngelscriptPreprocessor::FFile& File : Preprocessor.Files)
@@ -190,7 +190,7 @@ bool FAngelscriptLearningPreprocessorTraceTest::RunTest(const FString& Parameter
 		Trace.AddCodeBlock(FormatLearningTraceStringList(ImportingModule->ImportedModules, TEXT("ImportedModules")));
 	}
 
-	const TArray<const FAngelscriptPreprocessor::FMacro*> Macros = GatherMacros(Preprocessor);
+	const TArray<const FAngelscriptPreprocessor::FMacro*> Macros = GatherLearningPreprocessorMacros(Preprocessor);
 	const bool bHasPropertyMacro = Macros.ContainsByPredicate([](const FAngelscriptPreprocessor::FMacro* Macro)
 	{
 		return Macro->Type == FAngelscriptPreprocessor::EMacroType::Property && Macro->Name == TEXT("Mesh");
