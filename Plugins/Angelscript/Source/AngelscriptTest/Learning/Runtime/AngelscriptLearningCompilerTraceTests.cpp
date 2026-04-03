@@ -2,13 +2,8 @@
 #include "../../Shared/AngelscriptTestEngineHelper.h"
 #include "../../Shared/AngelscriptTestUtilities.h"
 
-#include "HAL/FileManager.h"
 #include "Misc/AutomationTest.h"
-#include "Misc/Crc.h"
-#include "Misc/FileHelper.h"
-#include "Misc/Paths.h"
 #include "Misc/ScopeExit.h"
-#include "Preprocessor/AngelscriptPreprocessor.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -25,17 +20,6 @@ namespace
 		ECompileType CompileType = ECompileType::SoftReloadOnly;
 		bool bUsesPreprocessor = false;
 		bool bSuppressCompileErrorLogs = false;
-	};
-
-	struct FLearningCompilerOutcome
-	{
-		bool bCompileSucceeded = false;
-		ECompileResult CompileResult = ECompileResult::Error;
-		int32 ModuleDescCount = 0;
-		int32 CompiledModuleCount = 0;
-		TArray<FString> ModuleNames;
-		TArray<FString> AbsoluteFilenames;
-		TArray<FAngelscriptLearningTraceDiagnostic> Diagnostics;
 	};
 
 	FString GetCompileTypeLabel(ECompileType CompileType)
@@ -70,7 +54,7 @@ namespace
 		}
 	}
 
-	FString GetDiagnosticSeverityLabel(const FAngelscriptEngine::FDiagnostic& Diagnostic)
+	FString GetDiagnosticSeverityLabel(const FAngelscriptCompileTraceDiagnosticSummary& Diagnostic)
 	{
 		if (Diagnostic.bIsError)
 		{
@@ -85,131 +69,22 @@ namespace
 		return TEXT("Warning");
 	}
 
-	void AddUniqueAbsoluteFilename(TArray<FString>& AbsoluteFilenames, const FString& AbsoluteFilename)
+	TArray<FAngelscriptLearningTraceDiagnostic> ConvertDiagnostics(const TArray<FAngelscriptCompileTraceDiagnosticSummary>& Diagnostics)
 	{
-		if (!AbsoluteFilename.IsEmpty())
+		TArray<FAngelscriptLearningTraceDiagnostic> Result;
+		for (const FAngelscriptCompileTraceDiagnosticSummary& Diagnostic : Diagnostics)
 		{
-			AbsoluteFilenames.AddUnique(AbsoluteFilename);
+			FAngelscriptLearningTraceDiagnostic& TraceDiagnostic = Result.AddDefaulted_GetRef();
+			TraceDiagnostic.Section = Diagnostic.Section;
+			TraceDiagnostic.Row = Diagnostic.Row;
+			TraceDiagnostic.Column = Diagnostic.Column;
+			TraceDiagnostic.Severity = GetDiagnosticSeverityLabel(Diagnostic);
+			TraceDiagnostic.Message = Diagnostic.Message;
 		}
+		return Result;
 	}
 
-	TSharedRef<FAngelscriptModuleDesc> MakeLearningModuleDesc(const FLearningCompilerScenario& Scenario)
-	{
-		const FString RelativeFilename = FPaths::Combine(TEXT("Automation"), Scenario.Filename);
-		const FString AbsoluteFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation"), Scenario.Filename);
-
-		TSharedRef<FAngelscriptModuleDesc> ModuleDesc = MakeShared<FAngelscriptModuleDesc>();
-		ModuleDesc->ModuleName = Scenario.ModuleName.ToString();
-
-		FAngelscriptModuleDesc::FCodeSection& Section = ModuleDesc->Code.AddDefaulted_GetRef();
-		Section.RelativeFilename = RelativeFilename;
-		Section.AbsoluteFilename = AbsoluteFilename;
-		Section.Code = Scenario.Script;
-		Section.CodeHash = static_cast<int64>(FCrc::StrCrc32(*Section.Code));
-		ModuleDesc->CodeHash ^= Section.CodeHash;
-		return ModuleDesc;
-	}
-
-	bool BuildModulesForScenario(const FLearningCompilerScenario& Scenario, TArray<TSharedRef<FAngelscriptModuleDesc>>& OutModules, TArray<FString>& OutAbsoluteFilenames)
-	{
-		if (Scenario.bUsesPreprocessor)
-		{
-			const FString AutomationDirectory = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation"));
-			const FString AbsoluteFilename = FPaths::Combine(AutomationDirectory, Scenario.Filename);
-			IFileManager::Get().MakeDirectory(*AutomationDirectory, true);
-			if (!FFileHelper::SaveStringToFile(Scenario.Script, *AbsoluteFilename))
-			{
-				return false;
-			}
-
-			FAngelscriptPreprocessor Preprocessor;
-			Preprocessor.AddFile(Scenario.Filename, AbsoluteFilename);
-			if (!Preprocessor.Preprocess())
-			{
-				return false;
-			}
-
-			OutModules = Preprocessor.GetModulesToCompile();
-			for (const TSharedRef<FAngelscriptModuleDesc>& Module : OutModules)
-			{
-				for (const FAngelscriptModuleDesc::FCodeSection& Section : Module->Code)
-				{
-					AddUniqueAbsoluteFilename(OutAbsoluteFilenames, Section.AbsoluteFilename);
-				}
-			}
-			return OutModules.Num() > 0;
-		}
-
-		TSharedRef<FAngelscriptModuleDesc> ModuleDesc = MakeLearningModuleDesc(Scenario);
-		for (const FAngelscriptModuleDesc::FCodeSection& Section : ModuleDesc->Code)
-		{
-			AddUniqueAbsoluteFilename(OutAbsoluteFilenames, Section.AbsoluteFilename);
-		}
-		OutModules.Add(ModuleDesc);
-		return true;
-	}
-
-	void CollectDiagnosticsForScenario(FAngelscriptEngine& Engine, const TArray<FString>& AbsoluteFilenames, TArray<FAngelscriptLearningTraceDiagnostic>& OutDiagnostics)
-	{
-		for (const FString& AbsoluteFilename : AbsoluteFilenames)
-		{
-			if (const FAngelscriptEngine::FDiagnostics* Diagnostics = Engine.Diagnostics.Find(AbsoluteFilename))
-			{
-				for (const FAngelscriptEngine::FDiagnostic& Diagnostic : Diagnostics->Diagnostics)
-				{
-					FAngelscriptLearningTraceDiagnostic& TraceDiagnostic = OutDiagnostics.AddDefaulted_GetRef();
-					TraceDiagnostic.Section = AbsoluteFilename;
-					TraceDiagnostic.Row = Diagnostic.Row;
-					TraceDiagnostic.Column = Diagnostic.Column;
-					TraceDiagnostic.Severity = GetDiagnosticSeverityLabel(Diagnostic);
-					TraceDiagnostic.Message = Diagnostic.Message;
-				}
-			}
-		}
-	}
-
-	FLearningCompilerOutcome RunCompilerScenario(FAngelscriptEngine& Engine, const FLearningCompilerScenario& Scenario)
-	{
-		FLearningCompilerOutcome Outcome;
-		Engine.Diagnostics.Empty();
-		Engine.LastEmittedDiagnostics.Empty();
-		Engine.bDiagnosticsDirty = false;
-
-		TArray<TSharedRef<FAngelscriptModuleDesc>> ModulesToCompile;
-		if (!BuildModulesForScenario(Scenario, ModulesToCompile, Outcome.AbsoluteFilenames))
-		{
-			Outcome.CompileResult = ECompileResult::Error;
-			CollectDiagnosticsForScenario(Engine, Outcome.AbsoluteFilenames, Outcome.Diagnostics);
-			return Outcome;
-		}
-
-		Outcome.ModuleDescCount = ModulesToCompile.Num();
-		for (const TSharedRef<FAngelscriptModuleDesc>& Module : ModulesToCompile)
-		{
-			Outcome.ModuleNames.Add(Module->ModuleName);
-		}
-
-		TArray<TSharedRef<FAngelscriptModuleDesc>> CompiledModules;
-		TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
-		FScopedAutomaticImportsOverride AutomaticImportsOverride(Engine.GetScriptEngine());
-		FScopedTestEngineGlobalScope GlobalScope(&Engine);
-		if (Scenario.bSuppressCompileErrorLogs)
-		{
-			UE_SET_LOG_VERBOSITY(Angelscript, Fatal);
-		}
-		Outcome.CompileResult = Engine.CompileModules(Scenario.CompileType, ModulesToCompile, CompiledModules);
-		if (Scenario.bSuppressCompileErrorLogs)
-		{
-			UE_SET_LOG_VERBOSITY(Angelscript, Log);
-		}
-		Outcome.CompiledModuleCount = CompiledModules.Num();
-		Outcome.bCompileSucceeded = Outcome.CompileResult == ECompileResult::FullyHandled || Outcome.CompileResult == ECompileResult::PartiallyHandled;
-
-		CollectDiagnosticsForScenario(Engine, Outcome.AbsoluteFilenames, Outcome.Diagnostics);
-		return Outcome;
-	}
-
-	void TraceCompilerScenario(FAngelscriptLearningTraceSession& Trace, const FLearningCompilerScenario& Scenario, const FLearningCompilerOutcome& Outcome)
+	void TraceCompilerScenario(FAngelscriptLearningTraceSession& Trace, const FLearningCompilerScenario& Scenario, const FAngelscriptCompileTraceSummary& Outcome)
 	{
 		Trace.AddStep(Scenario.ApiLabel, Outcome.bCompileSucceeded ? TEXT("Compilation path completed without a hard error") : TEXT("Compilation path reported an error or missing preprocessing result"));
 		Trace.AddKeyValue(TEXT("ScriptFilename"), Scenario.Filename);
@@ -225,9 +100,10 @@ namespace
 			Trace.AddCodeBlock(FormatLearningTraceStringList(Outcome.ModuleNames, TEXT("ModuleNames")));
 		}
 
-		if (Outcome.Diagnostics.Num() > 0)
+		const TArray<FAngelscriptLearningTraceDiagnostic> TraceDiagnostics = ConvertDiagnostics(Outcome.Diagnostics);
+		if (TraceDiagnostics.Num() > 0)
 		{
-			Trace.AddCodeBlock(FormatLearningTraceDiagnostics(Outcome.Diagnostics));
+			Trace.AddCodeBlock(FormatLearningTraceDiagnostics(TraceDiagnostics));
 		}
 	}
 }
@@ -265,7 +141,8 @@ bool FAngelscriptLearningCompilerTraceTest::RunTest(const FString& Parameters)
 		ECompileType::Initial,
 		true,
 	};
-	const FLearningCompilerOutcome BuildModuleOutcome = RunCompilerScenario(Engine, BuildModuleScenario);
+	FAngelscriptCompileTraceSummary BuildModuleOutcome;
+	CompileModuleWithSummary(&Engine, BuildModuleScenario.CompileType, BuildModuleScenario.ModuleName, BuildModuleScenario.Filename, BuildModuleScenario.Script, BuildModuleScenario.bUsesPreprocessor, BuildModuleOutcome, BuildModuleScenario.bSuppressCompileErrorLogs);
 	TraceCompilerScenario(Trace, BuildModuleScenario, BuildModuleOutcome);
 
 	const FLearningCompilerScenario PlainCompileScenario{
@@ -276,7 +153,8 @@ bool FAngelscriptLearningCompilerTraceTest::RunTest(const FString& Parameters)
 		ECompileType::SoftReloadOnly,
 		false,
 	};
-	const FLearningCompilerOutcome PlainCompileOutcome = RunCompilerScenario(Engine, PlainCompileScenario);
+	FAngelscriptCompileTraceSummary PlainCompileOutcome;
+	CompileModuleWithSummary(&Engine, PlainCompileScenario.CompileType, PlainCompileScenario.ModuleName, PlainCompileScenario.Filename, PlainCompileScenario.Script, PlainCompileScenario.bUsesPreprocessor, PlainCompileOutcome, PlainCompileScenario.bSuppressCompileErrorLogs);
 	TraceCompilerScenario(Trace, PlainCompileScenario, PlainCompileOutcome);
 
 	const FLearningCompilerScenario AnnotatedCompileScenario{
@@ -297,7 +175,8 @@ class ULearningCompilerTraceCarrier : UObject
 		ECompileType::FullReload,
 		true,
 	};
-	const FLearningCompilerOutcome AnnotatedCompileOutcome = RunCompilerScenario(Engine, AnnotatedCompileScenario);
+	FAngelscriptCompileTraceSummary AnnotatedCompileOutcome;
+	CompileModuleWithSummary(&Engine, AnnotatedCompileScenario.CompileType, AnnotatedCompileScenario.ModuleName, AnnotatedCompileScenario.Filename, AnnotatedCompileScenario.Script, AnnotatedCompileScenario.bUsesPreprocessor, AnnotatedCompileOutcome, AnnotatedCompileScenario.bSuppressCompileErrorLogs);
 	TraceCompilerScenario(Trace, AnnotatedCompileScenario, AnnotatedCompileOutcome);
 
 	const FLearningCompilerScenario BrokenAnnotatedScenario{
@@ -320,7 +199,8 @@ class UBrokenLearningCompilerTraceCarrier : UObject
 		true,
 		true,
 	};
-	const FLearningCompilerOutcome BrokenAnnotatedOutcome = RunCompilerScenario(Engine, BrokenAnnotatedScenario);
+	FAngelscriptCompileTraceSummary BrokenAnnotatedOutcome;
+	CompileModuleWithSummary(&Engine, BrokenAnnotatedScenario.CompileType, BrokenAnnotatedScenario.ModuleName, BrokenAnnotatedScenario.Filename, BrokenAnnotatedScenario.Script, BrokenAnnotatedScenario.bUsesPreprocessor, BrokenAnnotatedOutcome, BrokenAnnotatedScenario.bSuppressCompileErrorLogs);
 	TraceCompilerScenario(Trace, BrokenAnnotatedScenario, BrokenAnnotatedOutcome);
 
 	UClass* GeneratedClass = FindGeneratedClass(&Engine, TEXT("ULearningCompilerTraceCarrier"));

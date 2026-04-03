@@ -17,6 +17,100 @@ namespace AngelscriptTestSupport
 {
 	namespace
 	{
+		TSharedRef<FAngelscriptModuleDesc> MakeModuleDesc(FName ModuleName, FString Filename, FString Script);
+
+		void AddUniqueAbsoluteFilename(TArray<FString>& AbsoluteFilenames, const FString& AbsoluteFilename)
+		{
+			if (!AbsoluteFilename.IsEmpty())
+			{
+				AbsoluteFilenames.AddUnique(AbsoluteFilename);
+			}
+		}
+
+		void CollectCompileTraceDiagnostics(const FAngelscriptEngine& Engine, const TArray<FString>& AbsoluteFilenames, TArray<FAngelscriptCompileTraceDiagnosticSummary>& OutDiagnostics)
+		{
+			for (const FString& AbsoluteFilename : AbsoluteFilenames)
+			{
+				if (const FAngelscriptEngine::FDiagnostics* Diagnostics = Engine.Diagnostics.Find(AbsoluteFilename))
+				{
+					for (const FAngelscriptEngine::FDiagnostic& Diagnostic : Diagnostics->Diagnostics)
+					{
+						FAngelscriptCompileTraceDiagnosticSummary& Summary = OutDiagnostics.AddDefaulted_GetRef();
+						Summary.Section = AbsoluteFilename;
+						Summary.Row = Diagnostic.Row;
+						Summary.Column = Diagnostic.Column;
+						Summary.bIsError = Diagnostic.bIsError;
+						Summary.bIsInfo = Diagnostic.bIsInfo;
+						Summary.Message = Diagnostic.Message;
+					}
+				}
+			}
+		}
+
+		bool BuildModulesForSummary(FName ModuleName, FString Filename, FString Script, bool bUsePreprocessor, TArray<TSharedRef<FAngelscriptModuleDesc>>& OutModules, TArray<FString>& OutAbsoluteFilenames)
+		{
+			if (bUsePreprocessor)
+			{
+				const FString AutomationDirectory = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation"));
+				const FString AbsoluteFilename = FPaths::Combine(AutomationDirectory, Filename);
+				IFileManager::Get().MakeDirectory(*AutomationDirectory, true);
+				if (!FFileHelper::SaveStringToFile(Script, *AbsoluteFilename))
+				{
+					return false;
+				}
+
+				FAngelscriptPreprocessor Preprocessor;
+				Preprocessor.AddFile(Filename, AbsoluteFilename);
+				if (!Preprocessor.Preprocess())
+				{
+					return false;
+				}
+
+				OutModules = Preprocessor.GetModulesToCompile();
+				for (const TSharedRef<FAngelscriptModuleDesc>& Module : OutModules)
+				{
+					for (const FAngelscriptModuleDesc::FCodeSection& Section : Module->Code)
+					{
+						AddUniqueAbsoluteFilename(OutAbsoluteFilenames, Section.AbsoluteFilename);
+					}
+				}
+				return OutModules.Num() > 0;
+			}
+
+			TSharedRef<FAngelscriptModuleDesc> ModuleDesc = MakeModuleDesc(ModuleName, MoveTemp(Filename), MoveTemp(Script));
+			for (const FAngelscriptModuleDesc::FCodeSection& Section : ModuleDesc->Code)
+			{
+				AddUniqueAbsoluteFilename(OutAbsoluteFilenames, Section.AbsoluteFilename);
+			}
+			OutModules.Add(ModuleDesc);
+			return true;
+		}
+
+		bool CompilePreparedModules(FAngelscriptEngine* Engine, ECompileType CompileType, const TArray<TSharedRef<FAngelscriptModuleDesc>>& ModulesToCompile, ECompileResult& OutCompileResult, int32& OutCompiledModuleCount, bool bSuppressCompileErrorLogs)
+		{
+			if (Engine == nullptr)
+			{
+				OutCompileResult = ECompileResult::Error;
+				OutCompiledModuleCount = 0;
+				return false;
+			}
+
+			TArray<TSharedRef<FAngelscriptModuleDesc>> CompiledModules;
+			TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
+			FScopedAutomaticImportsOverride AutomaticImportsOverride(Engine->GetScriptEngine());
+			FScopedTestEngineGlobalScope GlobalScope(Engine);
+			if (bSuppressCompileErrorLogs)
+			{
+				UE_SET_LOG_VERBOSITY(Angelscript, Fatal);
+			}
+			OutCompileResult = Engine->CompileModules(CompileType, ModulesToCompile, CompiledModules);
+			if (bSuppressCompileErrorLogs)
+			{
+				UE_SET_LOG_VERBOSITY(Angelscript, Log);
+			}
+			OutCompiledModuleCount = CompiledModules.Num();
+			return OutCompileResult == ECompileResult::FullyHandled || OutCompileResult == ECompileResult::PartiallyHandled;
+		}
 
 		TSharedRef<FAngelscriptModuleDesc> MakeModuleDesc(FName ModuleName, FString Filename, FString Script)
 		{
@@ -186,6 +280,40 @@ namespace AngelscriptTestSupport
 			return PreprocessAndCompile(Engine, CompileType, MoveTemp(Filename), MoveTemp(Script), &OutCompileResult);
 		}
 		return CompileModuleInternal(Engine, CompileType, ModuleName, MoveTemp(Filename), MoveTemp(Script), &OutCompileResult);
+	}
+
+	bool CompileModuleWithSummary(FAngelscriptEngine* Engine, ECompileType CompileType, FName ModuleName, FString Filename, FString Script, bool bUsePreprocessor, FAngelscriptCompileTraceSummary& OutSummary, bool bSuppressCompileErrorLogs)
+	{
+		OutSummary = FAngelscriptCompileTraceSummary();
+		OutSummary.CompileType = CompileType;
+		OutSummary.bUsedPreprocessor = bUsePreprocessor;
+
+		if (Engine == nullptr)
+		{
+			return false;
+		}
+
+		Engine->Diagnostics.Empty();
+		Engine->LastEmittedDiagnostics.Empty();
+		Engine->bDiagnosticsDirty = false;
+
+		TArray<TSharedRef<FAngelscriptModuleDesc>> ModulesToCompile;
+		if (!BuildModulesForSummary(ModuleName, Filename, Script, bUsePreprocessor, ModulesToCompile, OutSummary.AbsoluteFilenames))
+		{
+			OutSummary.CompileResult = ECompileResult::Error;
+			CollectCompileTraceDiagnostics(*Engine, OutSummary.AbsoluteFilenames, OutSummary.Diagnostics);
+			return false;
+		}
+
+		OutSummary.ModuleDescCount = ModulesToCompile.Num();
+		for (const TSharedRef<FAngelscriptModuleDesc>& Module : ModulesToCompile)
+		{
+			OutSummary.ModuleNames.Add(Module->ModuleName);
+		}
+
+		OutSummary.bCompileSucceeded = CompilePreparedModules(Engine, CompileType, ModulesToCompile, OutSummary.CompileResult, OutSummary.CompiledModuleCount, bSuppressCompileErrorLogs);
+		CollectCompileTraceDiagnostics(*Engine, OutSummary.AbsoluteFilenames, OutSummary.Diagnostics);
+		return OutSummary.bCompileSucceeded;
 	}
 
 	bool AnalyzeReloadFromMemory(FAngelscriptEngine* Engine, FName ModuleName, FString Filename, FString Script, FAngelscriptClassGenerator::EReloadRequirement& OutReloadRequirement, bool& bOutWantsFullReload, bool& bOutNeedsFullReload)

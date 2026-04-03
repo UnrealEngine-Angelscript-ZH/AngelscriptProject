@@ -102,6 +102,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptTestEngineHelperCompileSummaryPlainModuleTest,
+	"Angelscript.TestModule.Shared.EngineHelper.CompileSummaryPlainModule",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptTestEngineHelperCompileSummaryDiagnosticCaptureTest,
+	"Angelscript.TestModule.Shared.EngineHelper.CompileSummaryDiagnosticCapture",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptTestEngineHelperContextIsolationAcrossEnginesTest,
 	"Angelscript.TestModule.Shared.EngineHelper.ExecutingOneTestEngineDoesNotLeakContextIntoNextTest",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -328,6 +338,73 @@ bool FAngelscriptTestEngineHelperWorldContextScopeRestoreTest::RunTest(const FSt
 	}
 
 	return TestTrue(TEXT("World context scope should restore the previous context"), FAngelscriptEngine::CurrentWorldContext == PreviousWorldContext);
+}
+
+bool FAngelscriptTestEngineHelperCompileSummaryPlainModuleTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetSharedTestEngine();
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(TEXT("HelperCompileSummaryPlain"));
+	};
+
+	AngelscriptTestSupport::FAngelscriptCompileTraceSummary Summary;
+	const bool bCompiled = AngelscriptTestSupport::CompileModuleWithSummary(
+		&Engine,
+		ECompileType::SoftReloadOnly,
+		TEXT("HelperCompileSummaryPlain"),
+		TEXT("HelperCompileSummaryPlain.as"),
+		TEXT("int Entry() { return 42; }"),
+		false,
+		Summary);
+
+	if (!TestTrue(TEXT("CompileModuleWithSummary should compile a plain module"), bCompiled))
+	{
+		return false;
+	}
+
+	TestFalse(TEXT("Plain module summary should report no preprocessor usage"), Summary.bUsedPreprocessor);
+	TestEqual(TEXT("Plain module summary should report one module descriptor"), Summary.ModuleDescCount, 1);
+	TestTrue(TEXT("Plain module summary should produce at least one compiled module"), Summary.CompiledModuleCount >= 1);
+	TestEqual(TEXT("Plain module summary should report no diagnostics"), Summary.Diagnostics.Num(), 0);
+	return Summary.ModuleDescCount == 1 && Summary.Diagnostics.Num() == 0;
+}
+
+bool FAngelscriptTestEngineHelperCompileSummaryDiagnosticCaptureTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetSharedTestEngine();
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(TEXT("HelperCompileSummaryBroken"));
+	};
+
+	AngelscriptTestSupport::FAngelscriptCompileTraceSummary Summary;
+	const bool bCompiled = AngelscriptTestSupport::CompileModuleWithSummary(
+		&Engine,
+		ECompileType::FullReload,
+		TEXT("HelperCompileSummaryBroken"),
+		TEXT("HelperCompileSummaryBroken.as"),
+		TEXT(R"(
+UCLASS()
+class UBrokenCompileSummaryObject : UObject
+{
+	UFUNCTION()
+	MissingType GetValue()
+	{
+		MissingType Value;
+		return Value;
+	}
+}
+)"),
+		true,
+		Summary,
+		true);
+
+	TestFalse(TEXT("CompileModuleWithSummary should fail for broken annotated input"), bCompiled);
+	TestTrue(TEXT("Broken annotated summary should report preprocessor usage"), Summary.bUsedPreprocessor);
+	TestTrue(TEXT("Broken annotated summary should capture diagnostics"), Summary.Diagnostics.Num() > 0);
+	TestEqual(TEXT("Broken annotated summary should report an error compile result"), Summary.CompileResult, ECompileResult::Error);
+	return !bCompiled && Summary.Diagnostics.Num() > 0 && Summary.CompileResult == ECompileResult::Error;
 }
 
 bool FAngelscriptTestEngineHelperContextIsolationAcrossEnginesTest::RunTest(const FString& Parameters)
