@@ -47,8 +47,11 @@
   - [12.13 GC 垃圾回收](#1213-gc-垃圾回收)
   - [12.14 Subsystem 子系统](#1214-subsystem-子系统)
   - [12.15 HotReload 热重载场景](#1215-hotreload-热重载场景)
-- [13. Examples — 示例脚本编译](#13-examples--示例脚本编译)
-- [14. Template — 模板场景](#14-template--模板场景)
+- [13. Learning — 教学型可观测测试](#13-learning--教学型可观测测试)
+  - [13.1 Native 层学习测试](#131-native-层学习测试)
+  - [13.2 Runtime 层学习测试](#132-runtime-层学习测试)
+- [14. Examples — 示例脚本编译](#14-examples--示例脚本编译)
+- [15. Template — 模板场景](#15-template--模板场景)
 
 ---
 
@@ -790,7 +793,51 @@
 
 ---
 
-## 13. Examples — 示例脚本编译
+## 13. Learning — 教学型可观测测试
+
+> 源文件：`Learning/` 目录下所有测试
+>
+> 目标：解释机制如何工作，而非仅验证功能回归。输出包含阶段、步骤、观测值和教学总结。
+
+### 13.1 Native 层学习测试
+
+> 源文件：`Learning/Native/AngelscriptLearningNative*.cpp`
+>
+> 解释原生 AngelScript 引擎的启动、绑定、字节码、handles、调试器上下文。
+
+| 测试名 | 教学目标 |
+|--------|----------|
+| Learning.Native.Bootstrap | 解释 `asCreateScriptEngine`、引擎属性、模块创建、函数声明收集 |
+| Learning.Native.Binding | 解释 `RegisterGlobalFunction`、`RegisterGlobalProperty`、`RegisterObjectType`、值类型绑定 |
+| Learning.Native.Bytecode | 解释函数声明、参数计数、局部变量、字节码长度、`Prepare`/`Execute` 流程 |
+| Learning.Native.HandleAndScriptObject | 解释 script object 编译、类型元数据可见性、handle 声明边界 |
+| Learning.Native.DebuggerContext | 解释异常上下文中的 `GetExceptionString`、`GetCallstackSize`、栈变量读取 |
+
+### 13.2 Runtime 层学习测试
+
+> 源文件：`Learning/Runtime/AngelscriptLearning*.cpp`
+>
+> 解释编译管线、预处理、模块解析、热重载判定、类生成、UE 桥接等。
+
+| 测试名 | 教学目标 |
+|--------|----------|
+| Learning.Runtime.Compiler | 解释 `BuildModule()` vs `CompileModuleFromMemory()` vs `CompileAnnotatedModuleFromMemory()` 的差异 |
+| Learning.Runtime.Preprocessor | 解释 `FilenameToModuleName()`、chunk 拆分、macro 记录、import 移除 |
+| Learning.Runtime.FileSystemAndModule | 解释磁盘编译、`GetModule`/`GetModuleByFilename`、模块发现跳过规则 |
+| Learning.Runtime.RestoreAndBytecodePersistence | 解释 `SaveByteCode`/`LoadByteCode`、debug info strip 标志、restored function discoverability |
+| Learning.Runtime.HotReloadDecision | 解释软重载/完整重载判定触发条件（no-change、body-only、property-count、super-class、class-add/remove、signature-change） |
+| Learning.Runtime.ClassGeneration | 解释 `UCLASS()` 脚本如何生成 `UClass`、属性枚举、CDO 默认值、actor-derived 检测 |
+| Learning.Runtime.ScriptClassToBlueprint | 解释脚本类如何作为 Blueprint 父类、继承验证、BeginPlay override、属性传播 |
+| Learning.Runtime.InterfaceDispatch | 解释 `UINTERFACE` 生成、接口继承链、`ImplementsInterface` 验证、dispatch 可见性 |
+| Learning.Runtime.DelegateBridge | 解释 unicast delegate 绑定、`BindUFunction`、native->script dispatch |
+| Learning.Runtime.ComponentHierarchy | 解释 `DefaultComponent` specifier、组件生命周期（BeginPlay/Tick） |
+| Learning.Runtime.BlueprintSubclass | 解释 Blueprint 继承脚本类、属性继承、运行时 override 行为 |
+| Learning.Runtime.ExecutionLifecycle | 解释 `CreateContext`/`Prepare`/`Execute`/`GetReturnValue` 原生执行生命周期 |
+| Learning.Runtime.UEBridge | 解释脚本函数如何成为 UFunction、ProcessEvent 调用、属性读写桥接 |
+
+---
+
+## 14. Examples — 示例脚本编译
 
 > 源文件：`Examples/AngelscriptScriptExample*Test.cpp`（各文件对应一个示例 `.as`）
 >
@@ -821,7 +868,7 @@
 
 ---
 
-## 14. Template — 模板场景
+## 15. Template — 模板场景
 
 > 源文件：`Template/Template_Blueprint.cpp`、`Template_BlueprintWorldTick.cpp`、`Template_WorldTick.cpp`
 
