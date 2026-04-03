@@ -81,6 +81,96 @@ function Stop-ProcessTree {
     }
 }
 
+function Get-DescendantProcessIds {
+    param([int]$RootProcessId)
+
+    $descendants = New-Object System.Collections.Generic.List[int]
+    $queue = New-Object System.Collections.Generic.Queue[int]
+    $queue.Enqueue($RootProcessId)
+
+    while ($queue.Count -gt 0) {
+        $current = $queue.Dequeue()
+        foreach ($child in @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $current" -ErrorAction SilentlyContinue)) {
+            $descendants.Add([int]$child.ProcessId)
+            $queue.Enqueue([int]$child.ProcessId)
+        }
+    }
+
+    return $descendants
+}
+
+function Get-ProjectProcessIds {
+    param(
+        [string]$ProjectFile,
+        [string]$ProjectRoot,
+        [datetime]$StartedAfter
+    )
+
+    $result = New-Object System.Collections.Generic.List[int]
+    $allowedNames = @('UnrealEditor-Cmd.exe', 'UnrealEditor.exe', 'ShaderCompileWorker.exe', 'CrashReportClient.exe', 'dotnet.exe', 'cmd.exe')
+    foreach ($proc in @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
+        if ($allowedNames -notcontains $proc.Name) {
+            continue
+        }
+
+        $commandLine = [string]$proc.CommandLine
+        if ([string]::IsNullOrWhiteSpace($commandLine)) {
+            continue
+        }
+
+        $matchesProject = $commandLine.IndexOf($ProjectFile, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
+            $commandLine.IndexOf($ProjectRoot, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+        if (-not $matchesProject) {
+            continue
+        }
+
+        try {
+            $startTime = [System.Management.ManagementDateTimeConverter]::ToDateTime($proc.CreationDate)
+        } catch {
+            $startTime = $StartedAfter
+        }
+
+        if ($startTime -ge $StartedAfter) {
+            $result.Add([int]$proc.ProcessId)
+        }
+    }
+
+    return $result
+}
+
+function Stop-TestProcesses {
+    param(
+        [int]$RootProcessId,
+        [string]$ProjectFile,
+        [string]$ProjectRoot,
+        [datetime]$StartedAfter
+    )
+
+    $processIds = New-Object System.Collections.Generic.HashSet[int]
+    $processIds.Add($RootProcessId) | Out-Null
+    foreach ($procId in @(Get-DescendantProcessIds -RootProcessId $RootProcessId)) {
+        $processIds.Add($procId) | Out-Null
+    }
+    foreach ($procId in @(Get-ProjectProcessIds -ProjectFile $ProjectFile -ProjectRoot $projectRoot -StartedAfter $StartedAfter)) {
+        $processIds.Add($procId) | Out-Null
+    }
+
+    foreach ($procId in $processIds) {
+        Stop-ProcessTree -ProcessId $procId
+    }
+
+    for ($attempt = 0; $attempt -lt 5; $attempt++) {
+        Start-Sleep -Milliseconds 500
+        $remaining = @(Get-ProjectProcessIds -ProjectFile $ProjectFile -ProjectRoot $projectRoot -StartedAfter $StartedAfter)
+        if ($remaining.Count -eq 0) {
+            break
+        }
+        foreach ($procId in $remaining) {
+            Stop-ProcessTree -ProcessId $procId
+        }
+    }
+}
+
 function Try-AppendTimeoutMarker {
     param([string]$Path, [string]$Message)
     try {
@@ -168,12 +258,13 @@ Write-Host "----------------------------------------------------------------"
 Write-Host "Starting test run at $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss') ..."
 Write-Host ""
 
+$startedAt = Get-Date
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 $proc = Start-Process -FilePath $editorCmd -ArgumentList $argList `
     -NoNewWindow -PassThru -RedirectStandardOutput $logFile -RedirectStandardError $stderrFile
 $completed = $proc.WaitForExit($TimeoutMs)
 if (-not $completed) {
-    Stop-ProcessTree -ProcessId $proc.Id
+    Stop-TestProcesses -RootProcessId $proc.Id -ProjectFile $projectFile -ProjectRoot $projectRoot -StartedAfter $startedAt.AddSeconds(-2)
     $sw.Stop()
     Try-AppendTimeoutMarker -Path $stderrFile -Message "[TIMEOUT] Test run exceeded ${TimeoutMs}ms and was terminated."
     Write-Host ""

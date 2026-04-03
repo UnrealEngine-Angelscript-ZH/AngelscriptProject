@@ -6,7 +6,8 @@
     Build timeout in milliseconds. Default: Build.DefaultTimeoutMs -> Test.DefaultTimeoutMs -> 600000.
 #>
 param(
-    [int]$TimeoutMs = 0
+    [int]$TimeoutMs = 0,
+    [switch]$UseWaitMutex
 )
 
 Set-StrictMode -Version Latest
@@ -55,6 +56,131 @@ function Stop-ProcessTree {
     }
 }
 
+function Get-DescendantProcessIds {
+    param([int]$RootProcessId)
+
+    $descendants = New-Object System.Collections.Generic.List[int]
+    $queue = New-Object System.Collections.Generic.Queue[int]
+    $queue.Enqueue($RootProcessId)
+
+    while ($queue.Count -gt 0) {
+        $current = $queue.Dequeue()
+        foreach ($child in @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $current" -ErrorAction SilentlyContinue)) {
+            $descendants.Add([int]$child.ProcessId)
+            $queue.Enqueue([int]$child.ProcessId)
+        }
+    }
+
+    return $descendants
+}
+
+function Get-ProjectProcessIds {
+    param(
+        [string]$ProjectFile,
+        [string]$ProjectRoot,
+        [datetime]$StartedAfter
+    )
+
+    $result = New-Object System.Collections.Generic.List[int]
+    $allowedNames = @('dotnet.exe', 'UnrealBuildTool.exe', 'MSBuild.exe', 'cl.exe', 'link.exe', 'rc.exe', 'ShaderCompileWorker.exe', 'cmd.exe')
+    foreach ($proc in @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
+        if ($allowedNames -notcontains $proc.Name) {
+            continue
+        }
+
+        $commandLine = [string]$proc.CommandLine
+        if ([string]::IsNullOrWhiteSpace($commandLine)) {
+            continue
+        }
+
+        $matchesProject = $commandLine.IndexOf($ProjectFile, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
+            $commandLine.IndexOf($ProjectRoot, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+        if (-not $matchesProject) {
+            continue
+        }
+
+        try {
+            $startTime = [System.Management.ManagementDateTimeConverter]::ToDateTime($proc.CreationDate)
+        } catch {
+            $startTime = $StartedAfter
+        }
+
+        if ($startTime -ge $StartedAfter) {
+            $result.Add([int]$proc.ProcessId)
+        }
+    }
+
+    return $result
+}
+
+function Stop-BuildProcesses {
+    param(
+        [int]$RootProcessId,
+        [string]$ProjectFile,
+        [string]$ProjectRoot,
+        [datetime]$StartedAfter
+    )
+
+    $processIds = New-Object System.Collections.Generic.HashSet[int]
+    $processIds.Add($RootProcessId) | Out-Null
+    foreach ($procId in @(Get-DescendantProcessIds -RootProcessId $RootProcessId)) {
+        $processIds.Add($procId) | Out-Null
+    }
+    foreach ($procId in @(Get-ProjectProcessIds -ProjectFile $ProjectFile -ProjectRoot $ProjectRoot -StartedAfter $StartedAfter)) {
+        $processIds.Add($procId) | Out-Null
+    }
+
+    foreach ($procId in $processIds) {
+        Stop-ProcessTree -ProcessId $procId
+    }
+
+    for ($attempt = 0; $attempt -lt 5; $attempt++) {
+        Start-Sleep -Milliseconds 500
+        $remaining = @(Get-ProjectProcessIds -ProjectFile $ProjectFile -ProjectRoot $ProjectRoot -StartedAfter $StartedAfter)
+        if ($remaining.Count -eq 0) {
+            break
+        }
+        foreach ($procId in $remaining) {
+            Stop-ProcessTree -ProcessId $procId
+        }
+    }
+}
+
+function Test-ExistingProjectBuild {
+    param(
+        [string]$ProjectFile,
+        [string]$ProjectRoot
+    )
+
+    $currentPid = $PID
+    $matches = @()
+    $allowedNames = @('dotnet.exe', 'UnrealBuildTool.exe', 'MSBuild.exe', 'cl.exe', 'link.exe', 'rc.exe', 'ShaderCompileWorker.exe', 'cmd.exe')
+    foreach ($proc in @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
+        if ([int]$proc.ProcessId -eq $currentPid) {
+            continue
+        }
+
+        if ($allowedNames -notcontains $proc.Name) {
+            continue
+        }
+
+        $commandLine = [string]$proc.CommandLine
+        if ([string]::IsNullOrWhiteSpace($commandLine)) {
+            continue
+        }
+
+        $matchesProject = $commandLine.IndexOf($ProjectFile, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
+            $commandLine.IndexOf($ProjectRoot, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+        if (-not $matchesProject) {
+            continue
+        }
+
+        $matches += $proc
+    }
+
+    return $matches
+}
+
 function Try-AppendTimeoutMarker {
     param([string]$Path, [string]$Message)
     try {
@@ -98,10 +224,13 @@ $argList = @(
     $platform
     $configuration
     "-Project=$projectFile"
-    "-WaitMutex"
     "-FromMsBuild"
     "-architecture=$architecture"
 )
+
+if ($UseWaitMutex) {
+    $argList += "-WaitMutex"
+}
 
 Write-Host "================================================================"
 Write-Host "  Angelscript Build Runner"
@@ -109,15 +238,26 @@ Write-Host "================================================================"
 Write-Host "Target      : $editorTarget"
 Write-Host "Project     : $projectFile"
 Write-Host "TimeoutMs   : $TimeoutMs"
+Write-Host "WaitMutex   : $UseWaitMutex"
 Write-Host "Stdout log  : $stdoutLog"
 Write-Host "Stderr log  : $stderrLog"
 Write-Host "----------------------------------------------------------------"
 
+$existingBuilds = @(Test-ExistingProjectBuild -ProjectFile $projectFile -ProjectRoot $projectRoot)
+if ($existingBuilds.Count -gt 0) {
+    Write-Host "[ERROR] Found existing build-related process(es) for this project. Refusing to block on them."
+    foreach ($proc in $existingBuilds) {
+        Write-Host ("  PID {0} {1}" -f $proc.ProcessId, $proc.Name)
+    }
+    exit 125
+}
+
+$startedAt = Get-Date
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 $proc = Start-Process -FilePath $buildBat -ArgumentList $argList -PassThru -NoNewWindow -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
 $completed = $proc.WaitForExit($TimeoutMs)
 if (-not $completed) {
-    Stop-ProcessTree -ProcessId $proc.Id
+    Stop-BuildProcesses -RootProcessId $proc.Id -ProjectFile $projectFile -ProjectRoot $projectRoot -StartedAfter $startedAt.AddSeconds(-2)
     $sw.Stop()
     Try-AppendTimeoutMarker -Path $stderrLog -Message "[TIMEOUT] Build exceeded ${TimeoutMs}ms and was terminated."
     Write-Host "[ERROR] Build timed out after $TimeoutMs ms and was terminated."
