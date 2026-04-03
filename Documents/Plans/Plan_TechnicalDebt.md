@@ -353,7 +353,7 @@ powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\W
   - 已按 `AgentConfig.ini` / `Documents/Guides/Test.md` 的配置规则解析命令，并在独立 worktree 上重新执行 `Automation RunTests Angelscript.TestModule`。
   - 最终 full-suite 仍保留且仅保留 4 个已知失败项：`Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2A`、`Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2B`、`Angelscript.TestModule.Editor.SourceNavigation.Functions`、`Angelscript.TestModule.ScriptExamples.Actor`；`Saved/Logs/AngelscriptProject.log` 中未见新增与本计划技术债收口直接相关的失败。
   - 本阶段结果已回写到 `Documents/Guides/TechnicalDebtInventory.md` 与 `Documents/Guides/TestCatalog.md`，用于统一“已编目基线 / 实时扫描规模 / full-suite 已知失败项”的最终口径。
-- [ ] **P6.3** 📦 Git 提交：`[Test] Test: finalize technical debt cleanup verification and summary`
+- [x] **P6.3** 📦 Git 提交：`[Test] Test: finalize technical debt cleanup verification and summary`
 
 ## 验收标准
 
