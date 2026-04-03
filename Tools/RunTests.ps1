@@ -29,6 +29,7 @@ param(
     [string]$TestPrefix = "Angelscript",
     [string]$Label = "",
     [string]$OutputRoot = "",
+    [int]$TimeoutMs = 0,
     [switch]$NoReport
 )
 
@@ -68,6 +69,26 @@ function Get-IniValue {
     return $Default
 }
 
+function Stop-ProcessTree {
+    param([int]$ProcessId)
+    try {
+        Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+    } catch {
+    }
+    try {
+        & taskkill /PID $ProcessId /T /F 2>$null | Out-Null
+    } catch {
+    }
+}
+
+function Try-AppendTimeoutMarker {
+    param([string]$Path, [string]$Message)
+    try {
+        $Message | Out-File -FilePath $Path -Append -Encoding utf8
+    } catch {
+    }
+}
+
 # ── Resolve paths from AgentConfig.ini ──
 
 $projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
@@ -82,6 +103,10 @@ if ([string]::IsNullOrWhiteSpace($engineRoot)) {
 $projectFile = Get-IniValue -Ini $ini -Section "Paths" -Key "ProjectFile" `
     -Default (Join-Path $projectRoot "AngelscriptProject.uproject")
 $editorCmd   = Join-Path $engineRoot "Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
+
+if ($TimeoutMs -le 0) {
+    $TimeoutMs = [int](Get-IniValue -Ini $ini -Section "Test" -Key "DefaultTimeoutMs" -Default "600000")
+}
 
 if (-not (Test-Path -LiteralPath $projectFile)) {
     throw "Project file not found: $projectFile"
@@ -105,6 +130,7 @@ $outputDir = Join-Path $OutputRoot $runDir
 New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
 
 $logFile    = Join-Path $outputDir "test.log"
+$stderrFile = Join-Path $outputDir "test.stderr.log"
 $reportDir  = Join-Path $outputDir "Reports"
 
 # ── Assemble arguments ──
@@ -131,9 +157,11 @@ Write-Host "================================================================"
 Write-Host "Test prefix : $TestPrefix"
 Write-Host "Output dir  : $outputDir"
 Write-Host "Log file    : $logFile"
+Write-Host "Stderr file : $stderrFile"
 if (-not $NoReport) {
     Write-Host "Report dir  : $reportDir"
 }
+Write-Host "TimeoutMs   : $TimeoutMs"
 Write-Host "Engine      : $editorCmd"
 Write-Host "Project     : $projectFile"
 Write-Host "----------------------------------------------------------------"
@@ -142,7 +170,20 @@ Write-Host ""
 
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
 $proc = Start-Process -FilePath $editorCmd -ArgumentList $argList `
-    -Wait -NoNewWindow -PassThru -RedirectStandardOutput $logFile
+    -NoNewWindow -PassThru -RedirectStandardOutput $logFile -RedirectStandardError $stderrFile
+$completed = $proc.WaitForExit($TimeoutMs)
+if (-not $completed) {
+    Stop-ProcessTree -ProcessId $proc.Id
+    $sw.Stop()
+    Try-AppendTimeoutMarker -Path $stderrFile -Message "[TIMEOUT] Test run exceeded ${TimeoutMs}ms and was terminated."
+    Write-Host ""
+    Write-Host "[ERROR] Test run timed out after $TimeoutMs ms and was terminated."
+    Write-Host "Log file    : $logFile"
+    Write-Host "Stderr file : $stderrFile"
+    exit 124
+}
+
+$proc.WaitForExit()
 $sw.Stop()
 
 # ── Parse results ──
@@ -193,6 +234,7 @@ if ($failLines) {
 
 Write-Host ""
 Write-Host "Log file    : $logFile"
+Write-Host "Stderr file : $stderrFile"
 if (-not $NoReport) {
     Write-Host "Report dir  : $reportDir"
 }

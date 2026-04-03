@@ -40,6 +40,7 @@ powershell.exe -ExecutionPolicy Bypass -File "Tools\RunTests.ps1" -TestPrefix "A
 ```
 
 脚本输出到 `Saved/Automation/<timestamp>_<Label>/`，包含 `test.log` 和 `Reports/`。退出码 `0` 表示全通过，`1` 表示有失败。
+脚本会强制读取 `Test.DefaultTimeoutMs`（或显式 `-TimeoutMs`）并在超时后终止进程树，返回 `124`。
 
 详细参数说明见 `Documents/Tools/Tool.md`。
 
@@ -130,10 +131,10 @@ powershell.exe -ExecutionPolicy Bypass -File "Tools\RunTests.ps1" -TestPrefix "A
 <EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe "<ResolvedProjectFile>" -ExecCmds="Automation RunTests <TestName>; Quit" -Unattended -NoPause -NoSplash -NOSOUND
 ```
 
-在 AI Agent 环境中执行（通过 PowerShell + Start-Process）：
+在 AI Agent 环境中执行（推荐直接走脚本包装并显式带超时）：
 
 ```
-powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"<ResolvedProjectFile>\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
+powershell.exe -ExecutionPolicy Bypass -File "Tools\RunTests.ps1" -TestPrefix "<TestName>" -TimeoutMs <TimeoutMs>
 ```
 
 超时建议：600000ms（10 分钟），首次启动需要加载引擎和编译 shader
@@ -177,10 +178,10 @@ powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\W
 <EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe "<ResolvedProjectFile>" -ExecCmds="Automation RunTests <TestName>; Quit" -Unattended -NoPause -NoSplash -NullRHI -NOSOUND
 ```
 
-在 AI Agent 环境中执行（通过 PowerShell + Start-Process）：
+在 AI Agent 环境中执行（推荐直接走脚本包装并显式带超时）：
 
 ```
-powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"<ResolvedProjectFile>\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NullRHI','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
+powershell.exe -ExecutionPolicy Bypass -File "Tools\RunTests.ps1" -TestPrefix "<TestName>" -TimeoutMs <TimeoutMs>
 ```
 
 其中 `<ResolvedProjectFile>` 应先读取 `Paths.ProjectFile`；若为空，则回退到仓库根目录下的 `AngelscriptProject.uproject`。

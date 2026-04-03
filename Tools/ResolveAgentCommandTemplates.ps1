@@ -74,6 +74,7 @@ $platform = Get-IniValue -Ini $ini -Section "Build" -Key "Platform" -Default "Wi
 $configuration = Get-IniValue -Ini $ini -Section "Build" -Key "Configuration" -Default "Development"
 $architecture = Get-IniValue -Ini $ini -Section "Build" -Key "Architecture" -Default "x64"
 $defaultTimeoutMs = Get-IniValue -Ini $ini -Section "Test" -Key "DefaultTimeoutMs" -Default "600000"
+$buildTimeoutMs = Get-IniValue -Ini $ini -Section "Build" -Key "DefaultTimeoutMs" -Default $defaultTimeoutMs
 
 $buildBat = Join-Path $engineRoot "Engine\Build\BatchFiles\Build.bat"
 $editorCmd = Join-Path $engineRoot "Engine\Binaries\Win64\UnrealEditor-Cmd.exe"
@@ -90,8 +91,11 @@ if (-not (Test-Path -LiteralPath $editorCmd)) {
     throw "UnrealEditor-Cmd.exe not found at '$editorCmd'. Check Paths.EngineRoot in '$ConfigPath'."
 }
 
-$buildCommand = 'powershell.exe -Command "& ''{0}'' {1} {2} {3} ''-Project={4}'' -WaitMutex -FromMsBuild -architecture={5} 2>&1 | Out-String"' -f $buildBat, $editorTarget, $platform, $configuration, $resolvedProjectFile, $architecture
-$testCommand = 'powershell.exe -Command "Start-Process -FilePath ''{0}'' -ArgumentList ''""{1}""'',''-ExecCmds=""Automation RunTests {2}; Quit""'',''-Unattended'',''-NoPause'',''-NoSplash'',''-NullRHI'',''-NOSOUND'' -Wait -NoNewWindow; Write-Host ''DONE''"' -f $editorCmd, $resolvedProjectFile, $TestName
+$buildRunner = Join-Path $ProjectRoot 'Tools\RunBuild.ps1'
+$testRunner = Join-Path $ProjectRoot 'Tools\RunTests.ps1'
+
+$buildCommand = 'powershell.exe -ExecutionPolicy Bypass -File "{0}" -TimeoutMs {1}' -f $buildRunner, $buildTimeoutMs
+$testCommand = 'powershell.exe -ExecutionPolicy Bypass -File "{0}" -TestPrefix "{1}" -TimeoutMs {2}' -f $testRunner, $TestName, $defaultTimeoutMs
 
 $resolved = [ordered]@{
     ConfigPath = $ConfigPath
@@ -102,6 +106,7 @@ $resolved = [ordered]@{
     Platform = $platform
     Configuration = $configuration
     Architecture = $architecture
+    BuildTimeoutMs = [int]$buildTimeoutMs
     DefaultTimeoutMs = [int]$defaultTimeoutMs
     BuildCommand = $buildCommand
     TestCommand = $testCommand

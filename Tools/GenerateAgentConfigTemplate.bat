@@ -29,6 +29,7 @@ if /I not "%~1"=="--force" if exist "%TARGET_FILE%" (
     echo Platform=Win64
     echo Configuration=Development
     echo Architecture=x64
+    echo DefaultTimeoutMs=1200000
     echo.
     echo [Test]
     echo ; Default timeout in milliseconds for long-running commands.

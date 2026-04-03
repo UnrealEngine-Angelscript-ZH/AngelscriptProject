@@ -7,11 +7,18 @@
 - `Paths.EngineRoot` 是唯一的硬阻塞项；缺失或为空时必须先补配置，不能继续猜路径。
 - `Paths.ProjectFile` 允许留空；留空时统一回退到仓库根目录下的 `AngelscriptProject.uproject`。
 - `Build.EditorTarget`、`Build.Platform`、`Build.Configuration`、`Build.Architecture` 缺失时，分别回退到 `AngelscriptProjectEditor`、`Win64`、`Development`、`x64`。
+- `Build.DefaultTimeoutMs` 缺失时回退到 `1200000ms`；若未配置该键，至少使用 `600000ms` 作为保底超时。
 - 在真正运行构建命令前，可先执行 `Tools\ResolveAgentCommandTemplates.ps1` 做参数展开级 smoke check。
 
 ## Agent 环境命令
 
-在 AI Agent 环境中执行时，建议使用 PowerShell，确保完整捕获输出。
+在 AI Agent 环境中执行时，建议统一使用 `Tools\RunBuild.ps1`，避免无超时的裸 `Build.bat` 调用卡死。
+
+```powershell
+powershell.exe -ExecutionPolicy Bypass -File "Tools\RunBuild.ps1"
+```
+
+脚本会读取 `Build.DefaultTimeoutMs`（若缺失则回退到 `Test.DefaultTimeoutMs` / `600000`），超时后强制终止构建进程树并返回 `124`。
 
 先根据 `AgentConfig.ini` 中的 `Paths.EngineRoot` 获取 `Engine\Build\BatchFiles\Build.bat` 的完整路径；若 `Paths.ProjectFile` 为空，则先回退到仓库根目录 `.uproject`，其余构建参数按默认值补齐：
 
@@ -80,7 +87,7 @@ powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\W
 - 构建命令必须追加 `2>&1 | Out-String`，确保完整捕获输出。
 - 运行 `UnrealEditor-Cmd.exe` 时，优先使用 `Start-Process -Wait -NoNewWindow`。
 - 自动化测试建议启用 `-Unattended -NoPause -NoSplash -NullRHI -NOSOUND`。
-- 长时间任务应预留至少 `600000ms` 超时时间，或使用 `Test.DefaultTimeoutMs`。
+- 长时间任务必须使用超时包装执行；构建优先读取 `Build.DefaultTimeoutMs`，默认推荐 `1200000ms`。
 
 ## 可直接引用的提示语
 
