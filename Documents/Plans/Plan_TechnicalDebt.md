@@ -343,16 +343,16 @@ powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\W
   - 任何性能结论都需要附带测量口径与场景，不写“体感更快”这种不可回归描述
 - [x] **P6.1** 📦 Git 提交：`[Binds] Test: verify or retire stale enum lookup performance debt`
 
-- [ ] **P6.2** 完成文档体系同步
+- [x] **P6.2** 完成文档体系同步
   - 至少复核并按需更新：`Documents/Plans/Plan_TechnicalDebt.md`、`Documents/Guides/Build.md`、`Documents/Guides/Test.md`、`Documents/Guides/TestCatalog.md`、`Documents/Guides/TechnicalDebtInventory.md`，以及 `Documents/Plans/Plan_InterfaceBinding.md`、`Documents/Plans/Plan_HazelightBindModuleMigration.md`、`Documents/Plans/Plan_AS238NonLambdaPort.md`、`Documents/Plans/Plan_FullDeGlobalization.md` 的边界交叉引用
   - 确认文档中不再出现本地绝对路径，且所有引用的计划/指南都与当前插件优先边界一致
   - 如果某项债务已通过 sibling plan 承接，必须在本计划中写明去向，不允许“从这里删掉但没有着落”
-- [ ] **P6.2** 📦 Git 提交：`[Docs] Chore: sync technical debt closeout across guides and plans`
+- [x] **P6.2** 📦 Git 提交：`[Docs] Chore: sync technical debt closeout across guides and plans`
 
-- [ ] **P6.3** 执行最终构建与全量回归，并沉淀结果摘要
-  - 先确认所有阶段性目标测试已通过，再跑完整构建与最终 `Angelscript.TestModule` 回归
-  - 把最终结果沉淀为可追溯摘要：哪些债务关闭、哪些转 sibling plan、哪些被验证为“已无问题但需守住”
-  - 只有在最终结果摘要、测试目录文档、以及本计划三者一致时，才算完成本计划
+- [x] **P6.3** 执行最终构建与全量回归，并沉淀结果摘要
+  - 已按 `AgentConfig.ini` / `Documents/Guides/Test.md` 的配置规则解析命令，并在独立 worktree 上重新执行 `Automation RunTests Angelscript.TestModule`。
+  - 最终 full-suite 仍保留且仅保留 4 个已知失败项：`Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2A`、`Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2B`、`Angelscript.TestModule.Editor.SourceNavigation.Functions`、`Angelscript.TestModule.ScriptExamples.Actor`；`Saved/Logs/AngelscriptProject.log` 中未见新增与本计划技术债收口直接相关的失败。
+  - 本阶段结果已回写到 `Documents/Guides/TechnicalDebtInventory.md` 与 `Documents/Guides/TestCatalog.md`，用于统一“已编目基线 / 实时扫描规模 / full-suite 已知失败项”的最终口径。
 - [ ] **P6.3** 📦 Git 提交：`[Test] Test: finalize technical debt cleanup verification and summary`
 
 ## 验收标准

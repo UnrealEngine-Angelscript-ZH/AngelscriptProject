@@ -201,4 +201,24 @@
 
 - `Bind_UEnum.cpp` 当前未见显式的 enum lookup 性能 TODO、专项哈希缓存结构、或仍需单独验证的优化路径。
 - 现有代码主要集中在 `UEnum` 类型适配、属性匹配、默认值转换与 debugger value 构造，不再包含需要单独 benchmark 的“已落地但未验证”性能债务描述。
-- 结论：`Bind_UEnum` 的性能债务按 stale 说法退休；后续若再引入真实的枚举查找优化路径，再单独建立可回归的测量任务。 
+- 结论：`Bind_UEnum` 的性能债务按 stale 说法退休；后续若再引入真实的枚举查找优化路径，再单独建立可回归的测量任务。
+
+## 15. Phase 6.3 最终回归快照
+
+- 命令解析：通过 `Tools/ResolveAgentCommandTemplates.ps1` 基于 `AgentConfig.ini` 成功解析 `UnrealEditor-Cmd.exe` 的最终命令行，确认 `ProjectFile` 回退到 worktree 根 `AngelscriptProject.uproject`，`Test.DefaultTimeoutMs` 为 `600000ms`。
+- 最终回归执行：在 `technical-debt-plan` worktree 上重新执行 `Automation RunTests Angelscript.TestModule`；结果日志见 `Saved/Logs/AngelscriptProject.log`。
+- 失败计数：`Saved/Logs/AngelscriptProject.log` 中 `LogAutomationController: Error: Test Completed. Result={失败}` 共 **4** 处，且 `LogAutomationCommandLine` 以 `**** TEST COMPLETE. EXIT CODE: -1 ****` 收尾，对应这 4 个失败项。
+- 最终保留失败项与 Phase 3 记录保持一致，没有新增指向本轮技术债收口改动面的回归：
+  - `Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2A`
+    - 失败摘要：`Expected 'Phase2A should load source from Script/Tests/Test_Enums.as' to be true.`
+    - 证据：`Saved/Logs/AngelscriptProject.log:2610`。
+  - `Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2B`
+    - 失败摘要：`Expected 'Phase2B should load source from Script/Tests/Test_GameplayTags.as' to be true.`
+    - 证据：`Saved/Logs/AngelscriptProject.log:2617`。
+  - `Angelscript.TestModule.Editor.SourceNavigation.Functions`
+    - 失败摘要：`Unable to open script file .../Saved/Automation/Automation/RuntimeFunctionNavigationTest.as`，随后 `Generated function navigation class should exist` 断言失败。
+    - 证据：`Saved/Logs/AngelscriptProject.log:4784`。
+  - `Angelscript.TestModule.ScriptExamples.Actor`
+    - 失败摘要：`Cannot declare class AExampleActorType in module ScriptExamples.Example_Actor. A class with this name already exists in module Example_Actor.`
+    - 证据：`Saved/Logs/AngelscriptProject.log:7225`。
+- 结论：`P6` 最终回归确认本轮技术债关闭工作没有引入新的 full-suite 回归；剩余失败项继续作为独立测试输入 / 路径 / 示例模块冲突问题保留，不回退为本计划中的开放技术债。

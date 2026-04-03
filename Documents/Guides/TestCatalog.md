@@ -5,6 +5,9 @@
 > 测试模块路径：`Plugins/Angelscript/Source/AngelscriptTest/`
 >
 > 说明：这里的 `275/275 PASS` 表示**已编目基线**，不是当前源码实时扫描到的全部测试数量。实时扫描规模与新增覆盖请以 `Documents/Guides/TechnicalDebtInventory.md` 的 live inventory / verification snapshot 为准。
+>
+> 最终 closeout 口径：`P6.3` 在独立 worktree 上重新执行 `Automation RunTests Angelscript.TestModule` 后，full-suite 仍只保留 `TechnicalDebtInventory.md` 中记录的 4 个已知失败项，没有新增技术债收口相关回归。
+
 
 ---
 
