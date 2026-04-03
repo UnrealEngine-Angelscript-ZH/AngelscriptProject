@@ -12,6 +12,7 @@ internal static class AngelscriptFunctionTableExporter
 		Name = "AngelscriptFunctionTable",
 		Description = "Exports Angelscript function table data",
 		Options = UhtExporterOptions.Default | UhtExporterOptions.CompileOutput,
+		CppFilters = ["AS_FunctionTable_*.cpp"],
 		ModuleName = "AngelscriptRuntime")]
 	private static void Export(IUhtExportFactory factory)
 	{
@@ -20,6 +21,7 @@ internal static class AngelscriptFunctionTableExporter
 		int functionCount = 0;
 		int reconstructedCount = 0;
 		int skippedCount = 0;
+		int generatedFileCount = AngelscriptFunctionTableCodeGenerator.Generate(factory);
 
 		foreach (UhtModule module in factory.Session.Modules)
 		{
@@ -28,12 +30,22 @@ internal static class AngelscriptFunctionTableExporter
 		}
 
 		Console.WriteLine(
-			"AngelscriptUhtPlugin exporter visited {0} packages, {1} classes, {2} BlueprintCallable/Pure functions, reconstructed {3}, skipped {4}.",
+			"AngelscriptUhtPlugin exporter visited {0} packages, {1} classes, {2} BlueprintCallable/Pure functions, reconstructed {3}, skipped {4}, wrote {5} module files.",
 			packageCount,
 			classCount,
 			functionCount,
 			reconstructedCount,
-			skippedCount);
+			skippedCount,
+			generatedFileCount);
+	}
+
+	internal static bool IsBlueprintCallable(UhtFunction function)
+	{
+		string functionFlags = function.FunctionFlags.ToString();
+
+		return function.FunctionType == UhtFunctionType.Function &&
+			(functionFlags.Contains("BlueprintCallable", StringComparison.Ordinal) ||
+			functionFlags.Contains("BlueprintPure", StringComparison.Ordinal));
 	}
 
 	private static void CountBlueprintCallableFunctions(UhtType type, ref int classCount, ref int functionCount, ref int reconstructedCount, ref int skippedCount)
@@ -63,14 +75,5 @@ internal static class AngelscriptFunctionTableExporter
 		{
 			CountBlueprintCallableFunctions(child, ref classCount, ref functionCount, ref reconstructedCount, ref skippedCount);
 		}
-	}
-
-	private static bool IsBlueprintCallable(UhtFunction function)
-	{
-		string functionFlags = function.FunctionFlags.ToString();
-
-		return function.FunctionType == UhtFunctionType.Function &&
-			(functionFlags.Contains("BlueprintCallable", StringComparison.Ordinal) ||
-			functionFlags.Contains("BlueprintPure", StringComparison.Ordinal));
 	}
 }

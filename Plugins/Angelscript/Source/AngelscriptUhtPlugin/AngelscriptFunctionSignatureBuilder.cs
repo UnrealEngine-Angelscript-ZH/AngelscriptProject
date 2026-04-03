@@ -57,11 +57,11 @@ internal static class AngelscriptFunctionSignatureBuilder
 				return false;
 			}
 
-			parameterTypes.Add(BuildPropertyType(property));
+			parameterTypes.Add(BuildParameterType(property));
 		}
 
 		string returnType = function.ReturnProperty is UhtProperty returnProperty
-			? BuildPropertyType(returnProperty)
+			? BuildReturnType(returnProperty)
 			: "void";
 
 		signature = new AngelscriptFunctionSignature(
@@ -76,10 +76,44 @@ internal static class AngelscriptFunctionSignatureBuilder
 		return true;
 	}
 
-	private static string BuildPropertyType(UhtProperty property)
+	private static string BuildParameterType(UhtProperty property)
 	{
 		StringBuilder builder = new();
-		property.AppendFullDecl(builder, UhtPropertyTextType.ClassFunctionArgOrRetVal, true);
+		string propertyFlags = property.PropertyFlags.ToString();
+
+		if (propertyFlags.Contains("ConstParm", StringComparison.Ordinal))
+		{
+			builder.Append("const ");
+		}
+
+		property.AppendText(builder, UhtPropertyTextType.ClassFunctionArgOrRetVal);
+
+		if (propertyFlags.Contains("ReferenceParm", StringComparison.Ordinal) ||
+			propertyFlags.Contains("OutParm", StringComparison.Ordinal))
+		{
+			builder.Append('&');
+		}
+
+		return builder.ToString().Trim();
+	}
+
+	private static string BuildReturnType(UhtProperty property)
+	{
+		StringBuilder builder = new();
+		string propertyFlags = property.PropertyFlags.ToString();
+
+		if (propertyFlags.Contains("ConstParm", StringComparison.Ordinal))
+		{
+			builder.Append("const ");
+		}
+
+		property.AppendText(builder, UhtPropertyTextType.ClassFunctionArgOrRetVal);
+
+		if (propertyFlags.Contains("ReferenceParm", StringComparison.Ordinal))
+		{
+			builder.Append('&');
+		}
+
 		return builder.ToString().Trim();
 	}
 
