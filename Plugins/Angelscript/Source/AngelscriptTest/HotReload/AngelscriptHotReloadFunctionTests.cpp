@@ -31,6 +31,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	"Angelscript.TestModule.HotReload.ModuleWatcherQueuesFileChanges",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptHotReloadModifyLookupFlowTest,
+	"Angelscript.TestModule.HotReload.AddModifyLookupFlow",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptHotReloadFailureKeepsOldCodeTest,
+	"Angelscript.TestModule.HotReload.FailureKeepsOldCodeAndDiagnostics",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
 struct FAngelscriptHotReloadTestAccess
 {
 	static void QueueFileChange(FAngelscriptEngine& Engine, const FAngelscriptEngine::FFilenamePair& Filename)
@@ -51,6 +61,15 @@ struct FAngelscriptHotReloadTestAccess
 	static void CheckForHotReload(FAngelscriptEngine& Engine, ECompileType CompileType)
 	{
 		Engine.CheckForHotReload(CompileType);
+	}
+
+	static int32 GetDiagnosticsCount(const FAngelscriptEngine& Engine, const FString& AbsoluteFilename)
+	{
+		if (const FAngelscriptEngine::FDiagnostics* FileDiagnostics = Engine.Diagnostics.Find(AbsoluteFilename))
+		{
+			return FileDiagnostics->Diagnostics.Num();
+		}
+		return 0;
 	}
 
 };
@@ -294,6 +313,173 @@ bool FAngelscriptModuleWatcherQueuesFileChangesTest::RunTest(const FString& Para
 		TEXT("QueueFileChange should keep the queue de-duplicated"),
 		FAngelscriptHotReloadTestAccess::GetQueuedFileChangeCount(Engine),
 		1);
+}
+
+bool FAngelscriptHotReloadModifyLookupFlowTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	static const FName ModuleName(TEXT("HotReloadModifyLookupFlow"));
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedInitializedTestEngine(Engine);
+	};
+
+	const FString ScriptV1 = TEXT(R"AS(
+UCLASS()
+class UHotReloadModifyLookupFlow : UObject
+{
+	UFUNCTION()
+	int GetValue()
+	{
+		return 1;
+	}
+}
+)AS");
+	const FString ScriptV2 = TEXT(R"AS(
+UCLASS()
+class UHotReloadModifyLookupFlow : UObject
+{
+	UFUNCTION()
+	int GetValue()
+	{
+		return 2;
+	}
+}
+)AS");
+
+	if (!TestTrue(TEXT("Modify/lookup flow should compile the initial module"), CompileAnnotatedModuleFromMemory(&Engine, ModuleName, TEXT("HotReloadModifyLookupFlow.as"), ScriptV1)))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Modify/lookup flow should register the module after initial compile"), Engine.GetModuleByModuleName(ModuleName.ToString()).IsValid());
+	UClass* ClassBeforeReload = FindGeneratedClass(&Engine, TEXT("UHotReloadModifyLookupFlow"));
+	if (!TestNotNull(TEXT("Modify/lookup flow should expose the generated class before reload"), ClassBeforeReload))
+	{
+		return false;
+	}
+
+	ECompileResult ReloadResult = ECompileResult::Error;
+	if (!TestTrue(TEXT("Modify/lookup flow should compile the body-only update on the soft reload path"), CompileModuleWithResult(&Engine, ECompileType::SoftReloadOnly, ModuleName, TEXT("HotReloadModifyLookupFlow.as"), ScriptV2, ReloadResult)))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Modify/lookup flow should stay on a handled reload path"), ReloadResult == ECompileResult::FullyHandled || ReloadResult == ECompileResult::PartiallyHandled);
+	UClass* ClassAfterReload = FindGeneratedClass(&Engine, TEXT("UHotReloadModifyLookupFlow"));
+	if (!TestNotNull(TEXT("Modify/lookup flow should keep the generated class visible after reload"), ClassAfterReload))
+	{
+		return false;
+	}
+
+	UFunction* GetValueFunction = FindGeneratedFunction(ClassAfterReload, TEXT("GetValue"));
+	if (!TestNotNull(TEXT("Modify/lookup flow should keep the generated function visible after reload"), GetValueFunction))
+	{
+		return false;
+	}
+
+	UObject* TestObject = NewObject<UObject>(GetTransientPackage(), ClassAfterReload);
+	if (!TestNotNull(TEXT("Modify/lookup flow should instantiate the reloaded generated class"), TestObject))
+	{
+		return false;
+	}
+
+	int32 Result = 0;
+	if (!TestTrue(TEXT("Modify/lookup flow should execute the reloaded generated function"), ExecuteGeneratedIntEventOnGameThread(TestObject, GetValueFunction, Result)))
+	{
+		return false;
+	}
+
+	TestEqual(TEXT("Modify/lookup flow should surface the modified function body result after reload"), Result, 2);
+	Engine.DiscardModule(*ModuleName.ToString());
+	return TestTrue(TEXT("Modify/lookup flow should clear the module lookup after discard"), !Engine.GetModuleByModuleName(ModuleName.ToString()).IsValid());
+}
+
+bool FAngelscriptHotReloadFailureKeepsOldCodeTest::RunTest(const FString& Parameters)
+{
+	AddExpectedError(TEXT("HotReloadFailureKeepsOldCode.as:"), EAutomationExpectedErrorFlags::Contains, 2);
+	AddExpectedError(TEXT("Identifier 'MissingType' is not a data type in global namespace"), EAutomationExpectedErrorFlags::Contains, 1);
+	AddExpectedError(TEXT("Identifier 'MissingType' is not a data type"), EAutomationExpectedErrorFlags::Contains, 1);
+	AddExpectedError(TEXT("Hot reload failed due to script compile errors. Keeping all old script code."), EAutomationExpectedErrorFlags::Contains, 1);
+
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	static const FName ModuleName(TEXT("HotReloadFailureKeepsOldCode"));
+	const FString AbsoluteFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("Automation"), TEXT("HotReloadFailureKeepsOldCode.as"));
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedInitializedTestEngine(Engine);
+	};
+
+	const FString ScriptV1 = TEXT(R"AS(
+UCLASS()
+class UHotReloadFailureKeepsOldCode : UObject
+{
+	UFUNCTION()
+	int GetValue()
+	{
+		return 5;
+	}
+}
+)AS");
+	const FString BrokenScript = TEXT(R"AS(
+UCLASS()
+class UHotReloadFailureKeepsOldCode : UObject
+{
+	UFUNCTION()
+	MissingType GetValue()
+	{
+		MissingType Value;
+		return Value;
+	}
+}
+)AS");
+
+	if (!TestTrue(TEXT("Failure fallback test should compile the initial module"), CompileAnnotatedModuleFromMemory(&Engine, ModuleName, TEXT("HotReloadFailureKeepsOldCode.as"), ScriptV1)))
+	{
+		return false;
+	}
+
+	UClass* ClassBeforeFailure = FindGeneratedClass(&Engine, TEXT("UHotReloadFailureKeepsOldCode"));
+	if (!TestNotNull(TEXT("Failure fallback test should expose the generated class before reload failure"), ClassBeforeFailure))
+	{
+		return false;
+	}
+
+	UFunction* GetValueBeforeFailure = FindGeneratedFunction(ClassBeforeFailure, TEXT("GetValue"));
+	if (!TestNotNull(TEXT("Failure fallback test should expose the generated function before reload failure"), GetValueBeforeFailure))
+	{
+		return false;
+	}
+
+	UObject* TestObject = NewObject<UObject>(GetTransientPackage(), ClassBeforeFailure);
+	if (!TestNotNull(TEXT("Failure fallback test should instantiate the pre-failure generated class"), TestObject))
+	{
+		return false;
+	}
+
+	int32 ResultBeforeFailure = 0;
+	if (!TestTrue(TEXT("Failure fallback test should execute the initial generated function"), ExecuteGeneratedIntEventOnGameThread(TestObject, GetValueBeforeFailure, ResultBeforeFailure)))
+	{
+		return false;
+	}
+	TestEqual(TEXT("Failure fallback test should observe the old code result before reload failure"), ResultBeforeFailure, 5);
+
+	ECompileResult ReloadResult = ECompileResult::FullyHandled;
+	const bool bCompiled = CompileModuleWithResult(&Engine, ECompileType::SoftReloadOnly, ModuleName, TEXT("HotReloadFailureKeepsOldCode.as"), BrokenScript, ReloadResult);
+	TestFalse(TEXT("Failure fallback test should fail the broken hot reload compile"), bCompiled);
+	TestTrue(TEXT("Failure fallback test should report an error reload state"), ReloadResult == ECompileResult::Error || ReloadResult == ECompileResult::ErrorNeedFullReload);
+	TestTrue(TEXT("Failure fallback test should collect diagnostics for the broken file"), FAngelscriptHotReloadTestAccess::GetDiagnosticsCount(Engine, AbsoluteFilename) > 0);
+
+	int32 ResultAfterFailure = 0;
+	if (!TestTrue(TEXT("Failure fallback test should still execute the old generated function after reload failure"), ExecuteGeneratedIntEventOnGameThread(TestObject, GetValueBeforeFailure, ResultAfterFailure)))
+	{
+		return false;
+	}
+
+	TestEqual(TEXT("Failure fallback test should keep the old code active after the broken reload"), ResultAfterFailure, 5);
+	return true;
 }
 
 #endif

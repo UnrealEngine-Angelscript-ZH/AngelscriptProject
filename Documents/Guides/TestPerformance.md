@@ -122,6 +122,8 @@
 
 ### 当前产物示例
 
+#### P3 基线样本
+
 - `Saved/Automation/AngelscriptPerformance/P3_1_StartupPerformance_Full/Metrics/metrics.json`
 - `Saved/Automation/AngelscriptPerformance/P3_1_StartupPerformance_Clone/Metrics/metrics.json`
 - `Saved/Automation/AngelscriptPerformance/P3_1_StartupPerformance_CreateForTestingFallback/Metrics/metrics.json`
@@ -131,6 +133,26 @@
 - `Saved/Automation/AngelscriptPerformance/P3_2_HotReloadPerformance_RenameWindow/Metrics/metrics.json`
 - `Saved/Automation/AngelscriptPerformance/P3_4_HotReloadPerformance_BurstChurn/Metrics/metrics.json`
 - `Saved/Automation/AngelscriptPerformance/P3_4_PerformanceArtifactGeneration/Metrics/metrics.json`
+
+#### P5/P6 回归与执行证据样本
+
+- `Saved/Automation/AngelscriptPerformance/P5_NativeScriptHotReload_Rerun2/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P5_ClassRename_Rerun2/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P5_AddModifyLookupFlow_Rerun2/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P5_FailureKeepsOldCode_Rerun2/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P6_FileSystem/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P6_MultiEngine/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P6_DependencyInjection/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P6_Subsystem/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P6_BindConfig/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P6_Parity/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P6_EditorDirectoryWatcher/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P6_HotReload/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P6_ScriptClass/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P6_NativeScriptHotReload/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P6_PerfStartup/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P6_PerfHotReload/Reports/index.json`
+- `Saved/Automation/AngelscriptPerformance/P6_PerfArtifactGeneration/Reports/index.json`
 
 ## 结果复核清单
 

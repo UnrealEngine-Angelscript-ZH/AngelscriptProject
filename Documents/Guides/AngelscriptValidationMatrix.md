@@ -70,3 +70,41 @@
 - 现有仓库已经具备 `MultiEngine`、`BindConfig`、`HotReload`、`FileSystem`、`Shared`、`Parity`、`NativeScriptHotReload` 七块高价值基础。
 - 当前真正缺的是把这些测试层组织成统一矩阵，并补上 startup bind 观测 seam、callback seam、性能基线和 generated symbol rename 闭环。
 - 后续新增测试必须继续遵循目录分层：`Runtime/Tests` 管启动与状态机，`AngelscriptTest/Core` 管插件级核心回归，`HotReload` 管消费与场景，`FileSystem` 管磁盘映射，`Editor/Private/Tests` 管 callback 输入输出。
+
+## 分层执行模板（Phase 6）
+
+| 层级 | 推荐命令前缀 | 典型用途 |
+| --- | --- | --- |
+| 快速烟雾层 | `Automation RunTests Angelscript.CppTests.MultiEngine+Angelscript.TestModule.Engine.BindConfig+Angelscript.TestModule.Shared.EngineHelper+Angelscript.TestModule.Core.Parity` | PR 前快速确认启动链路与 bind 表面可见性 |
+| 功能正确性层 | `Automation RunTests Angelscript.Editor.DirectoryWatcher+Angelscript.TestModule.HotReload+Angelscript.TestModule.ScriptClass+Angelscript.TestModule.FileSystem` | callback 队列、reload 行为、generated class 与文件映射回归 |
+| 真实语料层 | `Automation RunTests Angelscript.TestModule.Angelscript.NativeScriptHotReload` | `Script/Tests/*.as` 真实语料热重载探针 |
+| 长时压力层 | `Automation RunTests Angelscript.TestModule.Core.Performance.Startup+Angelscript.TestModule.HotReload.Performance` | 阶段收口/夜间性能与 burst churn 观测 |
+| 产物验证层 | `Automation RunTests Angelscript.TestModule.Core.Performance.ArtifactGeneration+Angelscript.CppTests.CodeCoverage.HtmlReport.Generation` | 验证性能/报告产物落盘结构稳定 |
+
+### 执行注意事项
+
+- 每层建议独立 `-ABSLOG` 与 `-ReportExportPath`，保留可追溯产物。
+- rename 行为仍按 `removed + added + 0.2s delay` 基线解释；若平台差异存在，优先依赖 callback deterministic 层断言。
+- 长时压力层不默认放入每次 PR 快速回归，应在文档执行模板中单独标注触发时机。
+
+### 首轮执行快照（2026-04-03）
+
+- `Angelscript.TestModule.Angelscript.NativeScriptHotReload`：`P5_NativeScriptHotReload_Rerun2/Reports/index.json`，`Phase2A/2B/2C` 全部成功。
+- `Angelscript.TestModule.ScriptClass.RenameReplacesOldClass`：`P5_ClassRename_Rerun2/Reports/index.json`，成功。
+- `Angelscript.TestModule.HotReload.AddModifyLookupFlow`：`P5_AddModifyLookupFlow_Rerun2/Reports/index.json`，成功。
+- `Angelscript.TestModule.HotReload.FailureKeepsOldCodeAndDiagnostics`：`P5_FailureKeepsOldCode_Rerun2/Reports/index.json`，成功。
+
+### Phase 6 分层执行快照（2026-04-03）
+
+- 快速烟雾层：`P6_MultiEngine`、`P6_DependencyInjection`、`P6_Subsystem`、`P6_BindConfig`、`P6_Parity` 全部完成，`failed=0`。
+- 功能正确性层：`P6_EditorDirectoryWatcher`、`P6_FileSystem`、`P6_ScriptClass` 成功；`P6_HotReload` 因 `Angelscript.TestModule.HotReload.Performance.BurstChurnLatency` 失败（需要 full reload 但当前执行窗口不可用）。
+- 真实语料层：`P6_NativeScriptHotReload` 成功（`failed=0`）。
+- 长时压力层：`P6_PerfStartup` 成功；`P6_PerfHotReload` 同样在 `BurstChurnLatency` 失败。
+- 产物验证层：`P6_PerfArtifactGeneration` 成功（`failed=0`）。
+
+### Phase 6 文档状态
+
+- [x] `Test.md` 已登记分层命令与执行顺序，并补全 P6 全波次执行证据。
+- [x] `TestCatalog.md` 已登记分层回归矩阵与关键测试入口。
+- [x] `TestPerformance.md` 已纳入 P5/P6 相关报告产物示例。
+- [x] 已记录首轮已知不稳定项：`BurstChurnLatency` 在当前执行环境要求 full reload 时会失败。

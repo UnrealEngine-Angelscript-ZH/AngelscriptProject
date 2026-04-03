@@ -262,6 +262,7 @@
 |--------|----------|
 | NativeScriptHotReload.Phase2A | 对 `Test_Enums.as`/`Test_Inheritance.as`/`Test_Handles.as` 全量编译再软重载，重载结果为 Fully/Partially Handled |
 | NativeScriptHotReload.Phase2B | 对 `Test_GameplayTags`/`Test_SystemUtils`/`Test_ActorLifecycle`/`Test_MathNamespace` 同样流程 |
+| NativeScriptHotReload.Phase2C | 对 `Test_ExampleActorFixture.as` 全量编译再软重载，验证新增语料路径也走 handled reload |
 
 ### 3.12 Upgrade — 版本升级兼容
 
@@ -410,10 +411,13 @@
 | HotReload.DiscardModule | 丢弃模块后引擎状态符合预期 |
 | HotReload.DiscardAndRecompile | 丢弃后能重新编译同一/新模块 |
 | HotReload.ModuleWatcherQueuesFileChanges | 文件监视器将变更入队供重载 |
+| HotReload.AddModifyLookupFlow | 新增并修改模块后，lookup/函数执行结果应更新到最新脚本体 |
+| HotReload.FailureKeepsOldCodeAndDiagnostics | 热重载失败时保留旧代码可执行，并记录诊断信息 |
 | HotReload.Performance.SoftReloadLatency | body-only soft reload 延迟基线 |
 | HotReload.Performance.FullReloadLatency | 结构变化 full reload 延迟基线 |
 | HotReload.Performance.RenameWindowLatency | rename-window 建模下 full reload 延迟基线 |
 | HotReload.Performance.BurstChurnLatency | repeated soft/full/soft burst churn 延迟基线 |
+
 
 ### 属性保留
 
@@ -630,6 +634,8 @@
 | Editor.DirectoryWatcher.Queue.FolderAddScansContainedScripts | 新增目录递归扫描脚本 |
 | Editor.DirectoryWatcher.Queue.FolderRemoveUsesLoadedScriptEnumerator | 删除目录通过已加载脚本枚举生成删除队列 |
 | Editor.DirectoryWatcher.Queue.RenameWindowTracksRemoveAndAdd | rename-window 建模下 remove+add 同时入队 |
+| Editor.DirectoryWatcher.Queue.DuplicateStormDeduplicatesEntries | 事件风暴下同一路径重复变更保持去重入队 |
+
 
 > 源文件：`Editor/AngelscriptSourceNavigationTests.cpp`
 
@@ -692,6 +698,7 @@
 | ScriptClass.CDOHasExpectedDefaults | CDO 与实例上 int/bool/FString 默认值与脚本一致 |
 | ScriptClass.RecompileDoesNotCrashClassSwitch | 同模块重编译后新属性与更新默认值可见 |
 | ScriptClass.NonUClassTypeCannotSpawn | 非 Actor 的 `UObject` 脚本类可 `NewObject`，但 `SpawnActor` 返回 null |
+| ScriptClass.RenameReplacesOldClass | 类名重命名后新类可查找、旧类名不再暴露且旧类被替换隐藏 |
 
 ### 12.5 ScriptActor 重载执行
 
@@ -907,3 +914,68 @@
 | Template.Blueprint.ScriptParentChild | 蓝图与脚本父类子类关系模板场景 |
 | Template.Blueprint.ActorChildWorldTick | 蓝图 Actor 子类在世界 Tick 下行为模板 |
 | Template.WorldTick.ScriptActorLifecycle | 世界 Tick 驱动的脚本 Actor 生命周期模板 |
+
+---
+
+## 15. Phase 6 完整回归矩阵（分层执行视图）
+
+> 目标：把快速烟雾层、功能正确性层、真实语料层、长时压力层、产物验证层拆分为可执行模板。
+
+### 15.1 快速烟雾层（PR 前）
+
+| 测试前缀 | 说明 |
+|--------|----------|
+| `Angelscript.CppTests.MultiEngine` | 创建模式与 startup owner 基础烟雾 |
+| `Angelscript.TestModule.Engine.BindConfig` | 启动 bind 配置与顺序烟雾 |
+| `Angelscript.TestModule.Shared.EngineHelper` | 引擎隔离与 scope 恢复烟雾 |
+| `Angelscript.TestModule.Core.Parity` | 生产引擎 bind 可见性 smoke |
+
+### 15.2 功能正确性层
+
+| 测试前缀 | 说明 |
+|--------|----------|
+| `Angelscript.Editor.DirectoryWatcher` | callback 输入到队列输出 deterministic 语义 |
+| `Angelscript.TestModule.HotReload` | queue 消费、热重载行为与失败兜底 |
+| `Angelscript.TestModule.ScriptClass` | generated class 重编译/rename/可见性 |
+| `Angelscript.TestModule.FileSystem` | 文件发现、映射、路径归一化与 skip 规则 |
+
+### 15.3 真实脚本语料层
+
+| 测试前缀 | 说明 |
+|--------|----------|
+| `Angelscript.TestModule.Angelscript.NativeScriptHotReload` | `Script/Tests/*.as` 语料全量编译 + soft reload handled 路径 |
+
+### 15.4 长时压力层（阶段收口/夜间）
+
+| 测试前缀 | 说明 |
+|--------|----------|
+| `Angelscript.TestModule.Core.Performance.Startup` | startup/bind baseline |
+| `Angelscript.TestModule.HotReload.Performance` | reload 延迟 baseline 与 burst churn |
+
+### 15.5 产物验证层
+
+| 测试前缀 | 说明 |
+|--------|----------|
+| `Angelscript.TestModule.Core.Performance.ArtifactGeneration` | metrics.json 与目录结构落盘验证 |
+| `Angelscript.CppTests.CodeCoverage.HtmlReport.Generation` | 报告产物写出能力邻近回归 |
+| `Angelscript.CppTests.StaticJIT.PrecompiledData.*` | 预编译数据产物与 round-trip 稳定性 |
+
+### 15.6 首轮执行快照（2026-04-03）
+
+| 层级 | 前缀 | 报告目录 | 结果摘要 |
+|--------|----------|----------|----------|
+| 快速烟雾层 | `Angelscript.CppTests.MultiEngine` | `Saved/Automation/AngelscriptPerformance/P6_MultiEngine/Reports/index.json` | `failed=0` |
+| 快速烟雾层 | `Angelscript.CppTests.Engine.DependencyInjection` | `Saved/Automation/AngelscriptPerformance/P6_DependencyInjection/Reports/index.json` | `failed=0` |
+| 快速烟雾层 | `Angelscript.CppTests.Subsystem` | `Saved/Automation/AngelscriptPerformance/P6_Subsystem/Reports/index.json` | `failed=0` |
+| 快速烟雾层 | `Angelscript.TestModule.Engine.BindConfig` | `Saved/Automation/AngelscriptPerformance/P6_BindConfig/Reports/index.json` | `failed=0` |
+| 快速烟雾层 | `Angelscript.TestModule.Shared.EngineHelper` | `Saved/Automation/AngelscriptPerformance/P6_SharedEngineHelper/Reports/index.json` | `failed=0` |
+| 快速烟雾层 | `Angelscript.TestModule.Parity` | `Saved/Automation/AngelscriptPerformance/P6_Parity/Reports/index.json` | `failed=0` |
+| 功能正确性层 | `Angelscript.Editor.DirectoryWatcher` | `Saved/Automation/AngelscriptPerformance/P6_EditorDirectoryWatcher/Reports/index.json` | `failed=0` |
+| 功能正确性层 | `Angelscript.TestModule.HotReload` | `Saved/Automation/AngelscriptPerformance/P6_HotReload/Reports/index.json` | `failed=1 (BurstChurnLatency)` |
+| 功能正确性层 | `Angelscript.TestModule.ScriptClass` | `Saved/Automation/AngelscriptPerformance/P6_ScriptClass/Reports/index.json` | `failed=0` |
+| 功能正确性层 | `Angelscript.TestModule.FileSystem` | `Saved/Automation/AngelscriptPerformance/P6_FileSystem/Reports/index.json` | `failed=0` |
+| 功能正确性层 | `Angelscript.TestModule.FileSystem.MixedSuccessFailureRecoveryAndRemap` | `Saved/Automation/AngelscriptPerformance/P5_5_MixedSuccessFailureRecovery_Rerun6/Reports/index.json` | `failed=0` |
+| 真实语料层 | `Angelscript.TestModule.Angelscript.NativeScriptHotReload` | `Saved/Automation/AngelscriptPerformance/P6_NativeScriptHotReload/Reports/index.json` | `failed=0` |
+| 长时压力层 | `Angelscript.TestModule.Core.Performance.Startup` | `Saved/Automation/AngelscriptPerformance/P6_PerfStartup/Reports/index.json` | `failed=0` |
+| 长时压力层 | `Angelscript.TestModule.HotReload.Performance` | `Saved/Automation/AngelscriptPerformance/P6_PerfHotReload/Reports/index.json` | `failed=1 (BurstChurnLatency)` |
+| 产物验证层 | `Angelscript.TestModule.Core.Performance.ArtifactGeneration` | `Saved/Automation/AngelscriptPerformance/P6_PerfArtifactGeneration/Reports/index.json` | `failed=0` |

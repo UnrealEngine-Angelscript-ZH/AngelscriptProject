@@ -71,6 +71,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	"Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2B",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptNativeScriptHotReloadPhase2CTest,
+	"Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2C",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
 bool FAngelscriptNativeScriptHotReloadPhase2ATest::RunTest(const FString& Parameters)
 {
 	return VerifyNativeScriptHotReloadInline(
@@ -227,6 +232,16 @@ class UNativeHotReloadPhase2BMathCarrier : UObject
 };
 )AS")
 			},
+		});
+}
+
+bool FAngelscriptNativeScriptHotReloadPhase2CTest::RunTest(const FString& Parameters)
+{
+	return VerifyNativeScriptHotReload(
+		*this,
+		TEXT("Phase2C"),
+		{
+			TEXT("Script/Tests/Test_ExampleActorFixture.as"),
 		});
 }
 

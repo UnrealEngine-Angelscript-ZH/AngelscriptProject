@@ -71,6 +71,12 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	"Angelscript.TestModule.FileSystem.PathNormalizationLookup",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptMixedSuccessFailureRecoveryAndRemapTest,
+	"Angelscript.TestModule.FileSystem.MixedSuccessFailureRecoveryAndRemap",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+
 bool FAngelscriptModuleLookupByFilenameTest::RunTest(const FString& Parameters)
 {
 	CleanFileSystemTestRoot();
@@ -386,4 +392,137 @@ int NormalizeEntry()
 	return true;
 }
 
+bool FAngelscriptMixedSuccessFailureRecoveryAndRemapTest::RunTest(const FString& Parameters)
+{
+	AddExpectedError(TEXT("Automation/FileSystem/Mixed/Bad.as:"), EAutomationExpectedErrorFlags::Contains, 1);
+	AddExpectedError(TEXT("Identifier 'MissingType' is not a data type"), EAutomationExpectedErrorFlags::Contains, 1);
+	AddExpectedError(TEXT("Hot reload failed due to script compile errors. Keeping all old script code."), EAutomationExpectedErrorFlags::Contains, 1);
+	CleanFileSystemTestRoot();
+
+	FAngelscriptEngine& EngineOwner = GetSharedTestEngine();
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(TEXT("Game.Mixed.Good"));
+		Engine.DiscardModule(TEXT("Game.Mixed.Bad"));
+		CleanFileSystemTestRoot();
+	};
+
+	const FString GoodScriptV1 = TEXT(R"AS(
+int SurvivorEntry()
+{
+	return 7;
+}
+)AS");
+	const FString GoodScriptV2 = TEXT(R"AS(
+int SurvivorEntry()
+{
+	return 17;
+}
+)AS");
+	const FString BadBrokenScript = TEXT(R"AS(
+int BrokenEntry()
+{
+	MissingType Value;
+	return 1;
+}
+)AS");
+	const FString BadFixedScript = TEXT(R"AS(
+int BrokenEntry()
+{
+	return 23;
+}
+)AS");
+
+	FString GoodPath;
+	FString BadPath;
+	if (!TestTrue(TEXT("Write good script should succeed"), WriteFileSystemTestFile(TEXT("Mixed/Good.as"), GoodScriptV1, GoodPath))
+		|| !TestTrue(TEXT("Write bad script should succeed"), WriteFileSystemTestFile(TEXT("Mixed/Bad.as"), BadBrokenScript, BadPath)))
+	{
+		return false;
+	}
+
+	if (!TestTrue(TEXT("Compile good module should succeed"), CompileModuleFromMemory(&Engine, TEXT("Game.Mixed.Good"), GoodPath, GoodScriptV1)))
+	{
+		return false;
+	}
+
+	int32 GoodResultBefore = 0;
+	if (!TestTrue(TEXT("Good module should execute before bad compile"), ExecuteIntFunction(&Engine, TEXT("Game.Mixed.Good"), TEXT("int SurvivorEntry()"), GoodResultBefore)))
+	{
+		return false;
+	}
+	TestEqual(TEXT("Good module should return initial value"), GoodResultBefore, 7);
+
+	ECompileResult BadCompileResult = ECompileResult::FullyHandled;
+	const bool bBadCompiled = CompileModuleWithResult(
+		&Engine,
+		ECompileType::SoftReloadOnly,
+		TEXT("Game.Mixed.Bad"),
+		BadPath,
+		BadBrokenScript,
+		BadCompileResult);
+	TestFalse(TEXT("Broken bad module compile should fail"), bBadCompiled);
+	TestTrue(TEXT("Broken bad module compile should report error state"), BadCompileResult == ECompileResult::Error || BadCompileResult == ECompileResult::ErrorNeedFullReload);
+
+	int32 GoodResultAfterBadFailure = 0;
+	if (!TestTrue(TEXT("Good module should keep executing after unrelated bad compile failure"), ExecuteIntFunction(&Engine, TEXT("Game.Mixed.Good"), TEXT("int SurvivorEntry()"), GoodResultAfterBadFailure)))
+	{
+		return false;
+	}
+	TestEqual(TEXT("Good module should still return initial value after bad compile failure"), GoodResultAfterBadFailure, 7);
+
+	if (!TestTrue(TEXT("Recompile good module update should succeed"), CompileModuleFromMemory(&Engine, TEXT("Game.Mixed.Good"), GoodPath, GoodScriptV2)))
+	{
+		return false;
+	}
+
+	int32 GoodResultAfterUpdate = 0;
+	if (!TestTrue(TEXT("Updated good module should execute"), ExecuteIntFunction(&Engine, TEXT("Game.Mixed.Good"), TEXT("int SurvivorEntry()"), GoodResultAfterUpdate)))
+	{
+		return false;
+	}
+	TestEqual(TEXT("Updated good module should return new value"), GoodResultAfterUpdate, 17);
+
+	if (!TestTrue(TEXT("Fix bad script on disk should succeed"), WriteFileSystemTestFile(TEXT("Mixed/Bad.as"), BadFixedScript, BadPath)))
+	{
+		return false;
+	}
+	if (!TestTrue(TEXT("Compile fixed bad module should succeed"), CompileModuleFromMemory(&Engine, TEXT("Game.Mixed.Bad"), BadPath, BadFixedScript)))
+	{
+		return false;
+	}
+
+	int32 BadResultAfterFix = 0;
+	if (!TestTrue(TEXT("Fixed bad module should execute"), ExecuteIntFunction(&Engine, TEXT("Game.Mixed.Bad"), TEXT("int BrokenEntry()"), BadResultAfterFix)))
+	{
+		return false;
+	}
+	TestEqual(TEXT("Fixed bad module should return expected value"), BadResultAfterFix, 23);
+
+	const FString GoodPathRenamed = FPaths::Combine(GetFileSystemTestRoot(), TEXT("Mixed/GoodRenamed.as"));
+	if (!TestTrue(TEXT("Rename good script file should succeed"), IFileManager::Get().Move(*GoodPathRenamed, *GoodPath, true, true)))
+	{
+		return false;
+	}
+
+	if (!TestTrue(TEXT("Recompile good module with renamed path should succeed"), CompileModuleFromMemory(&Engine, TEXT("Game.Mixed.Good"), GoodPathRenamed, GoodScriptV2)))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Renamed good path lookup should resolve module"), Engine.GetModuleByFilename(GoodPathRenamed).IsValid());
+	TestTrue(TEXT("Old good path lookup should no longer resolve module after remap"), !Engine.GetModuleByFilename(GoodPath).IsValid());
+
+	int32 GoodResultAfterRename = 0;
+	if (!TestTrue(TEXT("Renamed good module should still execute"), ExecuteIntFunction(&Engine, TEXT("Game.Mixed.Good"), TEXT("int SurvivorEntry()"), GoodResultAfterRename)))
+	{
+		return false;
+	}
+	TestEqual(TEXT("Renamed good module should preserve updated behavior"), GoodResultAfterRename, 17);
+
+	return true;
+}
+
 #endif
+

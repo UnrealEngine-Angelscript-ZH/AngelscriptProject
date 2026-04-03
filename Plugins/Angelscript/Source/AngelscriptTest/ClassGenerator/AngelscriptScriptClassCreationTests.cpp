@@ -141,6 +141,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	"Angelscript.TestModule.ScriptClass.NonUClassTypeCannotSpawn",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptScenarioScriptClassRenameReplacesOldClassTest,
+	"Angelscript.TestModule.ScriptClass.RenameReplacesOldClass",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
 bool FAngelscriptScenarioScriptClassCompilesToUClassTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
@@ -604,6 +609,68 @@ class UScenarioScriptClassNonUClassTypeCannotSpawn : UObject
 	AActor* SpawnedActor = Spawner.GetWorld().SpawnActor<AActor>(NonActorClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParameters);
 	TestNull(TEXT("Non-uclass-type spawn scenario should reject spawning non-actor generated classes into the world"), SpawnedActor);
 	return true;
+}
+
+bool FAngelscriptScenarioScriptClassRenameReplacesOldClassTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	static const FName ModuleName(TEXT("ScenarioScriptClassRenameReplacesOldClass"));
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedInitializedTestEngine(Engine);
+	};
+
+	UClass* OldClass = CompileScriptModule(
+		*this,
+		Engine,
+		ModuleName,
+		TEXT("ScenarioScriptClassRenameReplacesOldClass.as"),
+		TEXT(R"AS(
+UCLASS()
+class AScenarioScriptClassRenameOld : AAngelscriptActor
+{
+	UPROPERTY()
+	int Version = 1;
+}
+)AS"),
+		TEXT("AScenarioScriptClassRenameOld"));
+	if (OldClass == nullptr)
+	{
+		return false;
+	}
+
+	UClass* NewClass = CompileScriptModule(
+		*this,
+		Engine,
+		ModuleName,
+		TEXT("ScenarioScriptClassRenameReplacesOldClass.as"),
+		TEXT(R"AS(
+UCLASS()
+class AScenarioScriptClassRenameNew : AAngelscriptActor
+{
+	UPROPERTY()
+	int Version = 2;
+}
+)AS"),
+		TEXT("AScenarioScriptClassRenameNew"));
+	if (!TestNotNull(TEXT("Rename scenario should compile the renamed generated class"), NewClass))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Rename scenario should expose the new generated class by its new name"), FindGeneratedClass(&Engine, TEXT("AScenarioScriptClassRenameNew")) == NewClass);
+	TestTrue(TEXT("Rename scenario should keep the old generated class address distinct from the new class"), OldClass != NewClass);
+	TestTrue(TEXT("Rename scenario should move the old generated class out of the active class name"), OldClass->GetName().Contains(TEXT("REPLACED")) || OldClass->GetName() != TEXT("AScenarioScriptClassRenameOld"));
+
+
+	FIntProperty* VersionProperty = FindFProperty<FIntProperty>(NewClass, TEXT("Version"));
+	if (!TestNotNull(TEXT("Rename scenario should expose the new reflected property on the renamed class"), VersionProperty))
+	{
+		return false;
+	}
+
+	return TestEqual(TEXT("Rename scenario should apply the renamed class default value after replacement"), VersionProperty->GetPropertyValue_InContainer(NewClass->GetDefaultObject()), 2);
 }
 
 #endif
