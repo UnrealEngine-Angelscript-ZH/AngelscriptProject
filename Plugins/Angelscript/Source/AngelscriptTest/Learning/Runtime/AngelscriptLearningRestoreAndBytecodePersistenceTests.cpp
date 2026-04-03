@@ -133,7 +133,7 @@ namespace
 	FLearningRestoreOutcome RunLearningRestoreScenario(const TCHAR* ModuleNameLiteral, bool bStripDebugInfo)
 	{
 		FLearningRestoreOutcome Outcome;
-		TUniquePtr<FAngelscriptEngine> EngineOwner = CreateCloneTestEngine();
+		TUniquePtr<FAngelscriptEngine> EngineOwner = CreateIsolatedCloneEngine();
 		if (!EngineOwner.IsValid())
 		{
 			return Outcome;

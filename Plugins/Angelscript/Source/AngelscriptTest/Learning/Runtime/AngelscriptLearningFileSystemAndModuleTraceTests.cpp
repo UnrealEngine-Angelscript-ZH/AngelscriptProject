@@ -48,11 +48,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptLearningFileSystemAndModuleTraceTest::RunTest(const FString& Parameters)
 {
 	CleanLearningFileSystemRoot();
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
-	ResetSharedTestEngine(Engine);
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	ResetSharedCloneEngine(Engine);
 	ON_SCOPE_EXIT
 	{
-		ResetSharedTestEngine(Engine);
+		ResetSharedCloneEngine(Engine);
 		CleanLearningFileSystemRoot();
 	};
 

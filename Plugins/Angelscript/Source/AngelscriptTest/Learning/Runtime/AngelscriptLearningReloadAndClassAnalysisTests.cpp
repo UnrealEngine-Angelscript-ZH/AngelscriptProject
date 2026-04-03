@@ -53,7 +53,7 @@ namespace
 	FLearningReloadOutcome RunReloadScenario(FAngelscriptEngine& Engine, const FLearningReloadScenario& Scenario)
 	{
 		FLearningReloadOutcome Outcome;
-		ResetSharedTestEngine(Engine);
+		ResetSharedCloneEngine(Engine);
 		Outcome.bBaselineCompiled = CompileAnnotatedModuleFromMemory(&Engine, Scenario.ModuleName, Scenario.Filename, Scenario.BaselineScript);
 		if (!Outcome.bBaselineCompiled)
 		{
@@ -91,11 +91,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningReloadAndClassAnalysisTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
-	ResetSharedTestEngine(Engine);
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	ResetSharedCloneEngine(Engine);
 	ON_SCOPE_EXIT
 	{
-		ResetSharedTestEngine(Engine);
+		ResetSharedCloneEngine(Engine);
 	};
 
 	FAngelscriptLearningTraceSinkConfig SinkConfig;

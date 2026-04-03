@@ -73,7 +73,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningBlueprintSubclassTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	static const FName ModuleName(TEXT("LearningBlueprintSubclassModule"));
 	UBlueprint* Blueprint = nullptr;
 	ON_SCOPE_EXIT
@@ -87,7 +87,7 @@ bool FAngelscriptLearningBlueprintSubclassTraceTest::RunTest(const FString& Para
 			Blueprint->MarkAsGarbage();
 		}
 		Engine.DiscardModule(*ModuleName.ToString());
-		ResetSharedInitializedTestEngine(Engine);
+		
 	};
 
 	const FString ScriptSource = TEXT(R"AS(

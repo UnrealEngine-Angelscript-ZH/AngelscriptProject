@@ -115,8 +115,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningCompilerTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetSharedTestEngine();
-	ResetSharedTestEngine(Engine);
+	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	ResetSharedCloneEngine(Engine);
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(TEXT("LearningCompilerBuildModule"));

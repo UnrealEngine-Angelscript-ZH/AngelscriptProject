@@ -345,7 +345,7 @@ bool FAngelscriptTestEngineHelperWorldContextScopeRestoreTest::RunTest(const FSt
 
 bool FAngelscriptTestEngineHelperCompileSummaryPlainModuleTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(TEXT("HelperCompileSummaryPlain"));
@@ -375,7 +375,7 @@ bool FAngelscriptTestEngineHelperCompileSummaryPlainModuleTest::RunTest(const FS
 
 bool FAngelscriptTestEngineHelperCompileSummaryDiagnosticCaptureTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetSharedTestEngine();
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(TEXT("HelperCompileSummaryBroken"));
