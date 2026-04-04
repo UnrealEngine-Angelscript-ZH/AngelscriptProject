@@ -115,6 +115,21 @@ struct FSystemFunctionBind
 	TSharedPtr<FAngelscriptType> ObjectType;
 };
 
+struct ANGELSCRIPTRUNTIME_API FAngelscriptBindState
+{
+	TMap<UClass*, TMap<FString, FFuncEntry>> ClassFuncMaps;
+	TMap<FString, TArray<TObjectPtr<UClass>>> RuntimeClassDB;
+#if WITH_EDITOR
+	TMap<FString, TArray<TObjectPtr<UClass>>> EditorClassDB;
+#endif
+	TArray<FString> BindModuleNames;
+	TMap<UClass*, TSet<FString>> SkipBinds;
+	TSet<TTuple<FName, FName>> SkipBindNames;
+	TSet<FName> SkipBindClasses;
+	int32 PreviouslyBoundFunction = -1;
+	int32 PreviouslyBoundGlobalProperty = -1;
+};
+
 struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 {
 	/* 

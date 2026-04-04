@@ -43,6 +43,19 @@ struct FAngelscriptEngineIsolationTestAccess
 	}
 };
 
+struct FIsolationContextStackGuard
+{
+	TArray<FAngelscriptEngine*> SavedStack;
+	FIsolationContextStackGuard()
+	{
+		SavedStack = FAngelscriptEngineContextStack::SnapshotAndClear();
+	}
+	~FIsolationContextStackGuard()
+	{
+		FAngelscriptEngineContextStack::RestoreSnapshot(MoveTemp(SavedStack));
+	}
+};
+
 static void ResetIsolationRuntime()
 {
 	if (!UAngelscriptGameInstanceSubsystem::HasAnyTickOwner() && FAngelscriptEngine::IsInitialized())
@@ -63,7 +76,7 @@ static asIScriptFunction* CompileIsolationFunction(
 	const ANSICHAR* Source,
 	const ANSICHAR* Declaration)
 {
-	FScopedTestEngineGlobalScope GlobalScope(&Engine);
+	FAngelscriptEngineScope GlobalScope(Engine);
 
 	asIScriptModule* Module = Engine.GetScriptEngine()->GetModule(TCHAR_TO_ANSI(*ModuleName), asGM_ALWAYS_CREATE);
 	if (!Test.TestNotNull(*FString::Printf(TEXT("Isolation helper should create module '%s'"), *ModuleName), Module))
@@ -145,6 +158,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptContextStackScopedResolutionTest::RunTest(const FString& Parameters)
 {
 	ResetIsolationRuntime();
+	FIsolationContextStackGuard StackGuard;
 
 	const FAngelscriptEngineConfig Config;
 	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
@@ -157,7 +171,7 @@ bool FAngelscriptContextStackScopedResolutionTest::RunTest(const FString& Parame
 		return false;
 	}
 
-	TestTrue(TEXT("Context stack should start empty"), FAngelscriptEngineContextStack::IsEmpty());
+	TestTrue(TEXT("Context stack should start empty after guard clears it"), FAngelscriptEngineContextStack::IsEmpty());
 
 	{
 		FAngelscriptEngineScope PrimaryScope(*PrimaryEngine);
@@ -335,6 +349,7 @@ bool FAngelscriptCloneSharesSourceStateTest::RunTest(const FString& Parameters)
 bool FAngelscriptMultipleFullEnginesCanCoexistTest::RunTest(const FString& Parameters)
 {
 	ResetIsolationRuntime();
+	FIsolationContextStackGuard StackGuard;
 
 	const FAngelscriptEngineConfig Config;
 	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
@@ -368,7 +383,7 @@ bool FAngelscriptRequestContextUsesRequestedEngineTest::RunTest(const FString& P
 	}
 
 	{
-		FScopedTestEngineGlobalScope ScopeA(EngineA.Get());
+		FAngelscriptEngineScope ScopeA(*EngineA);
 		asIScriptContext* ContextA = EngineA->GetScriptEngine()->RequestContext();
 		if (!TestNotNull(TEXT("RequestContext isolation test should acquire a context from engine A"), ContextA))
 		{
@@ -380,7 +395,7 @@ bool FAngelscriptRequestContextUsesRequestedEngineTest::RunTest(const FString& P
 	}
 
 	{
-		FScopedTestEngineGlobalScope ScopeB(EngineB.Get());
+		FAngelscriptEngineScope ScopeB(*EngineB);
 		asIScriptContext* ContextB = EngineB->GetScriptEngine()->RequestContext();
 		if (!TestNotNull(TEXT("RequestContext isolation test should acquire a context from engine B"), ContextB))
 		{

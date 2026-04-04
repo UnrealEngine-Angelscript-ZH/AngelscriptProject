@@ -1,4 +1,7 @@
 #include "AngelscriptEngine.h"
+#include "AngelscriptBinds.h"
+#include "AngelscriptBindDatabase.h"
+#include "Binds/Helper_ToString.h"
 #include "Preprocessor/AngelscriptPreprocessor.h"
 #include "ClassGenerator/AngelscriptClassGenerator.h"
 #include "ClassGenerator/ASClass.h"
@@ -68,7 +71,7 @@ TMap<FName, int32> FAngelscriptEngine::StaticNamesByIndex;
 static TArray<FAngelscriptEngine*> GAngelscriptEngineContextStack;
 
 FAngelscriptEngine::FAngelscriptDebugStack* GAngelscriptStack = nullptr;
-FAngelscriptEngine* GAngelscriptEngine = nullptr;
+// GAngelscriptEngine removed — engine resolution now uses FAngelscriptEngineContextStack
 static bool GAngelscriptLineReentry = false;
 bool FAngelscriptEngine::bSimulateCooked = false;
 bool FAngelscriptEngine::bUseEditorScripts = false;
@@ -154,6 +157,12 @@ struct FAngelscriptOwnedSharedState
 #if WITH_AS_DEBUGSERVER
 	FAngelscriptDebugServer* DebugServer = nullptr;
 #endif
+
+	TUniquePtr<FAngelscriptTypeDatabase> TypeDatabase;
+	TUniquePtr<FAngelscriptBindState> BindState;
+	TUniquePtr<TArray<FToStringType>> ToStringList;
+	TUniquePtr<FAngelscriptBindDatabase> BindDatabase;
+
 	int32 ActiveParticipants = 0;
 	int32 ActiveCloneCount = 0;
 	bool bPendingOwnerRelease = false;
@@ -301,7 +310,7 @@ static void SyncAmbientWorldContextFromCurrentEngine()
 	SetAmbientWorldContext(nullptr);
 }
 
-static void ReleaseOwnedSharedStateResources(TSharedPtr<FAngelscriptOwnedSharedState>& SharedState, const void* IsolationStateKey)
+static void ReleaseOwnedSharedStateResources(TSharedPtr<FAngelscriptOwnedSharedState>& SharedState)
 {
 	if (!SharedState.IsValid() || SharedState->bReleased)
 	{
@@ -352,10 +361,10 @@ static void ReleaseOwnedSharedStateResources(TSharedPtr<FAngelscriptOwnedSharedS
 		--GAngelscriptActiveOwnedSharedStates;
 	}
 
-	FAngelscriptType::ResetTypeDatabaseForKey(IsolationStateKey);
-	FAngelscriptBinds::ResetBindStateForKey(IsolationStateKey);
-	FToStringHelper::ResetForKey(IsolationStateKey);
-	FAngelscriptBindDatabase::ResetForKey(IsolationStateKey);
+	SharedState->TypeDatabase.Reset();
+	SharedState->BindState.Reset();
+	SharedState->ToStringList.Reset();
+	SharedState->BindDatabase.Reset();
 	SyncAmbientWorldContextFromCurrentEngine();
 }
 
@@ -401,6 +410,20 @@ bool FAngelscriptEngineContextStack::IsEmpty()
 {
 	return GAngelscriptEngineContextStack.Num() == 0;
 }
+
+#if WITH_DEV_AUTOMATION_TESTS
+TArray<FAngelscriptEngine*> FAngelscriptEngineContextStack::SnapshotAndClear()
+{
+	TArray<FAngelscriptEngine*> Saved = MoveTemp(GAngelscriptEngineContextStack);
+	GAngelscriptEngineContextStack.Empty();
+	return Saved;
+}
+
+void FAngelscriptEngineContextStack::RestoreSnapshot(TArray<FAngelscriptEngine*>&& SavedStack)
+{
+	GAngelscriptEngineContextStack = MoveTemp(SavedStack);
+}
+#endif
 
 FAngelscriptEngineScope::FAngelscriptEngineScope(FAngelscriptEngine& InEngine, UObject* InWorldContext)
 	: Engine(&InEngine)
@@ -646,8 +669,7 @@ TUniquePtr<FAngelscriptEngine> FAngelscriptEngine::CreateForTesting(const FAngel
 bool FAngelscriptEngine::IsInitialized()
 {
 	return FAngelscriptEngineContextStack::Peek() != nullptr
-		|| UAngelscriptGameInstanceSubsystem::GetCurrent() != nullptr
-		|| GAngelscriptEngine != nullptr;
+		|| UAngelscriptGameInstanceSubsystem::GetCurrent() != nullptr;
 }
 
 UObject* FAngelscriptEngine::TryGetCurrentWorldContextObject()
@@ -680,23 +702,6 @@ bool FAngelscriptEngine::ShouldUseAutomaticImportMethodForCurrentContext()
 	return bUseAutomaticImportMethod;
 }
 
-const void* FAngelscriptEngine::GetCurrentIsolationStateKey()
-{
-	if (FAngelscriptEngine* CurrentEngine = TryGetCurrentEngine())
-	{
-		return CurrentEngine->GetIsolationStateKey();
-	}
-
-	UE_LOG(Angelscript, VeryVerbose, TEXT("[EngineResolve] GetCurrentIsolationStateKey -> nullptr (no active engine). "
-		"Type lookups will use legacy fallback bucket."));
-	return nullptr;
-}
-
-const void* FAngelscriptEngine::GetIsolationStateKey() const
-{
-	return IsolationStateToken.IsValid() ? static_cast<const void*>(IsolationStateToken.Get()) : static_cast<const void*>(this);
-}
-
 FAngelscriptEngine* FAngelscriptEngine::TryGetCurrentEngine()
 {
 	if (FAngelscriptEngine* ScopedEngine = FAngelscriptEngineContextStack::Peek())
@@ -712,23 +717,16 @@ FAngelscriptEngine* FAngelscriptEngine::TryGetCurrentEngine()
 		}
 	}
 
-	if (GAngelscriptEngine == nullptr)
-	{
-		UE_LOG(Angelscript, VeryVerbose, TEXT("[EngineResolve] TryGetCurrentEngine -> nullptr (contextStack=%d, subsystem=none, global=none)"),
-			GAngelscriptEngineContextStack.Num());
-	}
-
-	return GAngelscriptEngine;
+	return nullptr;
 }
 
 FAngelscriptEngine* FAngelscriptEngine::TryGetGlobalEngine()
 {
-	return GAngelscriptEngine;
+	return TryGetCurrentEngine();
 }
 
 void FAngelscriptEngine::SetGlobalEngine(FAngelscriptEngine* InEngine)
 {
-	GAngelscriptEngine = InEngine;
 	SyncAmbientWorldContextFromCurrentEngine();
 }
 
@@ -747,9 +745,9 @@ FAngelscriptEngine& FAngelscriptEngine::Get()
 	FAngelscriptEngine* CurrentEngine = TryGetCurrentEngine();
 	if (UNLIKELY(CurrentEngine == nullptr))
 	{
-		UE_LOG(Angelscript, Error, TEXT("[EngineResolve] Get() failed: no engine available. contextStack=%d global=%p. "
+		UE_LOG(Angelscript, Error, TEXT("[EngineResolve] Get() failed: no engine available. contextStack=%d. "
 			"Likely missing FAngelscriptEngineScope in the calling context."),
-			GAngelscriptEngineContextStack.Num(), GAngelscriptEngine);
+			GAngelscriptEngineContextStack.Num());
 	}
 	checkf(CurrentEngine != nullptr, TEXT("Attempted to use angelscript manager before initialization. Make sure FAngelscriptRuntimeModule::InitializeAngelscript has been called."));
 	return *CurrentEngine;
@@ -757,21 +755,14 @@ FAngelscriptEngine& FAngelscriptEngine::Get()
 
 FAngelscriptEngine& FAngelscriptEngine::GetOrCreate()
 {
-	if (GAngelscriptEngine == nullptr)
-		SetGlobalEngine(new FAngelscriptEngine());
-	return *GAngelscriptEngine;
+	FAngelscriptEngine* CurrentEngine = TryGetCurrentEngine();
+	checkf(CurrentEngine != nullptr, TEXT("GetOrCreate() is deprecated. Engine must be created by RuntimeModule or Subsystem."));
+	return *CurrentEngine;
 }
 
 bool FAngelscriptEngine::DestroyGlobal()
 {
-	if (GAngelscriptEngine == nullptr)
-	{
-		return false;
-	}
-
-	delete GAngelscriptEngine;
-	SetGlobalEngine(nullptr);
-	return true;
+	return false;
 }
 
 FString FAngelscriptEngine::GetScriptRootDirectory()
@@ -779,9 +770,9 @@ FString FAngelscriptEngine::GetScriptRootDirectory()
 	FAngelscriptEngine* CurrentEngine = TryGetCurrentEngine();
 	if (UNLIKELY(CurrentEngine == nullptr))
 	{
-		UE_LOG(Angelscript, Error, TEXT("[EngineResolve] GetScriptRootDirectory() failed: no engine available. contextStack=%d global=%p. "
+		UE_LOG(Angelscript, Error, TEXT("[EngineResolve] GetScriptRootDirectory() failed: no engine available. contextStack=%d. "
 			"Likely missing FAngelscriptEngineScope in the calling context."),
-			GAngelscriptEngineContextStack.Num(), GAngelscriptEngine);
+			GAngelscriptEngineContextStack.Num());
 	}
 	checkf(CurrentEngine != nullptr, TEXT("Attempted to access Angelscript script roots before an engine was available."));
 	const auto& AllRootPaths = CurrentEngine->AllRootPaths;
@@ -794,9 +785,9 @@ UPackage* FAngelscriptEngine::GetPackage()
 	FAngelscriptEngine* CurrentEngine = TryGetCurrentEngine();
 	if (UNLIKELY(CurrentEngine == nullptr))
 	{
-		UE_LOG(Angelscript, Error, TEXT("[EngineResolve] GetPackage() failed: no engine available. contextStack=%d global=%p. "
+		UE_LOG(Angelscript, Error, TEXT("[EngineResolve] GetPackage() failed: no engine available. contextStack=%d. "
 			"Likely missing FAngelscriptEngineScope in the calling context."),
-			GAngelscriptEngineContextStack.Num(), GAngelscriptEngine);
+			GAngelscriptEngineContextStack.Num());
 	}
 	checkf(CurrentEngine != nullptr, TEXT("Attempted to access the Angelscript package before an engine was available."));
 	return CurrentEngine->AngelscriptPackage;
@@ -814,7 +805,7 @@ bool FAngelscriptEngine::ShouldInitializeThreaded()
 
 void FAngelscriptEngine::Initialize()
 {
-	TGuardValue<FAngelscriptEngine*> ScopedInitializingEngine(GAngelscriptEngine, this);
+	FAngelscriptEngineScope ScopedInitializingEngine(*this);
 
 	PreInitialize_GameThread();
 
@@ -906,8 +897,9 @@ void FAngelscriptEngine::InitializeForTesting()
 
 	Engine->SetMessageCallback(asFUNCTION(LogAngelscriptError), 0, asCALL_CDECL);
 	Engine->SetContextCallbacks(&AngelscriptRequestContext, &AngelscriptReturnContext, nullptr);
+	EnsureSharedStateCreated();
 	{
-		TGuardValue<FAngelscriptEngine*> ScopedTestingEngine(GAngelscriptEngine, this);
+		FAngelscriptEngineScope ScopedTestingEngine(*this);
 		BindScriptTypes();
 	}
 	GameThreadTLD->primaryContext = CreateContext();
@@ -962,9 +954,45 @@ int32 FAngelscriptEngine::GetLocalPooledContextCountForTesting(asIScriptEngine* 
 	return MatchCount;
 }
 
+FAngelscriptTypeDatabase* FAngelscriptEngine::GetTypeDatabase() const
+{
+	return SharedState.IsValid() ? SharedState->TypeDatabase.Get() : nullptr;
+}
+
+FAngelscriptBindState* FAngelscriptEngine::GetBindState() const
+{
+	return SharedState.IsValid() ? SharedState->BindState.Get() : nullptr;
+}
+
+TArray<FToStringType>* FAngelscriptEngine::GetToStringList() const
+{
+	return SharedState.IsValid() ? SharedState->ToStringList.Get() : nullptr;
+}
+
+FAngelscriptBindDatabase* FAngelscriptEngine::GetBindDatabase() const
+{
+	return SharedState.IsValid() ? SharedState->BindDatabase.Get() : nullptr;
+}
+
+void FAngelscriptEngine::EnsureSharedStateCreated()
+{
+	if (bOwnsEngine && !SharedState.IsValid())
+	{
+		SharedState = MakeShared<FAngelscriptOwnedSharedState>();
+		SharedState->TypeDatabase = MakeUnique<FAngelscriptTypeDatabase>();
+		SharedState->BindState = MakeUnique<FAngelscriptBindState>();
+		SharedState->ToStringList = MakeUnique<TArray<FToStringType>>();
+		SharedState->BindDatabase = MakeUnique<FAngelscriptBindDatabase>();
+	}
+}
+
 int32 FAngelscriptEngine::GetToStringEntryCountForTesting() const
 {
-	return FToStringHelper::GetRegisteredTypeCountForTesting();
+	if (TArray<FToStringType>* List = GetToStringList())
+	{
+		return List->Num();
+	}
+	return 0;
 }
 
 FAngelscriptBindDatabase& FAngelscriptEngine::GetBindDatabaseForTesting() const
@@ -1095,7 +1123,6 @@ void FAngelscriptEngine::Shutdown()
 {
 	const bool bHadInitializedEngine = Engine != nullptr;
 	TSharedPtr<FAngelscriptOwnedSharedState> LocalSharedState = SharedState;
-	const void* IsolationStateKey = GetIsolationStateKey();
 	const bool bHasDeferredCloneDependents = bOwnsEngine && LocalSharedState.IsValid() && LocalSharedState->ActiveCloneCount > 0;
 	const bool bShouldReleaseOwnedEngine = bOwnsEngine && Engine != nullptr && !bHasDeferredCloneDependents;
 
@@ -1177,7 +1204,7 @@ void FAngelscriptEngine::Shutdown()
 	{
 		if (LocalSharedState.IsValid())
 		{
-			ReleaseOwnedSharedStateResources(LocalSharedState, IsolationStateKey);
+			ReleaseOwnedSharedStateResources(LocalSharedState);
 		}
 		else
 		{
@@ -1186,7 +1213,7 @@ void FAngelscriptEngine::Shutdown()
 	}
 	else if (!bOwnsEngine && LocalSharedState.IsValid() && LocalSharedState->bPendingOwnerRelease && LocalSharedState->ActiveParticipants == 0)
 	{
-		ReleaseOwnedSharedStateResources(LocalSharedState, IsolationStateKey);
+		ReleaseOwnedSharedStateResources(LocalSharedState);
 	}
 
 	Engine = nullptr;
@@ -1203,10 +1230,6 @@ void FAngelscriptEngine::Shutdown()
 	PreviouslyFailedReloadFiles.Empty();
 	if (bShouldReleaseOwnedEngine && bHadInitializedEngine && !LocalSharedState.IsValid())
 	{
-		FAngelscriptType::ResetTypeDatabaseForKey(IsolationStateKey);
-		FAngelscriptBinds::ResetBindStateForKey(IsolationStateKey);
-		FToStringHelper::ResetForKey(IsolationStateKey);
-		FAngelscriptBindDatabase::ResetForKey(IsolationStateKey);
 		SyncAmbientWorldContextFromCurrentEngine();
 	}
 	AngelscriptPackage = nullptr;
@@ -1458,6 +1481,7 @@ void FAngelscriptEngine::Initialize_AnyThread()
 			}
 		}
 	}
+	EnsureSharedStateCreated();
 	//Set everything up for angelscript usage.	
 	{
 		FAngelscriptScopeTimer Timer(TEXT("== bindings total =="));

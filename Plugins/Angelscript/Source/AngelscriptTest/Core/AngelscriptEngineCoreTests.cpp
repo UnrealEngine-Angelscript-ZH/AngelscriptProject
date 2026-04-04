@@ -67,7 +67,7 @@ bool FAngelscriptTestModuleCompileSnippetTest::RunTest(const FString& Parameters
 	{
 		return false;
 	}
-	AngelscriptTestSupport::FScopedTestEngineGlobalScope GlobalScope(&Engine);
+	FAngelscriptEngineScope GlobalScope(Engine);
 
 	asIScriptModule* Module = Engine.GetScriptEngine()->GetModule("CompileSnippet", asGM_ALWAYS_CREATE);
 	if (!TestNotNull(TEXT("Compile test should create a script module"), Module))
@@ -94,7 +94,7 @@ bool FAngelscriptTestModuleExecuteSnippetTest::RunTest(const FString& Parameters
 	{
 		return false;
 	}
-	AngelscriptTestSupport::FScopedTestEngineGlobalScope GlobalScope(&Engine);
+	FAngelscriptEngineScope GlobalScope(Engine);
 
 	asIScriptModule* Module = Engine.GetScriptEngine()->GetModule("ExecuteSnippet", asGM_ALWAYS_CREATE);
 	if (!TestNotNull(TEXT("Execute test should create a script module"), Module))

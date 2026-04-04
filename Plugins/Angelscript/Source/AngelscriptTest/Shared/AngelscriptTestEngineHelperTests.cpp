@@ -392,7 +392,7 @@ bool FAngelscriptTestEngineHelperResetSharedEngineDiscardsRawModulesTest::RunTes
 	};
 
 	{
-		AngelscriptTestSupport::FScopedTestEngineGlobalScope GlobalScope(&Engine);
+		FAngelscriptEngineScope GlobalScope(Engine);
 		asIScriptModule* Module = Engine.GetScriptEngine()->GetModule("HelperRawSharedReset", asGM_ALWAYS_CREATE);
 		if (!TestNotNull(TEXT("Raw shared-engine reset test should create a script module"), Module))
 		{

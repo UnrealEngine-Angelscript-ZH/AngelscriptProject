@@ -40,8 +40,6 @@ struct FAngelscriptTestEngineScopeAccess
 namespace AngelscriptTestSupport
 {
 	using FAngelscriptTestEngineScopeAccess = ::FAngelscriptTestEngineScopeAccess;
-	using FScopedGlobalEngineOverride = ::FScopedGlobalEngineOverride;
-	using FScopedTestEngineGlobalScope = ::FScopedTestEngineGlobalScope;
 
 	inline TUniquePtr<FAngelscriptEngine>& GetSharedTestEngineStorage()
 	{

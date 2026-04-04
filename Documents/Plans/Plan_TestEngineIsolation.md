@@ -60,7 +60,37 @@
 - `AngelscriptScenarioTestUtils`、共享测试 helper 与首批 scenario / hot-reload / learning 测试已经切到 `FAngelscriptEngineScope`，测试 containment groundwork 已完成。
 - `AAngelscriptActor` 已从主干移除，脚本 Actor 回到 UE 标准 `AActor` 路径；此前依赖 `AAngelscriptActor::ProcessEvent` 的分析只保留为历史背景。
 - TypeDatabase / BindState / ToString / BindDatabase 目前已经按 isolation key 分桶，并带有销毁/回归测试入口；这显著降低了测试互相污染，但仍不是最终的 engine-instance 去全局化形态。
-- `GAngelscriptEngine`、`TryGetGlobalEngine()` 和 `TryGetCurrentEngine(): ContextStack -> Subsystem -> GAngelscriptEngine` fallback 仍然存在，因此本计划尚未完成；后续剩余工作应集中在移除 legacy global fallback、统一 fixture/API、以及把 keyed state 进一步收口为 engine-local 设计。
+- ~~`GAngelscriptEngine`、`TryGetGlobalEngine()` 和 `TryGetCurrentEngine(): ContextStack -> Subsystem -> GAngelscriptEngine` fallback 仍然存在~~ → **已完成（2026-04-04）**：`GAngelscriptEngine` 全局指针已移除；`TryGetCurrentEngine()` 现为 `ContextStack → Subsystem` 双路径，无 global fallback；`SetGlobalEngine()` / `TryGetGlobalEngine()` / `DestroyGlobal()` / `GetOrCreate()` 保留声明但已变为 no-op / redirect。`FAngelscriptEngine` 已转为 `USTRUCT()`，Subsystem 以 `UPROPERTY() FAngelscriptEngine OwnedEngine` by-value 持有。`FScopedTestEngineGlobalScope` / `FScopedGlobalEngineOverride` 已移除，测试统一使用 `FAngelscriptEngineScope`。后续剩余工作集中在把 keyed state 进一步收口为 engine-local 设计（Phase 2-4）。
+
+### 2026-04-04 GAngelscriptEngine 移除 + USTRUCT 转换
+
+- **`GAngelscriptEngine` 全局指针已完全移除**：
+  - 移除 `AngelscriptEngine.cpp` 中的 `FAngelscriptEngine* GAngelscriptEngine = nullptr;` 定义
+  - 移除 `StaticJITHeader.h` 中的 `extern FAngelscriptEngine* GAngelscriptEngine;` 声明
+  - `SetGlobalEngine()` → no-op（仅同步 world context）
+  - `TryGetGlobalEngine()` → redirect 到 `TryGetCurrentEngine()`
+  - `DestroyGlobal()` → `return false;`
+  - `GetOrCreate()` → `checkf` 必须有现存引擎
+  - `TryGetCurrentEngine()` → `ContextStack → Subsystem`，无 global fallback
+- **`FAngelscriptEngine` 转为 `USTRUCT()`**：
+  - 添加 `USTRUCT()` / `GENERATED_BODY()` / `#include "AngelscriptEngine.generated.h"`
+  - 4 个 `UObject*` 成员标记 `UPROPERTY()` 供 GC 追踪：`AngelscriptPackage`、`AssetsPackage`、`WorldContextObject`、`ConfigSettings`
+  - 特化 `TStructOpsTypeTraits<FAngelscriptEngine>` 设置 `WithCopy = false`（因含 `FCriticalSection`）
+- **Subsystem 引擎持有方式变更**：
+  - `UAngelscriptGameInstanceSubsystem` 改为 `UPROPERTY() FAngelscriptEngine OwnedEngine;` by-value 持有
+  - Subsystem `Initialize()` / `Deinitialize()` 通过 `FAngelscriptEngineContextStack::Push/Pop` 管理引擎可见性
+- **RuntimeModule 引擎持有方式变更**：
+  - `FAngelscriptRuntimeModule` 新增 `static TUniquePtr<FAngelscriptEngine> OwnedPrimaryEngine`
+  - `InitializeAngelscript()` / `ShutdownModule()` / `ResetInitializeStateForTesting()` 通过 ContextStack Push/Pop
+- **测试 scope 迁移**：
+  - `FScopedTestEngineGlobalScope` / `FScopedGlobalEngineOverride` 已移除
+  - 全部 11 处测试用法迁移到 `FAngelscriptEngineScope`（ContextStack push/pop）
+  - 受影响文件：`AngelscriptEngineIsolationTests.cpp`、`AngelscriptMultiEngineTests.cpp`、`AngelscriptSubsystemTests.cpp`、`AngelscriptTestEngineHelperTests.cpp`、`AngelscriptEngineCoreTests.cpp`、`AngelscriptEnginePerformanceTests.cpp`
+  - `AngelscriptTestUtilities.h` 中的 legacy using alias 已移除
+- **验证结果**：
+  - 构建通过（`RunBuild.ps1 -NoXGE`）
+  - 全量 CppTests 通过（`Angelscript.CppTests.*` 9/9 isolation + subsystem + multi-engine 等）
+- 结论：Phase 1 的 Context Stack + legacy global fallback 清理已完成。剩余工作集中在 Phase 2-4（静态标志迁移、核心单例迁移、解除 Epoch 限制）。
 
 ### 2026-04-04 实施收尾（ContextPool + Tooling）
 

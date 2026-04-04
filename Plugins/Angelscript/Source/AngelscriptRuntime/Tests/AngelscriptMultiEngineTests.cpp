@@ -64,6 +64,19 @@ struct FAngelscriptMultiEngineTestAccess
 	}
 };
 
+struct FMultiEngineContextStackGuard
+{
+	TArray<FAngelscriptEngine*> SavedStack;
+	FMultiEngineContextStackGuard()
+	{
+		SavedStack = FAngelscriptEngineContextStack::SnapshotAndClear();
+	}
+	~FMultiEngineContextStackGuard()
+	{
+		FAngelscriptEngineContextStack::RestoreSnapshot(MoveTemp(SavedStack));
+	}
+};
+
 static void ResetToIsolatedEngineState()
 {
 	if (FAngelscriptEngine::IsInitialized())
@@ -223,7 +236,7 @@ bool FAngelscriptEngineCreateForTestingDefaultsToCloneTest::RunTest(const FStrin
 		return false;
 	}
 
-	FScopedTestEngineGlobalScope GlobalScope(SourceEngine.Get());
+	FAngelscriptEngineScope GlobalScope(*SourceEngine);
 
 	TUniquePtr<FAngelscriptEngine> TestEngine = FAngelscriptEngine::CreateForTesting(Config, Dependencies);
 	if (!TestNotNull(TEXT("MultiEngine.CreateForTesting.DefaultsToClone should create a test engine"), TestEngine.Get()))
@@ -269,6 +282,7 @@ bool FAngelscriptEngineCreateForTestingUsesScopedSourceEngineTest::RunTest(const
 bool FAngelscriptEngineCreateForTestingFallbacksToFullTest::RunTest(const FString& Parameters)
 {
 	ResetToIsolatedEngineState();
+	FMultiEngineContextStackGuard StackGuard;
 
 	const FAngelscriptEngineConfig Config;
 	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
@@ -507,6 +521,7 @@ bool FAngelscriptSecondFullCreateIsRejectedBeforeBindRegistrationTest::RunTest(c
 bool FAngelscriptSingleFullDestroyResetsGlobalStateTest::RunTest(const FString& Parameters)
 {
 	ResetToIsolatedEngineState();
+	FMultiEngineContextStackGuard StackGuard;
 
 	const FAngelscriptEngineConfig Config;
 	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
@@ -544,7 +559,7 @@ bool FAngelscriptCloneHonorsInjectedDependenciesTest::RunTest(const FString& Par
 		return false;
 	}
 
-	FScopedTestEngineGlobalScope GlobalScope(SourceEngine.Get());
+	FAngelscriptEngineScope GlobalScope(*SourceEngine);
 
 	bool bMakeDirectoryCalled = false;
 	FString CreatedPath;
@@ -671,7 +686,7 @@ bool FAngelscriptStartupBindObservationCreateForTestingCloneTest::RunTest(const 
 		return false;
 	}
 
-	FScopedTestEngineGlobalScope GlobalScope(SourceEngine.Get());
+	FAngelscriptEngineScope GlobalScope(*SourceEngine);
 	FAngelscriptBindExecutionObservation::Reset();
 
 	TUniquePtr<FAngelscriptEngine> TestEngine = FAngelscriptEngine::CreateForTesting(Config, Dependencies, EAngelscriptEngineCreationMode::Clone);
@@ -693,6 +708,7 @@ bool FAngelscriptStartupBindObservationCreateForTestingCloneTest::RunTest(const 
 bool FAngelscriptStartupBindObservationCreateForTestingFullFallbackTest::RunTest(const FString& Parameters)
 {
 	ResetToIsolatedEngineState();
+	FMultiEngineContextStackGuard StackGuard;
 
 	const FName FirstBindName = MakeUniqueStartupBindName(TEXT("Automation.StartupBind.CreateForTesting.FullFallback.First"));
 	const FName SecondBindName = MakeUniqueStartupBindName(TEXT("Automation.StartupBind.CreateForTesting.FullFallback.Second"));

@@ -7,6 +7,8 @@
 
 #include "AngelscriptType.h"
 
+#include "AngelscriptEngine.generated.h"
+
 #define AS_CAN_HOTRELOAD (PLATFORM_DESKTOP)
 #define AS_MAX_POOLED_CONTEXTS 10
 #define AS_PRINT_STATS (!UE_BUILD_SHIPPING)
@@ -40,6 +42,9 @@ class asIScriptObject;
 class asITypeInfo;
 class asCContext;
 class FAngelscriptBindDatabase;
+struct FAngelscriptTypeDatabase;
+struct FAngelscriptBindState;
+struct FToStringType;
 
 class FHotReloadTestRunner;
 struct FAngelscriptEngineLifetimeToken;
@@ -110,8 +115,11 @@ enum class EAngelscriptEngineCreationMode : uint8
 	Clone,
 };
 
+USTRUCT()
 struct ANGELSCRIPTRUNTIME_API FAngelscriptEngine
 {
+	GENERATED_BODY()
+
 	FAngelscriptEngine();
 	explicit FAngelscriptEngine(const FAngelscriptEngineConfig& InConfig, const FAngelscriptEngineDependencies& InDependencies);
 	~FAngelscriptEngine();
@@ -121,7 +129,6 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptEngine
 	static TUniquePtr<FAngelscriptEngine> CreateCloneFrom(FAngelscriptEngine& Source, const FAngelscriptEngineConfig& InConfig);
 	static TUniquePtr<FAngelscriptEngine> CreateCloneFrom(FAngelscriptEngine& Source, const FAngelscriptEngineConfig& InConfig, const FAngelscriptEngineDependencies& InDependencies);
 	static FAngelscriptEngine* TryGetCurrentEngine();
-	static const void* GetCurrentIsolationStateKey();
 	static FAngelscriptEngine& Get();
 	static bool IsInitialized();
 	static FString GetScriptRootDirectory();
@@ -257,7 +264,6 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptEngine
 
 	/* If the angelscript debugger is attached, do an angelscript breakpoint. Returns whether we broke in AS debugging. */
 	static bool TryBreakpointAngelscriptDebugging(const TCHAR* Message = nullptr);
-	const void* GetIsolationStateKey() const;
 	UObject* GetCurrentWorldContextObject() const { return WorldContextObject; }
 	bool ShouldUseEditorScripts() const { return bUseEditorScriptsInstance; }
 	bool ShouldUseAutomaticImportMethod() const { return bUseAutomaticImportMethodInstance; }
@@ -272,8 +278,10 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptEngine
 	}
 
 	/* The root angelscript UPackage everything should belong to. */
+	UPROPERTY()
 	UPackage* AngelscriptPackage = nullptr;
 	/* The package that all literal assets are put into. */
+	UPROPERTY()
 	UPackage* AssetsPackage = nullptr;
 
 	/* Root paths where all scripts are loaded from. */
@@ -436,6 +444,7 @@ private:
 	TWeakPtr<FAngelscriptEngineLifetimeToken> SourceLifetimeToken;
 	bool bOwnsEngine = true;
 	FString InstanceId;
+	UPROPERTY()
 	UObject* WorldContextObject = nullptr;
 	TSharedPtr<FAngelscriptEngineLifetimeToken> IsolationStateToken;
 
@@ -455,7 +464,6 @@ private:
 	friend struct FAngelscriptTickBehaviorTestAccess;
 	friend struct FAngelscriptHotReloadTestAccess;
 	friend struct FAngelscriptEngineScope;
-	friend struct FScopedTestEngineGlobalScope;
 	friend struct FAngelscriptTestEngineScopeAccess;
 
 public:
@@ -540,11 +548,19 @@ public:
 	void StartHotReloadThread();
 	bool bHotReloadThreadStarted = false;
 
+	UPROPERTY()
 	class UAngelscriptSettings* ConfigSettings = nullptr;
 
 	static void HandleExceptionFromJIT(const ANSICHAR* ExceptionString);
 	asCContext* CreateContext();
 	void UpdateLineCallbackState();
+
+	FAngelscriptTypeDatabase* GetTypeDatabase() const;
+	FAngelscriptBindState* GetBindState() const;
+	TArray<FToStringType>* GetToStringList() const;
+	FAngelscriptBindDatabase* GetBindDatabase() const;
+
+	void EnsureSharedStateCreated();
 
 #if WITH_DEV_AUTOMATION_TESTS
 	int32 GetToStringEntryCountForTesting() const;
@@ -590,12 +606,26 @@ private:
 	bool bUseAutomaticImportMethodInstance = false;
 };
 
+template<>
+struct TStructOpsTypeTraits<FAngelscriptEngine> : public TStructOpsTypeTraitsBase2<FAngelscriptEngine>
+{
+	enum
+	{
+		WithCopy = false,
+	};
+};
+
 struct ANGELSCRIPTRUNTIME_API FAngelscriptEngineContextStack
 {
 	static void Push(FAngelscriptEngine* Engine);
 	static void Pop(FAngelscriptEngine* Engine);
 	static FAngelscriptEngine* Peek();
 	static bool IsEmpty();
+
+#if WITH_DEV_AUTOMATION_TESTS
+	static TArray<FAngelscriptEngine*> SnapshotAndClear();
+	static void RestoreSnapshot(TArray<FAngelscriptEngine*>&& SavedStack);
+#endif
 };
 
 struct ANGELSCRIPTRUNTIME_API FAngelscriptEngineScope
@@ -616,50 +646,6 @@ private:
 	UObject* PreviousEngineWorldContext = nullptr;
 	bool bChangedWorldContext = false;
 };
-
-struct FScopedTestEngineGlobalScope
-{
-	FScopedTestEngineGlobalScope()
-		: PreviousGlobalEngine(nullptr)
-	{
-	}
-
-	explicit FScopedTestEngineGlobalScope(FAngelscriptEngine* TestEngine)
-		: PreviousGlobalEngine(FAngelscriptEngine::TryGetGlobalEngine())
-	{
-		FAngelscriptEngine::SetGlobalEngine(TestEngine);
-	}
-
-	~FScopedTestEngineGlobalScope()
-	{
-		FAngelscriptEngine::SetGlobalEngine(PreviousGlobalEngine);
-	}
-
-	FScopedTestEngineGlobalScope(const FScopedTestEngineGlobalScope&) = delete;
-	FScopedTestEngineGlobalScope& operator=(const FScopedTestEngineGlobalScope&) = delete;
-
-	FScopedTestEngineGlobalScope(FScopedTestEngineGlobalScope&& Other) noexcept
-		: PreviousGlobalEngine(Other.PreviousGlobalEngine)
-	{
-		Other.PreviousGlobalEngine = nullptr;
-	}
-
-	FScopedTestEngineGlobalScope& operator=(FScopedTestEngineGlobalScope&& Other) noexcept
-	{
-		if (this != &Other)
-		{
-			FAngelscriptEngine::SetGlobalEngine(PreviousGlobalEngine);
-			PreviousGlobalEngine = Other.PreviousGlobalEngine;
-			Other.PreviousGlobalEngine = nullptr;
-		}
-		return *this;
-	}
-
-private:
-	FAngelscriptEngine* PreviousGlobalEngine;
-};
-
-using FScopedGlobalEngineOverride = FScopedTestEngineGlobalScope;
 
 struct FAngelscriptContextPool
 {

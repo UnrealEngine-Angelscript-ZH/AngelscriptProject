@@ -11,36 +11,6 @@
 #include "SourceCodeNavigation.h"
 #endif
 
-namespace
-{
-	const void* GetLegacyBindDatabaseKey()
-	{
-		static uint8 LegacyBindDatabaseKey = 0;
-		return &LegacyBindDatabaseKey;
-	}
-
-	const void* ResolveBindDatabaseKey(const void* StateKey = nullptr)
-	{
-		if (StateKey != nullptr)
-		{
-			return StateKey;
-		}
-
-		if (const void* CurrentKey = FAngelscriptEngine::GetCurrentIsolationStateKey())
-		{
-			return CurrentKey;
-		}
-
-		return GetLegacyBindDatabaseKey();
-	}
-
-	TMap<const void*, TUniquePtr<FAngelscriptBindDatabase>>& GetBindDatabases()
-	{
-		static TMap<const void*, TUniquePtr<FAngelscriptBindDatabase>> BindDatabases;
-		return BindDatabases;
-	}
-}
-
 FAngelscriptBindDatabase& FAngelscriptBindDatabase::Get()
 {
 	return GetForKey(nullptr);
@@ -48,18 +18,20 @@ FAngelscriptBindDatabase& FAngelscriptBindDatabase::Get()
 
 FAngelscriptBindDatabase& FAngelscriptBindDatabase::GetForKey(const void* StateKey)
 {
-	TUniquePtr<FAngelscriptBindDatabase>& Database = GetBindDatabases().FindOrAdd(ResolveBindDatabaseKey(StateKey));
-	if (!Database.IsValid())
+	if (FAngelscriptEngine* Engine = FAngelscriptEngine::TryGetCurrentEngine())
 	{
-		Database = MakeUnique<FAngelscriptBindDatabase>();
+		if (FAngelscriptBindDatabase* DB = Engine->GetBindDatabase())
+		{
+			return *DB;
+		}
 	}
-
-	return *Database;
+	static FAngelscriptBindDatabase LegacyBindDatabase;
+	return LegacyBindDatabase;
 }
 
 void FAngelscriptBindDatabase::ResetForKey(const void* StateKey)
 {
-	GetBindDatabases().Remove(ResolveBindDatabaseKey(StateKey));
+	Get().Clear();
 }
 
 void FAngelscriptBindDatabase::Serialize(FArchive& Archive)

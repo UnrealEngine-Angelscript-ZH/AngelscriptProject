@@ -1,6 +1,8 @@
 #pragma once
 #include "CoreMinimal.h"
 
+class asITypeInfo;
+
 struct FToStringHelper
 {
 	typedef void(*FToStringFunction)(void*, FString&);
@@ -18,4 +20,13 @@ struct FToStringHelper
 #if WITH_DEV_AUTOMATION_TESTS
 	static int32 ANGELSCRIPTRUNTIME_API GetRegisteredTypeCountForTesting();
 #endif
-}; 
+};
+
+struct FToStringType
+{
+	FString TypeName;
+	asITypeInfo* TypeInfo = nullptr;
+	FToStringHelper::FToStringFunction ToString;
+	bool bImplicitConversion;
+	bool bIsHandleType;
+};

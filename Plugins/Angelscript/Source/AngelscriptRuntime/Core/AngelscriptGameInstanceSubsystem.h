@@ -3,10 +3,9 @@
 #include "CoreMinimal.h"
 #include "Tickable.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "AngelscriptEngine.h"
 
 #include "AngelscriptGameInstanceSubsystem.generated.h"
-
-struct FAngelscriptEngine;
 
 UCLASS()
 class ANGELSCRIPTRUNTIME_API UAngelscriptGameInstanceSubsystem : public UGameInstanceSubsystem, public FTickableGameObject
@@ -34,7 +33,8 @@ public:
 
 private:
 	friend struct FAngelscriptTickBehaviorTestAccess;
-	TUniquePtr<FAngelscriptEngine> OwnedPrimaryEngine;
+	UPROPERTY()
+	FAngelscriptEngine OwnedEngine;
 	FAngelscriptEngine* PrimaryEngine = nullptr;
 	bool bOwnsPrimaryEngine = false;
 	bool bInitialized = false;

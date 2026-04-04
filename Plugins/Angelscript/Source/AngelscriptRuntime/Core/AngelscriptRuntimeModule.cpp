@@ -5,6 +5,7 @@
 IMPLEMENT_MODULE(FAngelscriptRuntimeModule, AngelscriptRuntime);
 
 bool FAngelscriptRuntimeModule::bInitializeAngelscriptCalled = false;
+TUniquePtr<FAngelscriptEngine> FAngelscriptRuntimeModule::OwnedPrimaryEngine;
 #if WITH_DEV_AUTOMATION_TESTS
 TFunction<FAngelscriptEngine*()> FAngelscriptRuntimeModule::InitializeOverrideForTesting;
 #endif
@@ -29,6 +30,12 @@ void FAngelscriptRuntimeModule::ShutdownModule()
 	{
 		FTSTicker::GetCoreTicker().RemoveTicker(FallbackTickHandle);
 		FallbackTickHandle.Reset();
+	}
+
+	if (OwnedPrimaryEngine.IsValid())
+	{
+		FAngelscriptEngineContextStack::Pop(OwnedPrimaryEngine.Get());
+		OwnedPrimaryEngine.Reset();
 	}
 }
 
@@ -139,7 +146,7 @@ void FAngelscriptRuntimeModule::InitializeAngelscript()
 	{
 		if (FAngelscriptEngine* OverrideEngine = InitializeOverrideForTesting())
 		{
-			FAngelscriptEngine::SetGlobalEngine(OverrideEngine);
+			FAngelscriptEngineContextStack::Push(OverrideEngine);
 		}
 		return;
 	}
@@ -152,7 +159,9 @@ void FAngelscriptRuntimeModule::InitializeAngelscript()
 	}
 	else
 	{
-		FAngelscriptEngine::GetOrCreate().Initialize();
+		OwnedPrimaryEngine = MakeUnique<FAngelscriptEngine>();
+		FAngelscriptEngineContextStack::Push(OwnedPrimaryEngine.Get());
+		OwnedPrimaryEngine->Initialize();
 	}
 }
 
@@ -164,6 +173,11 @@ void FAngelscriptRuntimeModule::SetInitializeOverrideForTesting(TFunction<FAngel
 
 void FAngelscriptRuntimeModule::ResetInitializeStateForTesting()
 {
+	if (OwnedPrimaryEngine.IsValid())
+	{
+		FAngelscriptEngineContextStack::Pop(OwnedPrimaryEngine.Get());
+		OwnedPrimaryEngine.Reset();
+	}
 	bInitializeAngelscriptCalled = false;
 	InitializeOverrideForTesting = nullptr;
 }

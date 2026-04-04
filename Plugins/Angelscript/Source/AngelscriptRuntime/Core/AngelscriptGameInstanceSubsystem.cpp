@@ -15,10 +15,9 @@ void UAngelscriptGameInstanceSubsystem::Initialize(FSubsystemCollectionBase& Col
 	PrimaryEngine = FAngelscriptEngine::TryGetCurrentEngine();
 	if (PrimaryEngine == nullptr)
 	{
-		OwnedPrimaryEngine = MakeUnique<FAngelscriptEngine>();
-		PrimaryEngine = OwnedPrimaryEngine.Get();
-		FAngelscriptEngine::SetGlobalEngine(PrimaryEngine);
-		PrimaryEngine->Initialize();
+		PrimaryEngine = &OwnedEngine;
+		FAngelscriptEngineContextStack::Push(PrimaryEngine);
+		OwnedEngine.Initialize();
 		bOwnsPrimaryEngine = true;
 	}
 
@@ -37,12 +36,11 @@ void UAngelscriptGameInstanceSubsystem::Deinitialize()
 
 	if (bOwnsPrimaryEngine)
 	{
-		if (FAngelscriptEngine::TryGetGlobalEngine() == PrimaryEngine)
+		FAngelscriptEngineContextStack::Pop(PrimaryEngine);
+		if (PrimaryEngine != nullptr)
 		{
-			FAngelscriptEngine::SetGlobalEngine(nullptr);
+			PrimaryEngine->Shutdown();
 		}
-
-		OwnedPrimaryEngine.Reset();
 		bOwnsPrimaryEngine = false;
 	}
 
