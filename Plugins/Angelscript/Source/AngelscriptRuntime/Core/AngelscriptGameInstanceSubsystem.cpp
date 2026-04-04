@@ -7,6 +7,8 @@
 
 int32 UAngelscriptGameInstanceSubsystem::ActiveTickOwners = 0;
 
+UAngelscriptGameInstanceSubsystem::~UAngelscriptGameInstanceSubsystem() = default;
+
 void UAngelscriptGameInstanceSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 {
 	Super::Initialize(Collection);
