@@ -68,6 +68,8 @@ try {
     $outputLayout = New-CommandOutputLayout -ProjectRoot $projectRoot -Category 'Tests' -Label $Label -RequestedOutputRoot $OutputRoot -LogFileName 'Automation.log'
     $metadataPath = Join-Path $outputLayout.OutputRoot 'RunMetadata.json'
     $summaryPath = Join-Path $outputLayout.OutputRoot 'Summary.json'
+    $targetInfoPath = Join-Path $projectRoot 'Intermediate\TargetInfo.json'
+    $queryTargetsLogPath = Join-Path $outputLayout.OutputRoot 'QueryTargets.log'
 
     $worktreeMutexName = Get-NamedMutexName -Scope 'ue-command-worktree' -KeyPath $projectRoot
     $worktreeMutex = Acquire-NamedMutex -Name $worktreeMutexName -TimeoutMs 0
@@ -81,6 +83,7 @@ try {
         $agentConfig.ProjectFile
         "-ExecCmds=Automation RunTests $target; Quit"
         '-TestExit=Automation Test Queue Empty'
+        '-BUILDMACHINE'
         '-Unattended'
         '-NoPause'
         '-NoSplash'
@@ -124,6 +127,8 @@ try {
             LogPath           = $outputLayout.LogPath
             ReportPath        = $outputLayout.ReportPath
             SummaryPath       = $summaryPath
+            TargetInfoPath    = $targetInfoPath
+            QueryTargetsLogPath = $queryTargetsLogPath
             Arguments         = $argumentList
             Prewarm           = [PSCustomObject]@{
                 Status     = $prewarmResult.Status
@@ -143,6 +148,8 @@ try {
     Write-Host ('EditorCmd       : {0}' -f $editorCmd)
     Write-Host ('TimeoutMs       : {0}' -f $resolvedTimeoutMs)
     Write-Host ('LogPath         : {0}' -f $outputLayout.LogPath)
+    Write-Host ('TargetInfoPath  : {0}' -f $targetInfoPath)
+    Write-Host ('QueryTargetsLog : {0}' -f $queryTargetsLogPath)
     Write-Host ('ReportPath      : {0}' -f $outputLayout.ReportPath)
     Write-Host ('Render          : {0}' -f ([bool]$Render))
     Write-Host ('Prewarm         : {0} ({1}ms)' -f $prewarmResult.Status, $prewarmResult.DurationMs)
@@ -156,12 +163,11 @@ try {
             Write-Host '[info] Tests finished. Waiting for editor process to shut down...' -ForegroundColor DarkCyan
         }
     }
-
     $result = Invoke-StreamingProcess `
         -FilePath $editorCmd `
         -ArgumentList $argumentList `
         -WorkingDirectory $projectRoot `
-        -TimeoutMs $resolvedTimeoutMs `
+        -TimeoutMs $remainingTimeoutMs `
         -LogPath $outputLayout.LogPath `
         -Label 'automation-tests' `
         -OnLine $onOutputLine
@@ -221,6 +227,10 @@ try {
             LogPath           = $outputLayout.LogPath
             ReportPath        = $outputLayout.ReportPath
             SummaryPath       = if ($NoReport) { $null } else { $summaryPath }
+            TargetInfoPath    = $targetInfoPath
+            QueryTargetsLogPath = $queryTargetsLogPath
+            QueryTargetsExitCode = [int]$queryTargetsResult.ExitCode
+            QueryTargetsDurationMs = [int]$queryTargetsResult.DurationMs
             Arguments         = $argumentList
             TimedOut          = [bool]$result.TimedOut
             ProcessExitCode   = $processExitCode

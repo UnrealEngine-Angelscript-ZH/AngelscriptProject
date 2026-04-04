@@ -1,8 +1,11 @@
 #include "AngelscriptBinds.h"
 #include "AngelscriptEngine.h"
 #include "AngelscriptSettings.h"
+#include "ClassGenerator/ASClass.h"
 #include "../Shared/AngelscriptTestUtilities.h"
 #include "Testing/AngelscriptBindExecutionObservation.h"
+#include "GameFramework/Actor.h"
+#include "Kismet/GameplayStatics.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/Guid.h"
 #include "Misc/ScopeExit.h"
@@ -158,6 +161,18 @@ namespace
 
 		return nullptr;
 	}
+
+	bool IsFunctionEntryBound(const FFuncEntry& Entry)
+	{
+		FGenericFuncPtr FuncPtr = Entry.FuncPtr;
+		return FuncPtr.IsBound() && Entry.Caller.IsBound();
+	}
+
+	bool AreFunctionEntriesEqual(const FFuncEntry& Left, const FFuncEntry& Right)
+	{
+		return FMemory::Memcmp(&Left.FuncPtr, &Right.FuncPtr, sizeof(FGenericFuncPtr)) == 0 &&
+			FMemory::Memcmp(&Left.Caller, &Right.Caller, sizeof(ASAutoCaller::FunctionCaller)) == 0;
+	}
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -183,6 +198,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptStartupDisabledBindMergeCoverageTest,
 	"Angelscript.TestModule.Engine.BindConfig.StartupPathMergesDisabledBindNames",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptGeneratedFunctionEntryPopulationTest,
+	"Angelscript.TestModule.Engine.BindConfig.GeneratedBlueprintCallableEntriesPopulateClassMaps",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptFunctionEntryDeduplicationTest,
+	"Angelscript.TestModule.Engine.BindConfig.AddFunctionEntryPreservesFirstRegistration",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FAngelscriptGlobalDisabledBindNamesTest::RunTest(const FString& Parameters)
@@ -418,6 +443,101 @@ bool FAngelscriptStartupDisabledBindMergeCoverageTest::RunTest(const FString& Pa
 	TestFalse(TEXT("BindConfig.StartupPathMergesDisabledBindNames should skip the settings-disabled bind during startup"), Snapshot.ExecutedBindNames.Contains(SettingsDisabledBindName));
 	TestFalse(TEXT("BindConfig.StartupPathMergesDisabledBindNames should skip the engine-disabled bind during startup"), Snapshot.ExecutedBindNames.Contains(EngineDisabledBindName));
 	return TestTrue(TEXT("BindConfig.StartupPathMergesDisabledBindNames should keep enabled binds visible in the startup execution list"), Snapshot.ExecutedBindNames.Contains(EnabledBindName));
+}
+
+bool FAngelscriptGeneratedFunctionEntryPopulationTest::RunTest(const FString& Parameters)
+{
+	AngelscriptTestSupport::DestroySharedTestEngine();
+	if (FAngelscriptEngine::IsInitialized())
+	{
+		FAngelscriptBindConfigTestAccess::DestroyGlobalEngine();
+	}
+
+	FAngelscriptBinds::ResetBindState();
+	ON_SCOPE_EXIT
+	{
+		FAngelscriptBinds::ResetBindState();
+		AngelscriptTestSupport::DestroySharedTestEngine();
+		if (FAngelscriptEngine::IsInitialized())
+		{
+			FAngelscriptBindConfigTestAccess::DestroyGlobalEngine();
+		}
+	};
+
+	UFunction* DestroyActorFunction = AActor::StaticClass()->FindFunctionByName(TEXT("K2_DestroyActor"));
+	UFunction* GetPlayerControllerFunction = UGameplayStatics::StaticClass()->FindFunctionByName(TEXT("GetPlayerController"));
+	UFunction* IsDeveloperOnlyFunction = UASClass::StaticClass()->FindFunctionByName(TEXT("IsDeveloperOnly"));
+	if (!TestNotNull(TEXT("GeneratedBlueprintCallableEntriesPopulateClassMaps should find AActor::K2_DestroyActor"), DestroyActorFunction)
+		|| !TestNotNull(TEXT("GeneratedBlueprintCallableEntriesPopulateClassMaps should find UGameplayStatics::GetPlayerController"), GetPlayerControllerFunction)
+		|| !TestNotNull(TEXT("GeneratedBlueprintCallableEntriesPopulateClassMaps should find UASClass::IsDeveloperOnly"), IsDeveloperOnlyFunction))
+	{
+		return false;
+	}
+
+	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
+	TUniquePtr<FAngelscriptEngine> Engine = FAngelscriptEngine::CreateTestingFullEngine(FAngelscriptEngineConfig(), Dependencies);
+	if (!TestTrue(TEXT("GeneratedBlueprintCallableEntriesPopulateClassMaps should create a testing engine"), Engine.IsValid()))
+	{
+		return false;
+	}
+	FAngelscriptEngineScope EngineScope(*Engine);
+
+	auto& ClassFuncMaps = FAngelscriptBinds::GetClassFuncMaps();
+	const TMap<FString, FFuncEntry>* ActorEntries = ClassFuncMaps.Find(AActor::StaticClass());
+	const TMap<FString, FFuncEntry>* GameplayStaticsEntries = ClassFuncMaps.Find(UGameplayStatics::StaticClass());
+	const TMap<FString, FFuncEntry>* ScriptClassEntries = ClassFuncMaps.Find(UASClass::StaticClass());
+	if (!TestNotNull(TEXT("GeneratedBlueprintCallableEntriesPopulateClassMaps should populate entries for AActor"), ActorEntries)
+		|| !TestNotNull(TEXT("GeneratedBlueprintCallableEntriesPopulateClassMaps should populate entries for UGameplayStatics"), GameplayStaticsEntries)
+		|| !TestNotNull(TEXT("GeneratedBlueprintCallableEntriesPopulateClassMaps should populate entries for UASClass"), ScriptClassEntries))
+	{
+		return false;
+	}
+
+	const FFuncEntry* DestroyActorEntry = ActorEntries->Find(DestroyActorFunction->GetName());
+	const FFuncEntry* GetPlayerControllerEntry = GameplayStaticsEntries->Find(GetPlayerControllerFunction->GetName());
+	const FFuncEntry* IsDeveloperOnlyEntry = ScriptClassEntries->Find(IsDeveloperOnlyFunction->GetName());
+	if (!TestNotNull(TEXT("GeneratedBlueprintCallableEntriesPopulateClassMaps should register AActor::K2_DestroyActor"), DestroyActorEntry)
+		|| !TestNotNull(TEXT("GeneratedBlueprintCallableEntriesPopulateClassMaps should register UGameplayStatics::GetPlayerController"), GetPlayerControllerEntry)
+		|| !TestNotNull(TEXT("GeneratedBlueprintCallableEntriesPopulateClassMaps should register UASClass::IsDeveloperOnly"), IsDeveloperOnlyEntry))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("GeneratedBlueprintCallableEntriesPopulateClassMaps should bind UASClass::IsDeveloperOnly to a direct native function entry"), IsFunctionEntryBound(*IsDeveloperOnlyEntry));
+	return true;
+}
+
+bool FAngelscriptFunctionEntryDeduplicationTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptBinds::ResetBindState();
+	ON_SCOPE_EXIT
+	{
+		FAngelscriptBinds::ResetBindState();
+	};
+
+	const FString FunctionName = TEXT("K2_DestroyActor");
+	const FFuncEntry FirstEntry = { ERASE_METHOD_PTR(AActor, K2_DestroyActor, (), ERASE_ARGUMENT_PACK(void)) };
+	const FFuncEntry SecondEntry = { ERASE_NO_FUNCTION() };
+
+	FAngelscriptBinds::AddFunctionEntry(AActor::StaticClass(), FunctionName, FirstEntry);
+	FAngelscriptBinds::AddFunctionEntry(AActor::StaticClass(), FunctionName, SecondEntry);
+
+	const TMap<FString, FFuncEntry>* ActorEntries = FAngelscriptBinds::GetClassFuncMaps().Find(AActor::StaticClass());
+	if (!TestNotNull(TEXT("AddFunctionEntryPreservesFirstRegistration should create a function entry map for AActor"), ActorEntries))
+	{
+		return false;
+	}
+
+	const FFuncEntry* StoredEntry = ActorEntries->Find(FunctionName);
+	if (!TestNotNull(TEXT("AddFunctionEntryPreservesFirstRegistration should keep the first function entry"), StoredEntry))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("AddFunctionEntryPreservesFirstRegistration should keep the first registration bound"), IsFunctionEntryBound(*StoredEntry));
+	TestTrue(TEXT("AddFunctionEntryPreservesFirstRegistration should preserve the first stored function pointer and caller"), AreFunctionEntriesEqual(*StoredEntry, FirstEntry));
+	TestFalse(TEXT("AddFunctionEntryPreservesFirstRegistration should ignore the later duplicate registration"), AreFunctionEntriesEqual(*StoredEntry, SecondEntry));
+	return true;
 }
 
 #endif

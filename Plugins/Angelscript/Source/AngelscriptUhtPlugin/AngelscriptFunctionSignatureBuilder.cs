@@ -16,25 +16,9 @@ internal sealed record AngelscriptFunctionSignature(
 {
 	public string BuildEraseMacro()
 	{
-		if (!UseExplicitSignature)
-		{
-			return IsStatic
-				? $"ERASE_AUTO_FUNCTION_PTR({OwningType}::{FunctionName})"
-				: $"ERASE_AUTO_METHOD_PTR({OwningType}, {FunctionName})";
-		}
-
-		string parameterPack = ParameterTypes.Count == 0
-			? "()"
-			: $"({string.Join(", ", ParameterTypes)})";
-
-		if (IsConst && !IsStatic)
-		{
-			parameterPack += " const";
-		}
-
 		return IsStatic
-			? $"ERASE_FUNCTION_PTR({OwningType}::{FunctionName}, {parameterPack}, ERASE_ARGUMENT_PACK({ReturnType}))"
-			: $"ERASE_METHOD_PTR({OwningType}, {FunctionName}, {parameterPack}, ERASE_ARGUMENT_PACK({ReturnType}))";
+			? $"ERASE_AUTO_FUNCTION_PTR({OwningType}::{FunctionName})"
+			: $"ERASE_AUTO_METHOD_PTR({OwningType}, {FunctionName})";
 	}
 }
 
@@ -49,7 +33,7 @@ internal static class AngelscriptFunctionSignatureBuilder
 			return true;
 		}
 
-		if (failureReason == "non-public" || failureReason == "overloaded-unresolved")
+		if (failureReason == "non-public" || failureReason == "overloaded-unresolved" || failureReason == "unexported-symbol")
 		{
 			return false;
 		}

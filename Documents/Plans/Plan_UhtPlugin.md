@@ -1,5 +1,16 @@
 # UHT 插件计划：自动生成函数调用表
 
+## 当前实现状态（2026-04-04）
+
+- 已在基于当前 `main` 的新 worktree 上承接旧 `uht-plugin-plan` 分支的 UHT 插件实现，并完成主线适配。
+- `AngelscriptUhtPlugin` 现可在 UHT 阶段执行，并为支持的 `BlueprintCallable` / `BlueprintPure` 函数生成 `AddFunctionEntry` 编译产物。
+- 生成策略已从“每模块单文件”调整为“每模块多分片”，用于规避 `Engine` 等大模块上的 `C4883` 大函数编译失败。
+- 生成过滤已收紧为“可链接 + 唯一候选”的 direct-bind 集合；对 `MinimalAPI`、未导出符号和重载/歧义候选统一回退到 `ERASE_NO_FUNCTION()`，优先保证主线可编译。
+- `Tools/RunBuild.ps1` 已显式传入 worktree-local 的 `-Log=<Saved/Build/.../UnrealBuildTool.log>`，解决多 worktree 共享 `Engine/Programs/UnrealBuildTool/Log.txt` 的锁冲突。
+- `Plugins/Angelscript/Source/AngelscriptRuntime/FunctionCallers/FunctionCallers_*.cpp` 共 14 个历史死文件已删除。
+- `Plugins/Angelscript/Source/AngelscriptTest/Core/AngelscriptBindConfigTests.cpp` 已补充针对生成条目填充和 `AddFunctionEntry` 去重语义的回归测试。
+- 当前已获得成功的本地构建证据；`Tools/RunTests.ps1` 已在测试前自动预热 `TargetInfo.json` 并为 `UnrealEditor-Cmd` 增加 `-BUILDMACHINE`，规避启动阶段的 `Build.bat -Mode=QueryTargets` 阻塞；`Angelscript.TestModule.Engine.BindConfig.` 前缀共 7 条自动化测试已验证通过。
+
 ## 背景与目标
 
 ### Hazelight 的 UHT 改动全景

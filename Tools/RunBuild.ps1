@@ -40,6 +40,7 @@ try {
     $ubtPaths = Resolve-UbtPaths -EngineRoot $agentConfig.EngineRoot
     $outputLayout = New-CommandOutputLayout -ProjectRoot $projectRoot -Category 'Build' -Label $Label -RequestedOutputRoot $LogRoot -LogFileName 'Build.log'
     $metadataPath = Join-Path $outputLayout.OutputRoot 'RunMetadata.json'
+    $ubtLogPath = Join-Path $outputLayout.OutputRoot 'UnrealBuildTool.log'
 
     $worktreeMutexName = Get-NamedMutexName -Scope 'ue-command-worktree' -KeyPath $projectRoot
     $worktreeMutex = Acquire-NamedMutex -Name $worktreeMutexName -TimeoutMs 0
@@ -97,6 +98,7 @@ try {
             TimeoutMs         = $resolvedTimeoutMs
             OutputRoot        = $outputLayout.OutputRoot
             LogPath           = $outputLayout.LogPath
+            UbtLogPath        = $ubtLogPath
             Arguments         = $argumentList
             TimedOut          = $false
             ProcessExitCode   = $null
@@ -161,6 +163,7 @@ try {
             TimeoutMs         = $resolvedTimeoutMs
             OutputRoot        = $outputLayout.OutputRoot
             LogPath           = $outputLayout.LogPath
+            UbtLogPath        = $ubtLogPath
             Arguments         = $argumentList
             TimedOut          = [bool]$result.TimedOut
             ProcessExitCode   = [int]$result.ExitCode

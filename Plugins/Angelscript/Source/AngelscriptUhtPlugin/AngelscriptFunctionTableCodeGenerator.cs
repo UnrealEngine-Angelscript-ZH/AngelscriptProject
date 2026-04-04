@@ -26,6 +26,7 @@ internal sealed record AngelscriptSupportedModules(
 internal static class AngelscriptFunctionTableCodeGenerator
 {
 	private static readonly Regex QuotedStringPattern = new("\"([^\"]+)\"", RegexOptions.Compiled);
+	private const int MaxEntriesPerShard = 256;
 
 	public static int Generate(IUhtExportFactory factory)
 	{
@@ -40,11 +41,7 @@ internal static class AngelscriptFunctionTableCodeGenerator
 				continue;
 			}
 
-			if (TryGenerateModule(factory, module, supportedModules.EditorOnly.Contains(module.ShortName), out string? outputPath))
-			{
-				generatedFileCount++;
-				generatedPaths.Add(outputPath!);
-			}
+			generatedFileCount += GenerateModule(factory, module, supportedModules.EditorOnly.Contains(module.ShortName), generatedPaths);
 		}
 
 		DeleteStaleOutputs(factory, generatedPaths);
@@ -52,16 +49,15 @@ internal static class AngelscriptFunctionTableCodeGenerator
 		return generatedFileCount;
 	}
 
-	private static bool TryGenerateModule(IUhtExportFactory factory, UhtModule module, bool editorOnly, out string? outputPath)
+	private static int GenerateModule(IUhtExportFactory factory, UhtModule module, bool editorOnly, HashSet<string> generatedPaths)
 	{
-		outputPath = null;
 		SortedSet<string> includes = new(StringComparer.Ordinal);
 		List<AngelscriptGeneratedFunctionEntry> entries = new();
 
 		CollectEntries(factory, module.ScriptPackage, includes, entries);
 		if (entries.Count == 0)
 		{
-			return false;
+			return 0;
 		}
 
 		entries.Sort(static (left, right) =>
@@ -72,6 +68,23 @@ internal static class AngelscriptFunctionTableCodeGenerator
 				: StringComparer.Ordinal.Compare(left.FunctionName, right.FunctionName);
 		});
 
+		int generatedShardCount = 0;
+		int shardCount = (entries.Count + MaxEntriesPerShard - 1) / MaxEntriesPerShard;
+		for (int shardIndex = 0; shardIndex < shardCount; shardIndex++)
+		{
+			int startIndex = shardIndex * MaxEntriesPerShard;
+			int entryCount = Math.Min(MaxEntriesPerShard, entries.Count - startIndex);
+			string outputPath = factory.MakePath($"AS_FunctionTable_{module.ShortName}_{shardIndex:D3}", ".cpp");
+			factory.CommitOutput(outputPath, BuildShard(module.ShortName, editorOnly, includes, entries, startIndex, entryCount, shardIndex, shardCount));
+			generatedPaths.Add(outputPath);
+			generatedShardCount++;
+		}
+
+		return generatedShardCount;
+	}
+
+	private static StringBuilder BuildShard(string moduleShortName, bool editorOnly, SortedSet<string> includes, List<AngelscriptGeneratedFunctionEntry> entries, int startIndex, int entryCount, int shardIndex, int shardCount)
+	{
 		StringBuilder builder = new();
 		if (editorOnly)
 		{
@@ -90,20 +103,27 @@ internal static class AngelscriptFunctionTableCodeGenerator
 		}
 
 		builder.AppendLine();
-		builder.Append("AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_AS_FunctionTable_").Append(module.ShortName)
+		builder.Append("AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_AS_FunctionTable_")
+			.Append(moduleShortName)
+			.Append('_')
+			.Append(shardIndex.ToString("D3"))
 			.AppendLine("((int32)FAngelscriptBinds::EOrder::Late + 50, []()");
 		builder.AppendLine("{");
 
-		foreach (AngelscriptGeneratedFunctionEntry entry in entries)
+		for (int entryIndex = startIndex; entryIndex < startIndex + entryCount; entryIndex++)
 		{
-			builder.AppendLine(entry.BuildRegistrationLine());
+			builder.AppendLine(entries[entryIndex].BuildRegistrationLine());
 		}
 
-		builder.Append("\tUE_LOG(Angelscript, Log, TEXT(\"[UHT] Registered %d generated BlueprintCallable entries for module %s\"), ")
-			.Append(entries.Count)
+		builder.Append("\tUE_LOG(Angelscript, Log, TEXT(\"[UHT] Registered %d generated BlueprintCallable entries for module %s shard %d/%d\"), ")
+			.Append(entryCount)
 			.Append(", TEXT(\"")
-			.Append(module.ShortName)
-			.AppendLine("\"));");
+			.Append(moduleShortName)
+			.Append("\"), ")
+			.Append(shardIndex + 1)
+			.Append(", ")
+			.Append(shardCount)
+			.AppendLine(");");
 
 		builder.AppendLine("});");
 		builder.AppendLine("PRAGMA_ENABLE_DEPRECATION_WARNINGS");
@@ -112,9 +132,7 @@ internal static class AngelscriptFunctionTableCodeGenerator
 			builder.AppendLine("#endif");
 		}
 
-		outputPath = factory.MakePath($"AS_FunctionTable_{module.ShortName}", ".cpp");
-		factory.CommitOutput(outputPath, builder);
-		return true;
+		return builder;
 	}
 
 	private static AngelscriptSupportedModules LoadSupportedModules(IUhtExportFactory factory)

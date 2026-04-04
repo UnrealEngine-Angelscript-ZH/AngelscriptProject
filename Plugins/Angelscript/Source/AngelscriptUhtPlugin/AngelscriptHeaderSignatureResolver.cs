@@ -13,6 +13,7 @@ internal static class AngelscriptHeaderSignatureResolver
 
 	private static readonly Dictionary<string, string> SanitizedHeaderCache = new(StringComparer.OrdinalIgnoreCase);
 	private static readonly Regex MacroInvocationPattern = new(@"\b[A-Z_][A-Z0-9_]*\s*\([^;{}]*\)", RegexOptions.Compiled);
+	private static readonly Regex ApiMacroPattern = new(@"\b[A-Z_][A-Z0-9_]*_API\b", RegexOptions.Compiled);
 
 	public static bool TryBuild(UhtClass classObj, UhtFunction function, out AngelscriptFunctionSignature? signature, out string? failureReason)
 	{
@@ -25,7 +26,7 @@ internal static class AngelscriptHeaderSignatureResolver
 		}
 
 		string header = GetSanitizedHeader(classObj.HeaderFile.FilePath);
-		if (!TryFindClassBody(header, classObj.SourceName, out int classBodyStart, out int classBodyEnd))
+		if (!TryFindClassBody(header, classObj.SourceName, out int classBodyStart, out int classBodyEnd, out string classDeclaration))
 		{
 			failureReason = "class-range";
 			return false;
@@ -48,37 +49,20 @@ internal static class AngelscriptHeaderSignatureResolver
 		if (candidates.Count == 1 && publicCandidates.Count == 1)
 		{
 			CandidateDeclaration candidate = publicCandidates[0];
-			if (!TryParseDeclaration(classObj, function, candidate.Declaration, false, out signature, out failureReason))
+			if (!IsLinkVisible(classDeclaration, candidate.Declaration))
 			{
+				failureReason = "unexported-symbol";
 				return false;
 			}
-			return true;
-		}
 
-		List<string> expectedParameterTypes = BuildExpectedParameterTypes(function);
-		string expectedReturnType = function.ReturnProperty is UhtProperty returnProperty
-			? BuildExpectedReturnType(returnProperty)
-			: "void";
-
-		List<AngelscriptFunctionSignature> exactMatches = new();
-		foreach (CandidateDeclaration candidate in publicCandidates)
-		{
-			if (!TryParseDeclaration(classObj, function, candidate.Declaration, true, out AngelscriptFunctionSignature? parsedSignature, out _))
-			{
-				continue;
-			}
-
-			if (parsedSignature!.ParameterTypes.Count == function.ParameterProperties.Span.Length &&
-				AreTypesEquivalent(expectedParameterTypes, parsedSignature.ParameterTypes) &&
-				NormalizeTypeText(expectedReturnType) == NormalizeTypeText(parsedSignature.ReturnType))
-			{
-				exactMatches.Add(parsedSignature);
-			}
-		}
-
-		if (exactMatches.Count == 1)
-		{
-			signature = exactMatches[0];
+			signature = new AngelscriptFunctionSignature(
+				classObj.SourceName,
+				function.SourceName,
+				string.Empty,
+				Array.Empty<string>(),
+				function.FunctionFlags.ToString().Contains("Static", StringComparison.Ordinal),
+				function.FunctionFlags.ToString().Contains("Const", StringComparison.Ordinal),
+				false);
 			failureReason = null;
 			return true;
 		}
@@ -221,7 +205,7 @@ internal static class AngelscriptHeaderSignatureResolver
 		return sanitizedHeader;
 	}
 
-	private static bool TryFindClassBody(string header, string className, out int classBodyStart, out int classBodyEnd)
+	private static bool TryFindClassBody(string header, string className, out int classBodyStart, out int classBodyEnd, out string classDeclaration)
 	{
 		foreach (string marker in new[] { "UCLASS(", "UINTERFACE(" })
 		{
@@ -248,6 +232,7 @@ internal static class AngelscriptHeaderSignatureResolver
 					{
 						classBodyStart = braceIndex + 1;
 						classBodyEnd = classEnd;
+						classDeclaration = declarationRegion;
 						return true;
 					}
 				}
@@ -258,7 +243,28 @@ internal static class AngelscriptHeaderSignatureResolver
 
 		classBodyStart = -1;
 		classBodyEnd = -1;
+		classDeclaration = string.Empty;
 		return false;
+	}
+
+	private static bool IsLinkVisible(string classDeclaration, string declaration)
+	{
+		int openParenIndex = declaration.IndexOf('(');
+		string declarationPrefix = openParenIndex >= 0 ? declaration.Substring(0, openParenIndex) : declaration;
+		bool functionHasApiMacro = ApiMacroPattern.IsMatch(declarationPrefix);
+		bool classHasApiMacro = ApiMacroPattern.IsMatch(classDeclaration);
+		bool classIsMinimalApi = classDeclaration.Contains("MinimalAPI", StringComparison.Ordinal);
+		bool isInlineDefinition = declarationPrefix.Contains("inline ", StringComparison.Ordinal) ||
+			declarationPrefix.Contains("FORCEINLINE", StringComparison.Ordinal) ||
+			declarationPrefix.Contains("constexpr ", StringComparison.Ordinal) ||
+			declaration.Contains('{', StringComparison.Ordinal);
+
+		if (functionHasApiMacro || isInlineDefinition)
+		{
+			return true;
+		}
+
+		return classHasApiMacro && !classIsMinimalApi;
 	}
 
 	private static List<CandidateDeclaration> FindCandidates(string header, int classBodyStart, int classBodyEnd, string functionName)
