@@ -148,6 +148,26 @@ Saved/Tests/<Label>/<Timestamp>/
 - `Gauntlet` 只在需要 outer shell、networking、多进程会话编排或更复杂生命周期管理时使用。
 - 不要在常规本地回归、AI Agent 执行或普通 CI 里直接跳过 `Tools\RunTests.ps1` 改用手写 `RunUAT` 命令。
 
+## 故障排除
+
+### 构建阶段卡死（XGE 槽位争抢）
+
+测试前通常需要先构建。如果构建阶段长时间无编译输出，可能是多个 worktree 同时使用 XGE 分布式执行器导致槽位争抢。解决方案是在构建时透传 `-NoXGE`：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -- -NoXGE
+```
+
+详见 `Documents/Guides/Build.md` 的"多 Worktree 并发构建故障排除"章节。
+
+### 测试进程无输出超时
+
+如果测试启动后长时间没有任何输出：
+
+1. **确认参数名正确**：`-TestPrefix`（不是 `-Filter`）。错误的参数名会导致 PowerShell 在参数绑定阶段挂起，脚本根本不会执行到超时保护代码
+2. **确认没有残留的 UBT / Editor 进程**：用 `Tools\Get-UbtProcess.ps1` 检查
+3. **确认 worktree 锁未被占用**：同一 worktree 不能同时运行两个 build/test 任务
+
 ## 对 AI Agent 的要求
 
 当 AI Agent 需要执行自动化测试时，必须遵守以下要求：

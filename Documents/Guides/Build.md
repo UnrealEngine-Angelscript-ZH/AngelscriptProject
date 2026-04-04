@@ -118,6 +118,31 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Get-UbtProcess.ps1
 - 是否使用 `-NoMutex`
 - 是否使用 `-NoEngineChanges`
 
+## 多 Worktree 并发构建故障排除
+
+### XGE 分布式执行器槽位争抢
+
+当多个 worktree 同时构建时，UBT 默认使用 XGE（Incredibuild / FastBuild 等）分布式执行器。如果 XGE 槽位被其他 worktree 的构建占满，当前构建会卡在等待 XGE 槽位而无法推进，表现为长时间无编译输出。
+
+**诊断信号**：
+- 构建启动后长时间没有 `[N/M] Compile` 输出
+- 日志中出现 `Using XGE executor` 后停住
+- 当前 worktree 无残留 UBT 进程，但其他 worktree 有活跃构建
+
+**解决方案**：透传 `-NoXGE` 绕过分布式执行器，改用本地并行编译：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -- -NoXGE
+```
+
+这会禁用 XGE 而使用本地 CPU 核心并行编译，不受其他 worktree 的 XGE 槽位占用影响。编译速度取决于本机核心数，但不会被阻塞。
+
+### UBT 日志文件锁冲突
+
+UBT 默认将日志写入 `Engine/Programs/UnrealBuildTool/Log.txt`，这是引擎目录下的共享文件。多个 worktree 同时构建时会触发文件锁冲突。
+
+`RunBuild.ps1` 已通过 `-Log=` 参数将 UBT 日志重定向到每次构建自己的输出目录（`Saved/Build/<label>/<timestamp>/UBT.log`），正常使用不会遇到此问题。如果在旧版本脚本中遇到日志锁报错，请更新到最新的 `RunBuild.ps1`。
+
 ## 对 AI Agent 的要求
 
 当 AI Agent 需要执行构建时，必须遵守以下要求：
