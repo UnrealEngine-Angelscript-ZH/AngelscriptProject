@@ -452,7 +452,7 @@ powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\W
 - [ ] **P2.4** 补 Runtime 预处理 / 类型系统的窄范围覆盖
   - 评估新增：
     - `Plugins/Angelscript/Source/AngelscriptRuntime/Tests/AngelscriptTypeSystemTests.cpp`
-    - 或扩展 `Plugins/Angelscript/Source/AngelscriptTest/Preprocessor/PreprocessorTests.cpp`
+- 或扩展 `Plugins/Angelscript/Source/AngelscriptTest/Preprocessor/AngelscriptPreprocessorTests.cpp`
     - 或扩展 `Plugins/Angelscript/Source/AngelscriptTest/Internals/AngelscriptDataTypeTests.cpp`
   - 优先覆盖：嵌套宏、循环 import、错误恢复、类型匹配边界
   - 若同一能力更适合 `AngelscriptTest/` helper 层，则写在对应目录，但必须在提交说明中解释“不留在 Runtime/Tests 的原因”
