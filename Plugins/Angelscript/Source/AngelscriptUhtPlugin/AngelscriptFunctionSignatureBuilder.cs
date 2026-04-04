@@ -11,10 +11,18 @@ internal sealed record AngelscriptFunctionSignature(
 	string ReturnType,
 	IReadOnlyList<string> ParameterTypes,
 	bool IsStatic,
-	bool IsConst)
+	bool IsConst,
+	bool UseExplicitSignature)
 {
 	public string BuildEraseMacro()
 	{
+		if (!UseExplicitSignature)
+		{
+			return IsStatic
+				? $"ERASE_AUTO_FUNCTION_PTR({OwningType}::{FunctionName})"
+				: $"ERASE_AUTO_METHOD_PTR({OwningType}, {FunctionName})";
+		}
+
 		string parameterPack = ParameterTypes.Count == 0
 			? "()"
 			: $"({string.Join(", ", ParameterTypes)})";
@@ -35,6 +43,16 @@ internal static class AngelscriptFunctionSignatureBuilder
 	public static bool TryBuild(UhtClass classObj, UhtFunction function, out AngelscriptFunctionSignature? signature, out string? failureReason)
 	{
 		signature = null;
+
+		if (AngelscriptHeaderSignatureResolver.TryBuild(classObj, function, out signature, out failureReason))
+		{
+			return true;
+		}
+
+		if (failureReason == "non-public" || failureReason == "overloaded-unresolved")
+		{
+			return false;
+		}
 
 		if (function.FunctionType != UhtFunctionType.Function)
 		{
@@ -70,7 +88,8 @@ internal static class AngelscriptFunctionSignatureBuilder
 			returnType,
 			parameterTypes,
 			HasFunctionFlag(function, "Static"),
-			HasFunctionFlag(function, "Const"));
+			HasFunctionFlag(function, "Const"),
+			true);
 
 		failureReason = null;
 		return true;
@@ -79,42 +98,22 @@ internal static class AngelscriptFunctionSignatureBuilder
 	private static string BuildParameterType(UhtProperty property)
 	{
 		StringBuilder builder = new();
-		string propertyFlags = property.PropertyFlags.ToString();
-
-		if (propertyFlags.Contains("ConstParm", StringComparison.Ordinal))
-		{
-			builder.Append("const ");
-		}
-
-		property.AppendText(builder, UhtPropertyTextType.ClassFunctionArgOrRetVal);
-
-		if (propertyFlags.Contains("ReferenceParm", StringComparison.Ordinal) ||
-			propertyFlags.Contains("OutParm", StringComparison.Ordinal))
-		{
-			builder.Append('&');
-		}
-
+		property.AppendFullDecl(builder, UhtPropertyTextType.ClassFunctionArgOrRetVal, true);
 		return builder.ToString().Trim();
 	}
 
 	private static string BuildReturnType(UhtProperty property)
 	{
-		StringBuilder builder = new();
+		string typeText = property.TypeTokens.ToString().Trim();
 		string propertyFlags = property.PropertyFlags.ToString();
 
-		if (propertyFlags.Contains("ConstParm", StringComparison.Ordinal))
+		if (propertyFlags.Contains("ConstParm", StringComparison.Ordinal) &&
+			!typeText.StartsWith("const ", StringComparison.Ordinal))
 		{
-			builder.Append("const ");
+			typeText = "const " + typeText;
 		}
 
-		property.AppendText(builder, UhtPropertyTextType.ClassFunctionArgOrRetVal);
-
-		if (propertyFlags.Contains("ReferenceParm", StringComparison.Ordinal))
-		{
-			builder.Append('&');
-		}
-
-		return builder.ToString().Trim();
+		return typeText;
 	}
 
 	private static bool HasFunctionFlag(UhtFunction function, string flagName)

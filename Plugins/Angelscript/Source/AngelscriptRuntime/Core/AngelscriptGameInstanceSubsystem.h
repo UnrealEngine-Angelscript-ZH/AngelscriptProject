@@ -2,11 +2,10 @@
 
 #include "CoreMinimal.h"
 #include "Tickable.h"
+#include "AngelscriptEngine.h"
 #include "Subsystems/GameInstanceSubsystem.h"
 
 #include "AngelscriptGameInstanceSubsystem.generated.h"
-
-struct FAngelscriptEngine;
 
 UCLASS()
 class ANGELSCRIPTRUNTIME_API UAngelscriptGameInstanceSubsystem : public UGameInstanceSubsystem, public FTickableGameObject
@@ -14,6 +13,7 @@ class ANGELSCRIPTRUNTIME_API UAngelscriptGameInstanceSubsystem : public UGameIns
 	GENERATED_BODY()
 
 public:
+	virtual ~UAngelscriptGameInstanceSubsystem() override;
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 	virtual UWorld* GetTickableGameObjectWorld() const override;

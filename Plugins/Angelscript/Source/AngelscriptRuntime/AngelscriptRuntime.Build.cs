@@ -8,6 +8,7 @@ namespace UnrealBuildTool.Rules
 		public AngelscriptRuntime(ReadOnlyTargetRules Target) : base(Target)
 		{
 			PCHUsage = PCHUsageMode.UseExplicitOrSharedPCHs;
+			NumIncludedBytesPerUnityCPPOverride = 131072;
 			PrivateDefinitions.Add("ANGELSCRIPT_EXPORT=1");
 			PublicDefinitions.Add("ANGELSCRIPT_DLL_LIBRARY_IMPORT=1");
 
