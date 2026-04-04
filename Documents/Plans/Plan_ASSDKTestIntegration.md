@@ -148,7 +148,7 @@ inline int ExecuteString(asIScriptEngine* engine, const char* code)
   - 不依赖 `FAngelscriptEngine`，只依赖 `AngelscriptInclude.h`
 - [x] **P0.1** 📦 Git 提交：`[Test/Native] Feat: add AS SDK test adapter infrastructure`
 
-- [x] **P0.2** 创建 `Native/AngelscriptSmokeTest.cpp`
+- [x] **P0.2** 创建 `Native/AngelscriptASSDKSmokeTest.cpp`
   - 用适配层创建引擎，编译含 `Assert(1 == 1)` 的脚本并执行，验证 `ASSDKExecuteString` 可用，验证 `FASSDKBufferedOutStream` 可缓存消息
   - 测试路径：`Angelscript.TestModule.Native.ASSDK.Smoke`
 - [x] **P0.2** 📦 Git 提交：`[Test/Native] Feat: add AS SDK adapter smoke test`
@@ -157,19 +157,19 @@ inline int ExecuteString(asIScriptEngine* engine, const char* code)
 
 > 目标：集成最基础的引擎创建、参数传递、执行、全局变量、栈管理测试。
 
-- [x] **P1.1** 创建 `Native/AngelscriptEngineTests.cpp`
+- [x] **P1.1** 创建 `Native/AngelscriptASSDKEngineTests.cpp`
   - 包装 `testcreateengine.cpp`（引擎创建/多引擎/message callback 复用），这是 AS 引擎最底层的健康检查
   - 测试路径：`Angelscript.TestModule.Native.ASSDK.Engine.Create`
 - [x] **P1.1** 📦 Git 提交：`[Test/Native] Feat: integrate AS SDK engine creation tests`
 
-- [x] **P1.2** 创建 `Native/AngelscriptExecuteTests.cpp`
+- [x] **P1.2** 创建 `Native/AngelscriptASSDKExecuteTests.cpp`
   - 包装 `testexecute.cpp`、`testexecute1arg.cpp`、`testexecute2args.cpp`、`testexecute4args.cpp`、`testexecute4argsf.cpp`、`testexecute32args.cpp`、`testexecute32mixedargs.cpp`、`testexecutemixedargs.cpp`、`testexecutethis32mixedargs.cpp`、`testexecutescript.cpp` 中的核心路径
   - 这 10 个文件覆盖 1/2/4/32/mixed args、float args、this 调用等，是 ABI 正确性的核心回归
   - 对其中用到 `ExecuteString()` 的地方使用 `ASSDKExecuteString` 替代
   - 测试路径：`Angelscript.TestModule.Native.ASSDK.Execute.*`
 - [x] **P1.2** 📦 Git 提交：`[Test/Native] Feat: integrate AS SDK execution and argument tests`
 
-- [x] **P1.3** 创建 `Native/AngelscriptGlobalVarTests.cpp`
+- [x] **P1.3** 创建 `Native/AngelscriptASSDKGlobalVarTests.cpp`
   - 包装 `testglobalvar.cpp`、`testenumglobvar.cpp`、`teststack.cpp`、`test_stack2.cpp`
   - 测试路径：`Angelscript.TestModule.Native.ASSDK.GlobalVar.*`
 - [x] **P1.3** 📦 Git 提交：`[Test/Native] Feat: integrate AS SDK global variable and stack tests`
