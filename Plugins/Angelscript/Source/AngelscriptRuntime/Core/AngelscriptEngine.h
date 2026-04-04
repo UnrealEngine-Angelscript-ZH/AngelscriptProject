@@ -134,22 +134,30 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptEngine
 	static FString GetScriptRootDirectory();
 	static UPackage* GetPackage();
 	static TUniquePtr<FAngelscriptEngine> CreateForTesting(const FAngelscriptEngineConfig& InConfig, const FAngelscriptEngineDependencies& InDependencies, EAngelscriptEngineCreationMode Mode = EAngelscriptEngineCreationMode::Clone);
-	static UObject* CurrentWorldContext;
 	static UObject* TryGetCurrentWorldContextObject();
+	static UObject* GetAmbientWorldContext();
 	static bool ShouldUseEditorScriptsForCurrentContext();
 	static bool ShouldUseAutomaticImportMethodForCurrentContext();
 	static class asCThreadLocalData* GameThreadTLD;
-	static bool bSimulateCooked;
-	static bool bUseEditorScripts;
-	static bool bTestErrors;
-	static bool bIsHotReloading;
-	static bool bForcePreprocessEditorCode;
 	static bool bGeneratePrecompiledData;
 	static bool bStaticJITTranspiledCodeLoaded;
 
 	static bool bUseScriptNameForBlueprintLibraryNamespaces;
 	static TArray<FString> BlueprintLibraryNamespacePrefixesToStrip;
 	static TArray<FString> BlueprintLibraryNamespaceSuffixesToStrip;
+
+	bool bSimulateCooked = false;
+	bool bTestErrors = false;
+	bool bIsHotReloading = false;
+	bool bForcePreprocessEditorCode = false;
+	bool bUseEditorScripts = false;
+	bool bUseAutomaticImportMethod = false;
+
+	static bool IsSimulatingCookedForCurrentContext();
+	static bool IsTestingErrorsForCurrentContext();
+	static bool IsHotReloadingForCurrentContext();
+	static bool IsForcingPreprocessEditorCodeForCurrentContext();
+	static bool IsScriptDevelopmentModeForCurrentContext();
 
 	void Initialize();
 	void InitializeForTesting();
@@ -265,8 +273,8 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptEngine
 	/* If the angelscript debugger is attached, do an angelscript breakpoint. Returns whether we broke in AS debugging. */
 	static bool TryBreakpointAngelscriptDebugging(const TCHAR* Message = nullptr);
 	UObject* GetCurrentWorldContextObject() const { return WorldContextObject; }
-	bool ShouldUseEditorScripts() const { return bUseEditorScriptsInstance; }
-	bool ShouldUseAutomaticImportMethod() const { return bUseAutomaticImportMethodInstance; }
+	bool ShouldUseEditorScripts() const { return bUseEditorScripts; }
+	bool ShouldUseAutomaticImportMethod() const { return bUseAutomaticImportMethod; }
 
 	/* Checks if the character is a valid alphanumeric character or an underscore. */
 	FORCEINLINE static bool IsValidIdentifierCharacter(TCHAR Character)
@@ -446,7 +454,6 @@ private:
 	FString InstanceId;
 	UPROPERTY()
 	UObject* WorldContextObject = nullptr;
-	TSharedPtr<FAngelscriptEngineLifetimeToken> IsolationStateToken;
 
 	friend class UAngelscriptTestCommandlet;
 	friend class UAngelscriptGameInstanceSubsystem;
@@ -536,8 +543,7 @@ public:
 	struct FAngelscriptStaticJIT* StaticJIT = nullptr;
 	bool bUsePrecompiledData = false;
 	bool bUsedPrecompiledDataForPreprocessor = false;
-	static bool bScriptDevelopmentMode;
-	static bool bUseAutomaticImportMethod;
+	bool bScriptDevelopmentMode = false;
 
 	static bool IsGeneratingPrecompiledData();
 
@@ -602,8 +608,6 @@ public:
 private:
 	FAngelscriptEngineConfig RuntimeConfig;
 	FAngelscriptEngineDependencies Dependencies;
-	bool bUseEditorScriptsInstance = false;
-	bool bUseAutomaticImportMethodInstance = false;
 };
 
 template<>
@@ -707,7 +711,7 @@ struct FAngelscriptGameThreadScopeWorldContext
 {
 	FAngelscriptGameThreadScopeWorldContext(UObject* WorldContext)
 	{
-		PreviousWorldContext = FAngelscriptEngine::CurrentWorldContext;
+		PreviousWorldContext = FAngelscriptEngine::GetAmbientWorldContext();
 		FAngelscriptEngine::AssignWorldContext(WorldContext);
 	}
 

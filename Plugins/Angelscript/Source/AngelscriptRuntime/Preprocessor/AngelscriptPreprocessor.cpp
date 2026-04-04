@@ -56,7 +56,7 @@ FAngelscriptPreprocessor::FAngelscriptPreprocessor()
 	DefaultPropertyBlueprintSpecifier = AngelscriptSettings->DefaultPropertyBlueprintSpecifier;
 
 #if WITH_EDITOR
-	if (FAngelscriptEngine::bSimulateCooked)
+	if (FAngelscriptEngine::IsSimulatingCookedForCurrentContext())
 	{
 		PreprocessorFlags.Add(TEXT("EDITOR"), false);
 		PreprocessorFlags.Add(TEXT("EDITORONLY_DATA"), false);
@@ -64,7 +64,7 @@ FAngelscriptPreprocessor::FAngelscriptPreprocessor()
 		PreprocessorFlags.Add(TEXT("TEST"), false);
 	}
 
-	if (FAngelscriptEngine::bForcePreprocessEditorCode)
+	if (FAngelscriptEngine::IsForcingPreprocessEditorCodeForCurrentContext())
 	{
 		PreprocessorFlags.Add(TEXT("EDITOR"), true);
 		PreprocessorFlags.Add(TEXT("EDITORONLY_DATA"), true);

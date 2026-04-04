@@ -16,7 +16,6 @@ struct FToStringHelper
 	static void ANGELSCRIPTRUNTIME_API Register(const FString& TypeName, FToStringFunction ToString, bool bImplicitConversion = false, bool bIsHandleType = false);
 	static void ANGELSCRIPTRUNTIME_API Generic_AppendToString(FString& AppendTo, void* ValuePtr, int TypeId);
 	static void ANGELSCRIPTRUNTIME_API Reset();
-	static void ANGELSCRIPTRUNTIME_API ResetForKey(const void* StateKey);
 #if WITH_DEV_AUTOMATION_TESTS
 	static int32 ANGELSCRIPTRUNTIME_API GetRegisteredTypeCountForTesting();
 #endif

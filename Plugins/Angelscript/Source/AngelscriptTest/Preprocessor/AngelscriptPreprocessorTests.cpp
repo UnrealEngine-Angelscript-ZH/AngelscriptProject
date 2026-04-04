@@ -192,7 +192,7 @@ bool FAngelscriptPreprocessorImportTest::RunTest(const FString& Parameters)
 		TEXT("}\n"));
 
 	FAngelscriptPreprocessor Preprocessor;
-	TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
+	TGuardValue<bool> AutomaticImportGuard(Engine->bUseAutomaticImportMethod, false);
 	Preprocessor.AddFile(SharedRelativePath, SharedAbsolutePath);
 	Preprocessor.AddFile(ImportingRelativePath, ImportingAbsolutePath);
 

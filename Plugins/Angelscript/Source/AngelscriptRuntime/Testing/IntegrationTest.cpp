@@ -370,7 +370,7 @@ void RestoreEditorAfterTest(const FEditorState& OriginalState)
 // Copied from AutomationCommon.cpp. This heuristic must match the one in AutomationCommon.cpp
 // for now; otherwise we have to re-implement the map loading code in there.
 // NOTE: Careful about the usage of this in client tests - this will always return the server world.
-// Use `FAngelscriptEngine::CurrentWorldContext->GetWorld();` instead to get the correct world on clients and server.
+// Use `FAngelscriptEngine::GetAmbientWorldContext()->GetWorld();` instead to get the correct world on clients and server.
 UWorld* GetTestWorld()
 {
 	const TIndirectArray<FWorldContext>& WorldContexts = GEngine->GetWorldContexts();

@@ -73,14 +73,7 @@ static TArray<FAngelscriptEngine*> GAngelscriptEngineContextStack;
 FAngelscriptEngine::FAngelscriptDebugStack* GAngelscriptStack = nullptr;
 // GAngelscriptEngine removed — engine resolution now uses FAngelscriptEngineContextStack
 static bool GAngelscriptLineReentry = false;
-bool FAngelscriptEngine::bSimulateCooked = false;
-bool FAngelscriptEngine::bUseEditorScripts = false;
-bool FAngelscriptEngine::bScriptDevelopmentMode = false;
-bool FAngelscriptEngine::bTestErrors = false;
-bool FAngelscriptEngine::bIsHotReloading = false;
-bool FAngelscriptEngine::bForcePreprocessEditorCode = false;
 bool FAngelscriptEngine::bGeneratePrecompiledData = true;
-bool FAngelscriptEngine::bUseAutomaticImportMethod = false;
 bool FAngelscriptEngine::bStaticJITTranspiledCodeLoaded = false;
 bool FAngelscriptEngine::bUseScriptNameForBlueprintLibraryNamespaces = true;
 TArray<FString> FAngelscriptEngine::BlueprintLibraryNamespacePrefixesToStrip;
@@ -89,7 +82,7 @@ TArray<FString> FAngelscriptEngine::BlueprintLibraryNamespaceSuffixesToStrip;
 static int32 GAngelscriptRecompileAvoidance = 1;
 static FAutoConsoleVariableRef CVar_AngelscriptRecompileAvoidance(TEXT("angelscript.UseRecompileAvoidance"), GAngelscriptRecompileAvoidance, TEXT(""));
 
-UObject* FAngelscriptEngine::CurrentWorldContext = nullptr;
+static UObject* GAmbientWorldContext = nullptr;
 class asCThreadLocalData* FAngelscriptEngine::GameThreadTLD = nullptr;
 thread_local FAngelscriptContextPool GAngelscriptContextPool;
 
@@ -168,8 +161,6 @@ struct FAngelscriptOwnedSharedState
 	bool bPendingOwnerRelease = false;
 	bool bReleased = false;
 };
-
-static int32 GAngelscriptActiveOwnedSharedStates = 0;
 
 void LogAngelscriptException(asIScriptContext* Context);
 void AngelscriptLineCallback(asCContext* Context);
@@ -276,7 +267,12 @@ static void ResetContextForPooling(asCContext* Context)
 
 static void SetAmbientWorldContext(UObject* NewWorldContext)
 {
-	*(UObject* volatile*)&FAngelscriptEngine::CurrentWorldContext = NewWorldContext;
+	if (NewWorldContext != nullptr && !NewWorldContext->IsValidLowLevelFast(false))
+	{
+		NewWorldContext = nullptr;
+	}
+
+	*(UObject* volatile*)&GAmbientWorldContext = NewWorldContext;
 	check(FAngelscriptEngine::CanUseGameThreadData());
 
 #if WITH_EDITOR
@@ -288,19 +284,8 @@ static void SetAmbientWorldContext(UObject* NewWorldContext)
 #endif
 }
 
-static void SyncLegacyRuntimeFlagsFromCurrentEngine()
-{
-	if (FAngelscriptEngine* CurrentEngine = FAngelscriptEngine::TryGetCurrentEngine())
-	{
-		FAngelscriptEngine::bUseEditorScripts = CurrentEngine->ShouldUseEditorScripts();
-		FAngelscriptEngine::bUseAutomaticImportMethod = CurrentEngine->ShouldUseAutomaticImportMethod();
-	}
-}
-
 static void SyncAmbientWorldContextFromCurrentEngine()
 {
-	SyncLegacyRuntimeFlagsFromCurrentEngine();
-
 	if (FAngelscriptEngine* CurrentEngine = FAngelscriptEngine::TryGetCurrentEngine())
 	{
 		SetAmbientWorldContext(CurrentEngine->GetCurrentWorldContextObject());
@@ -308,6 +293,35 @@ static void SyncAmbientWorldContextFromCurrentEngine()
 	}
 
 	SetAmbientWorldContext(nullptr);
+}
+
+UObject* FAngelscriptEngine::GetAmbientWorldContext()
+{
+	return GAmbientWorldContext;
+}
+
+bool FAngelscriptEngine::IsSimulatingCookedForCurrentContext()
+{
+	if (FAngelscriptEngine* Eng = TryGetCurrentEngine()) return Eng->bSimulateCooked;
+	return false;
+}
+
+bool FAngelscriptEngine::IsTestingErrorsForCurrentContext()
+{
+	if (FAngelscriptEngine* Eng = TryGetCurrentEngine()) return Eng->bTestErrors;
+	return false;
+}
+
+bool FAngelscriptEngine::IsHotReloadingForCurrentContext()
+{
+	if (FAngelscriptEngine* Eng = TryGetCurrentEngine()) return Eng->bIsHotReloading;
+	return false;
+}
+
+bool FAngelscriptEngine::IsForcingPreprocessEditorCodeForCurrentContext()
+{
+	if (FAngelscriptEngine* Eng = TryGetCurrentEngine()) return Eng->bForcePreprocessEditorCode;
+	return false;
 }
 
 static void ReleaseOwnedSharedStateResources(TSharedPtr<FAngelscriptOwnedSharedState>& SharedState)
@@ -355,11 +369,6 @@ static void ReleaseOwnedSharedStateResources(TSharedPtr<FAngelscriptOwnedSharedS
 	}
 
 	SharedState->bReleased = true;
-
-	if (GAngelscriptActiveOwnedSharedStates > 0)
-	{
-		--GAngelscriptActiveOwnedSharedStates;
-	}
 
 	SharedState->TypeDatabase.Reset();
 	SharedState->BindState.Reset();
@@ -435,7 +444,7 @@ FAngelscriptEngineScope::FAngelscriptEngineScope(FAngelscriptEngine& InEngine, U
 		InWorldContext ? *InWorldContext->GetName() : TEXT("none"));
 	if (InWorldContext != nullptr)
 	{
-		PreviousWorldContext = FAngelscriptEngine::CurrentWorldContext;
+		PreviousWorldContext = GAmbientWorldContext;
 		FAngelscriptEngine::AssignWorldContext(InWorldContext);
 		bChangedWorldContext = true;
 	}
@@ -568,7 +577,6 @@ FAngelscriptEngine::FAngelscriptEngine(const FAngelscriptEngineConfig& InConfig,
 	, RuntimeConfig(InConfig)
 	, Dependencies(InDependencies)
 {
-	IsolationStateToken = MakeShared<FAngelscriptEngineLifetimeToken>();
 }
 
 static FString MakeEngineInstanceId(const TCHAR* Prefix)
@@ -628,7 +636,6 @@ TUniquePtr<FAngelscriptEngine> FAngelscriptEngine::CreateCloneFrom(FAngelscriptE
 	EngineInstance->CreationMode = EAngelscriptEngineCreationMode::Clone;
 	EngineInstance->SourceEngine = Source.GetSourceEngine() != nullptr ? Source.GetSourceEngine() : &Source;
 	EngineInstance->SourceLifetimeToken = EngineInstance->SourceEngine != nullptr ? EngineInstance->SourceEngine->LifetimeToken : TWeakPtr<FAngelscriptEngineLifetimeToken>();
-	EngineInstance->IsolationStateToken = Source.IsolationStateToken.IsValid() ? Source.IsolationStateToken : Source.LifetimeToken;
 	EngineInstance->bOwnsEngine = false;
 	EngineInstance->InstanceId = MakeEngineInstanceId(TEXT("Clone"));
 	EngineInstance->SharedState = Source.SharedState;
@@ -679,7 +686,7 @@ UObject* FAngelscriptEngine::TryGetCurrentWorldContextObject()
 		return CurrentEngine->GetCurrentWorldContextObject();
 	}
 
-	return CurrentWorldContext;
+	return GAmbientWorldContext;
 }
 
 bool FAngelscriptEngine::ShouldUseEditorScriptsForCurrentContext()
@@ -689,7 +696,7 @@ bool FAngelscriptEngine::ShouldUseEditorScriptsForCurrentContext()
 		return CurrentEngine->ShouldUseEditorScripts();
 	}
 
-	return bUseEditorScripts;
+	return false;
 }
 
 bool FAngelscriptEngine::ShouldUseAutomaticImportMethodForCurrentContext()
@@ -699,7 +706,13 @@ bool FAngelscriptEngine::ShouldUseAutomaticImportMethodForCurrentContext()
 		return CurrentEngine->ShouldUseAutomaticImportMethod();
 	}
 
-	return bUseAutomaticImportMethod;
+	return false;
+}
+
+bool FAngelscriptEngine::IsScriptDevelopmentModeForCurrentContext()
+{
+	if (FAngelscriptEngine* Eng = TryGetCurrentEngine()) return Eng->bScriptDevelopmentMode;
+	return false;
 }
 
 FAngelscriptEngine* FAngelscriptEngine::TryGetCurrentEngine()
@@ -853,10 +866,9 @@ void FAngelscriptEngine::InitializeForTesting()
 	bSimulateCooked = RuntimeConfig.bSimulateCooked;
 	bTestErrors = RuntimeConfig.bTestErrors;
 	bForcePreprocessEditorCode = RuntimeConfig.bForcePreprocessEditorCode;
-	bUseEditorScriptsInstance = WITH_EDITOR
+	bUseEditorScripts = WITH_EDITOR
 		&& ((RuntimeConfig.bIsEditor && !RuntimeConfig.bRunningCommandlet) || bForcePreprocessEditorCode)
 		&& !bSimulateCooked;
-	bUseEditorScripts = bUseEditorScriptsInstance;
 	bGeneratePrecompiledData = RuntimeConfig.bGeneratePrecompiledData;
 	bScriptDevelopmentMode = RuntimeConfig.bIsEditor || RuntimeConfig.bDevelopmentMode;
 	bUsePrecompiledData = false;
@@ -903,6 +915,7 @@ void FAngelscriptEngine::InitializeForTesting()
 		BindScriptTypes();
 	}
 	GameThreadTLD->primaryContext = CreateContext();
+	bIsInitialCompileFinished = true;
 	InitializeOwnedSharedState();
 }
 
@@ -916,7 +929,6 @@ void FAngelscriptEngine::InitializeOwnedSharedState()
 	if (!SharedState.IsValid())
 	{
 		SharedState = MakeShared<FAngelscriptOwnedSharedState>();
-		++GAngelscriptActiveOwnedSharedStates;
 	}
 
 	SharedState->ScriptEngine = Engine;
@@ -1002,14 +1014,12 @@ FAngelscriptBindDatabase& FAngelscriptEngine::GetBindDatabaseForTesting() const
 
 void FAngelscriptEngine::SetUseEditorScriptsForTesting(bool bEnabled)
 {
-	bUseEditorScriptsInstance = bEnabled;
-	SyncLegacyRuntimeFlagsFromCurrentEngine();
+	bUseEditorScripts = bEnabled;
 }
 
 void FAngelscriptEngine::SetAutomaticImportMethodForTesting(bool bEnabled)
 {
-	bUseAutomaticImportMethodInstance = bEnabled;
-	SyncLegacyRuntimeFlagsFromCurrentEngine();
+	bUseAutomaticImportMethod = bEnabled;
 }
 #endif
 
@@ -1238,7 +1248,6 @@ void FAngelscriptEngine::Shutdown()
 	SourceLifetimeToken.Reset();
 	SharedState.Reset();
 	LifetimeToken.Reset();
-	IsolationStateToken.Reset();
 	WorldContextObject = nullptr;
 }
 
@@ -1280,8 +1289,7 @@ void FAngelscriptEngine::PreInitialize_GameThread()
 	ReleaseAllContextsInPool(GAngelscriptContextPool.FreeContexts);
 
 	ConfigSettings = GetMutableDefault<UAngelscriptSettings>();
-	bUseAutomaticImportMethodInstance = ConfigSettings->bAutomaticImports;
-	FAngelscriptEngine::bUseAutomaticImportMethod = bUseAutomaticImportMethodInstance;
+	bUseAutomaticImportMethod = ConfigSettings->bAutomaticImports;
 
 	FAngelscriptEngine::bUseScriptNameForBlueprintLibraryNamespaces = ConfigSettings->bUseScriptNameForBlueprintLibraryNamespaces;
 	FAngelscriptEngine::BlueprintLibraryNamespacePrefixesToStrip = ConfigSettings->BlueprintLibraryNamespacePrefixesToStrip;
@@ -1363,13 +1371,12 @@ TArray<FString> FAngelscriptEngine::MakeAllScriptRoots(bool bOnlyProjectRoot)
 
 void FAngelscriptEngine::Initialize_AnyThread()
 {
-	FAngelscriptEngine::bSimulateCooked = RuntimeConfig.bSimulateCooked;
-	FAngelscriptEngine::bTestErrors = RuntimeConfig.bTestErrors;
-	FAngelscriptEngine::bForcePreprocessEditorCode = RuntimeConfig.bForcePreprocessEditorCode;
-	bUseEditorScriptsInstance = WITH_EDITOR
-		&& ((RuntimeConfig.bIsEditor && !RuntimeConfig.bRunningCommandlet) || FAngelscriptEngine::bForcePreprocessEditorCode)
-		&& !FAngelscriptEngine::bSimulateCooked;
-	FAngelscriptEngine::bUseEditorScripts = bUseEditorScriptsInstance;
+	bSimulateCooked = RuntimeConfig.bSimulateCooked;
+	bTestErrors = RuntimeConfig.bTestErrors;
+	bForcePreprocessEditorCode = RuntimeConfig.bForcePreprocessEditorCode;
+	bUseEditorScripts = WITH_EDITOR
+		&& ((RuntimeConfig.bIsEditor && !RuntimeConfig.bRunningCommandlet) || bForcePreprocessEditorCode)
+		&& !bSimulateCooked;
 
 	// Store the angelscript package we create everything into
 	AngelscriptPackage = NewObject<UPackage>(nullptr, FName(TEXT("/Script/Angelscript")), RF_Public | RF_Standalone | RF_MarkAsRootSet);
@@ -1758,7 +1765,7 @@ FAngelscriptContext::FAngelscriptContext(UObject* WorldContext, asIScriptEngine*
 {
 	if (FAngelscriptEngine::CanUseGameThreadData())
 	{
-		PreviousWorldContext = FAngelscriptEngine::CurrentWorldContext;
+		PreviousWorldContext = GAmbientWorldContext;
 		FAngelscriptEngine::AssignWorldContext(WorldContext);
 		bChangedWorldContext = true;
 	}
@@ -1771,7 +1778,7 @@ FAngelscriptContext::FAngelscriptContext(UObject* WorldContext, asIScriptEngine*
 FAngelscriptGameThreadContext::FAngelscriptGameThreadContext(UObject* WorldContext, asIScriptEngine* DesiredScriptEngine)
 	: FAngelscriptPooledContextBase(FAngelscriptEngine::GameThreadTLD, DesiredScriptEngine)
 {
-	PreviousWorldContext = FAngelscriptEngine::CurrentWorldContext;
+	PreviousWorldContext = GAmbientWorldContext;
 	FAngelscriptEngine::AssignWorldContext(WorldContext);
 }
 
@@ -2229,7 +2236,7 @@ void FAngelscriptEngine::DiscoverTests()
 	{
 		return;
 	}
-	if (FAngelscriptEngine::bSimulateCooked || IsRunningCookCommandlet())
+	if (bSimulateCooked || IsRunningCookCommandlet())
 	{
 		// It doesn't make sense to run tests in simulate cooked mode since that's meant to simulate the
 		// AS that runs in a server or client - tests will never run there. Likewise actually cooking.
@@ -2245,7 +2252,7 @@ void FAngelscriptEngine::DiscoverTests()
 
 bool FAngelscriptEngine::PerformHotReload(ECompileType CompileType, const TArray<FFilenamePair>& InReloadFiles)
 {
-	TGuardValue<bool> ScopeHotReloading(FAngelscriptEngine::bIsHotReloading, true);
+	TGuardValue<bool> ScopeHotReloading(bIsHotReloading, true);
 	FAngelscriptScopeTimer Timer(TEXT("==script reload total =="));
 
 	// Create progress indicator
@@ -2830,7 +2837,7 @@ void FAngelscriptEngine::Tick(float DeltaTime)
 
 	// If this is ever not null during this tick, something changed
 	// the world context without resetting it. Very bad
-	UE_CLOG(CurrentWorldContext != nullptr, Angelscript, Fatal, TEXT("Angelscript world context was improperly restored after use!"));
+	UE_CLOG(GAmbientWorldContext != nullptr, Angelscript, Fatal, TEXT("Angelscript world context was improperly restored after use!"));
 }
 
 bool FAngelscriptEngine::ShouldTick() const
@@ -4134,7 +4141,7 @@ ECompileResult FAngelscriptEngine::CompileModules(ECompileType CompileType, cons
 
 #if WITH_EDITOR
 		if (FAngelscriptEngine::Get().IsInitialCompileFinished() && bCompletedAssetScan
-			&& !FAngelscriptEngine::bSimulateCooked && !IsRunningCookCommandlet()
+			&& !bSimulateCooked && !IsRunningCookCommandlet()
 			&& GetDefault<UAngelscriptTestSettings>()->bEnableTestDiscovery)
 		{
 			for (auto Module : CompiledModules)
@@ -5255,7 +5262,7 @@ void LogAngelscriptException(const ANSICHAR* ExceptionString)
 	if (GEngine != nullptr)
 	{
 		UKismetSystemLibrary::PrintString(
-			FAngelscriptEngine::CurrentWorldContext,
+			GAmbientWorldContext,
 			FString::Printf(
 				TEXT("Angelscript Exception: %s\n%s"),
 				ANSI_TO_TCHAR(ExceptionString),

@@ -507,7 +507,7 @@ bool FAngelscriptTestEngineHelperNestedGlobalScopeRestoreTest::RunTest(const FSt
 
 bool FAngelscriptTestEngineHelperWorldContextScopeRestoreTest::RunTest(const FString& Parameters)
 {
-	UObject* PreviousWorldContext = FAngelscriptEngine::CurrentWorldContext;
+	UObject* PreviousWorldContext = FAngelscriptEngine::GetAmbientWorldContext();
 	UObject* DummyContext = NewObject<UAngelscriptNativeScriptTestObject>();
 	if (!TestNotNull(TEXT("World context scope restore test should create a dummy context object"), DummyContext))
 	{
@@ -516,20 +516,20 @@ bool FAngelscriptTestEngineHelperWorldContextScopeRestoreTest::RunTest(const FSt
 
 	{
 		AngelscriptTestSupport::FScopedTestWorldContextScope WorldContextScope(DummyContext);
-		if (!TestTrue(TEXT("World context scope should install the dummy context"), FAngelscriptEngine::CurrentWorldContext == DummyContext))
+		if (!TestTrue(TEXT("World context scope should install the dummy context"), FAngelscriptEngine::GetAmbientWorldContext() == DummyContext))
 		{
 			return false;
 		}
 	}
 
-	return TestTrue(TEXT("World context scope should restore the previous context"), FAngelscriptEngine::CurrentWorldContext == PreviousWorldContext);
+	return TestTrue(TEXT("World context scope should restore the previous context"), FAngelscriptEngine::GetAmbientWorldContext() == PreviousWorldContext);
 }
 
 bool FAngelscriptTestEngineHelperEngineScopeWorldContextRestoreTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine* PreviousCurrentEngine = FAngelscriptTestEngineScopeAccess::GetCurrentEngine();
 	TUniquePtr<FAngelscriptEngine> Engine = AngelscriptTestSupport::CreateIsolatedCloneEngine();
-	UObject* PreviousWorldContext = FAngelscriptEngine::CurrentWorldContext;
+	UObject* PreviousWorldContext = FAngelscriptEngine::GetAmbientWorldContext();
 	UObject* DummyContext = NewObject<UAngelscriptNativeScriptTestObject>();
 	if (!TestNotNull(TEXT("Engine-scope world context test should create an isolated engine"), Engine.Get())
 		|| !TestNotNull(TEXT("Engine-scope world context test should create a dummy context object"), DummyContext))
@@ -557,7 +557,7 @@ bool FAngelscriptTestEngineHelperEngineScopeWorldContextRestoreTest::RunTest(con
 		return false;
 	}
 
-	return TestTrue(TEXT("Engine scope should restore the previous world context"), FAngelscriptEngine::CurrentWorldContext == PreviousWorldContext);
+	return TestTrue(TEXT("Engine scope should restore the previous world context"), FAngelscriptEngine::GetAmbientWorldContext() == PreviousWorldContext);
 }
 
 bool FAngelscriptTestEngineHelperCompileSummaryPlainModuleTest::RunTest(const FString& Parameters)

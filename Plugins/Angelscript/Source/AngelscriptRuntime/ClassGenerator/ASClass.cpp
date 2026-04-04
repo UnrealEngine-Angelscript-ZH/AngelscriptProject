@@ -389,7 +389,7 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromBPVM(UASFunction* ASFuncti
 			{
 				if (bInGameThread)
 				{
-					PrevWorldContext = (UObject*)FAngelscriptEngine::CurrentWorldContext;
+					PrevWorldContext = (UObject*)FAngelscriptEngine::GetAmbientWorldContext();
 					FAngelscriptEngine::AssignWorldContext(Object);
 					bChangedWorldContext = true;
 				}
@@ -403,7 +403,7 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromBPVM(UASFunction* ASFuncti
 
 				if (bInGameThread)
 				{
-					PrevWorldContext = (UObject*)FAngelscriptEngine::CurrentWorldContext;
+					PrevWorldContext = (UObject*)FAngelscriptEngine::GetAmbientWorldContext();
 					FAngelscriptEngine::AssignWorldContext(WorldContext);
 					bChangedWorldContext = true;
 
@@ -416,7 +416,7 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromBPVM(UASFunction* ASFuncti
 
 				if (bInGameThread)
 				{
-					PrevWorldContext = (UObject*)FAngelscriptEngine::CurrentWorldContext;
+					PrevWorldContext = (UObject*)FAngelscriptEngine::GetAmbientWorldContext();
 					FAngelscriptEngine::AssignWorldContext(WorldContext);
 					bChangedWorldContext = true;
 
@@ -568,7 +568,7 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromParms(UASFunction* ASFunct
 			{
 				if (bInGameThread)
 				{
-					PrevWorldContext = (UObject*)FAngelscriptEngine::CurrentWorldContext;
+					PrevWorldContext = (UObject*)FAngelscriptEngine::GetAmbientWorldContext();
 					FAngelscriptEngine::AssignWorldContext(Object);
 					bChangedWorldContext = true;
 				}
@@ -581,7 +581,7 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromParms(UASFunction* ASFunct
 
 				if (bInGameThread)
 				{
-					PrevWorldContext = (UObject*)FAngelscriptEngine::CurrentWorldContext;
+					PrevWorldContext = (UObject*)FAngelscriptEngine::GetAmbientWorldContext();
 					FAngelscriptEngine::AssignWorldContext(WorldContext);
 					bChangedWorldContext = true;
 
@@ -594,7 +594,7 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromParms(UASFunction* ASFunct
 
 				if (bInGameThread)
 				{
-					PrevWorldContext = (UObject*)FAngelscriptEngine::CurrentWorldContext;
+					PrevWorldContext = (UObject*)FAngelscriptEngine::GetAmbientWorldContext();
 					FAngelscriptEngine::AssignWorldContext(WorldContext);
 					bChangedWorldContext = true;
 

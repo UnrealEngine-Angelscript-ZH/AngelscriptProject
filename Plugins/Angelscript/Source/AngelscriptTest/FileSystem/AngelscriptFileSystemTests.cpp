@@ -240,7 +240,7 @@ FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 		return false;
 	}
 
-	TGuardValue<bool> UseEditorScriptsGuard(FAngelscriptEngine::bUseEditorScripts, true);
+	TGuardValue<bool> UseEditorScriptsGuard(Engine.bUseEditorScripts, true);
 	const TArray<FString> PreviousRoots = Engine.AllRootPaths;
 	Engine.AllRootPaths = {GetFileSystemTestRoot()};
 
@@ -281,7 +281,7 @@ FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 		return false;
 	}
 
-	TGuardValue<bool> UseEditorScriptsGuard(FAngelscriptEngine::bUseEditorScripts, false);
+	TGuardValue<bool> UseEditorScriptsGuard(Engine.bUseEditorScripts, false);
 	const TArray<FString> PreviousRoots = Engine.AllRootPaths;
 	Engine.AllRootPaths = {GetFileSystemTestRoot()};
 

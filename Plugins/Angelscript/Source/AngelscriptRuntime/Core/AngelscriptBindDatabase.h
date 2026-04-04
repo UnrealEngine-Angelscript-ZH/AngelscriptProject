@@ -124,8 +124,6 @@ class FAngelscriptBindDatabase
 {
 public:
 	static FAngelscriptBindDatabase& Get();
-	static FAngelscriptBindDatabase& GetForKey(const void* StateKey);
-	static void ResetForKey(const void* StateKey);
 	
 	void Save(const FString& Filename);
 	void Load(const FString& Filename, bool bGeneratingPrecompiledData);

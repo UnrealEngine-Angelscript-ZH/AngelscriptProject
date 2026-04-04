@@ -402,11 +402,6 @@ void FToStringHelper::Reset()
 	GetToStringList().Reset();
 }
 
-void FToStringHelper::ResetForKey(const void* StateKey)
-{
-	Reset();
-}
-
 #if WITH_DEV_AUTOMATION_TESTS
 int32 FToStringHelper::GetRegisteredTypeCountForTesting()
 {

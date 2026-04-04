@@ -72,7 +72,6 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptType : TSharedFromThis<FAngelscriptTyp
 	static void Register(TSharedRef<FAngelscriptType> Type);
 
 	static void ResetTypeDatabase();
-	static void ResetTypeDatabaseForKey(const void* StateKey);
 
 	// Register an alias for a specific type
 	static void RegisterAlias(const FString& Alias, TSharedRef<FAngelscriptType> Type);

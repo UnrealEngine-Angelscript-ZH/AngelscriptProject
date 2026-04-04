@@ -830,4 +830,93 @@ bool FAngelscriptReusedPooledContextStartsUnpreparedTest::RunTest(const FString&
 	}
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptEngineLocalFlagsIsolationTest,
+	"Angelscript.CppTests.Engine.Isolation.EngineLocal.FlagsAreInstanceScoped",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FAngelscriptEngineLocalFlagsIsolationTest::RunTest(const FString& Parameters)
+{
+	FIsolationContextStackGuard ContextGuard;
+
+	FAngelscriptEngineConfig ConfigA;
+	ConfigA.bSimulateCooked = true;
+	ConfigA.bTestErrors = true;
+	FAngelscriptEngineDependencies Deps = FAngelscriptEngineDependencies::CreateDefault();
+	TUniquePtr<FAngelscriptEngine> EngineA = FAngelscriptEngine::CreateTestingFullEngine(ConfigA, Deps);
+	if (!TestNotNull(TEXT("Should create engine A with custom config"), EngineA.Get()))
+	{
+		return false;
+	}
+
+	FAngelscriptEngineConfig ConfigB;
+	ConfigB.bSimulateCooked = false;
+	ConfigB.bTestErrors = false;
+	TUniquePtr<FAngelscriptEngine> EngineB = FAngelscriptEngine::CreateTestingFullEngine(ConfigB, Deps);
+	if (!TestNotNull(TEXT("Should create engine B with different config"), EngineB.Get()))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Engine A bSimulateCooked should be true"), EngineA->bSimulateCooked);
+	TestTrue(TEXT("Engine A bTestErrors should be true"), EngineA->bTestErrors);
+	TestFalse(TEXT("Engine B bSimulateCooked should be false"), EngineB->bSimulateCooked);
+	TestFalse(TEXT("Engine B bTestErrors should be false"), EngineB->bTestErrors);
+
+	{
+		FAngelscriptEngineScope ScopeA(*EngineA);
+		TestTrue(TEXT("IsSimulatingCookedForCurrentContext should reflect engine A"), FAngelscriptEngine::IsSimulatingCookedForCurrentContext());
+		TestTrue(TEXT("IsTestingErrorsForCurrentContext should reflect engine A"), FAngelscriptEngine::IsTestingErrorsForCurrentContext());
+	}
+	{
+		FAngelscriptEngineScope ScopeB(*EngineB);
+		TestFalse(TEXT("IsSimulatingCookedForCurrentContext should reflect engine B"), FAngelscriptEngine::IsSimulatingCookedForCurrentContext());
+		TestFalse(TEXT("IsTestingErrorsForCurrentContext should reflect engine B"), FAngelscriptEngine::IsTestingErrorsForCurrentContext());
+	}
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptEngineLocalTypeDatabaseIsolationTest,
+	"Angelscript.CppTests.Engine.Isolation.EngineLocal.TypeDatabaseIsInstanceScoped",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FAngelscriptEngineLocalTypeDatabaseIsolationTest::RunTest(const FString& Parameters)
+{
+	FIsolationContextStackGuard ContextGuard;
+
+	FAngelscriptEngineConfig Config;
+	FAngelscriptEngineDependencies Deps = FAngelscriptEngineDependencies::CreateDefault();
+
+	TUniquePtr<FAngelscriptEngine> EngineA = FAngelscriptEngine::CreateTestingFullEngine(Config, Deps);
+	TUniquePtr<FAngelscriptEngine> EngineB = FAngelscriptEngine::CreateTestingFullEngine(Config, Deps);
+	if (!TestNotNull(TEXT("Should create engine A"), EngineA.Get()) || !TestNotNull(TEXT("Should create engine B"), EngineB.Get()))
+	{
+		return false;
+	}
+
+	int32 TypeCountA = 0;
+	int32 TypeCountB = 0;
+	{
+		FAngelscriptEngineScope ScopeA(*EngineA);
+		TypeCountA = FAngelscriptType::GetTypes().Num();
+	}
+	{
+		FAngelscriptEngineScope ScopeB(*EngineB);
+		TypeCountB = FAngelscriptType::GetTypes().Num();
+	}
+
+	TestTrue(TEXT("Both engines should have their own TypeDatabase with types"), TypeCountA > 0 && TypeCountB > 0);
+
+	EngineA.Reset();
+
+	{
+		FAngelscriptEngineScope ScopeB(*EngineB);
+		TestTrue(TEXT("Engine B TypeDatabase should survive after engine A destruction"), FAngelscriptType::GetTypes().Num() > 0);
+	}
+
+	return true;
+}
+
 #endif

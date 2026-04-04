@@ -105,11 +105,6 @@ void FAngelscriptType::ResetTypeDatabase()
 	Database = FAngelscriptTypeDatabase();
 }
 
-void FAngelscriptType::ResetTypeDatabaseForKey(const void* StateKey)
-{
-	ResetTypeDatabase();
-}
-
 void FAngelscriptType::RegisterAlias(const FString& Alias, TSharedRef<FAngelscriptType> Type)
 {
 	auto& Database = GetTypeDatabase();

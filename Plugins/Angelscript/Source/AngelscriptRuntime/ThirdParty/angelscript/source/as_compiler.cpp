@@ -1005,7 +1005,7 @@ int asCCompiler::CompileFunction(asCBuilder *in_builder, asCScriptCode *in_scrip
 			|| in_outFunc->name.StartsWith("__Init_")
 			|| in_outFunc->name == "OnActorModifiedInEditor_Implementation"
 			|| in_outFunc->name == "OnComponentModifiedInEditor_Implementation"
-			|| (WITH_EDITOR && !FAngelscriptEngine::bSimulateCooked && in_outFunc->name.StartsWith("Editor_"))
+			|| (WITH_EDITOR && !FAngelscriptEngine::IsSimulatingCookedForCurrentContext() && in_outFunc->name.StartsWith("Editor_"))
 	;
 
 

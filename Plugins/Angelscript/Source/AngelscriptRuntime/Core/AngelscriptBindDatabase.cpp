@@ -13,11 +13,6 @@
 
 FAngelscriptBindDatabase& FAngelscriptBindDatabase::Get()
 {
-	return GetForKey(nullptr);
-}
-
-FAngelscriptBindDatabase& FAngelscriptBindDatabase::GetForKey(const void* StateKey)
-{
 	if (FAngelscriptEngine* Engine = FAngelscriptEngine::TryGetCurrentEngine())
 	{
 		if (FAngelscriptBindDatabase* DB = Engine->GetBindDatabase())
@@ -27,11 +22,6 @@ FAngelscriptBindDatabase& FAngelscriptBindDatabase::GetForKey(const void* StateK
 	}
 	static FAngelscriptBindDatabase LegacyBindDatabase;
 	return LegacyBindDatabase;
-}
-
-void FAngelscriptBindDatabase::ResetForKey(const void* StateKey)
-{
-	Get().Clear();
 }
 
 void FAngelscriptBindDatabase::Serialize(FArchive& Archive)

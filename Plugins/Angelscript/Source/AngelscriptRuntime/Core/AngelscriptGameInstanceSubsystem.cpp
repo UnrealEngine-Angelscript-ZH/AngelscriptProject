@@ -96,8 +96,7 @@ UAngelscriptGameInstanceSubsystem* UAngelscriptGameInstanceSubsystem::GetCurrent
 		return nullptr;
 	}
 
-	// Avoid the accessor here: it resolves through TryGetCurrentEngine(), which consults this subsystem.
-	UWorld* World = GEngine->GetWorldFromContextObject(FAngelscriptEngine::CurrentWorldContext, EGetWorldErrorMode::ReturnNull);
+	UWorld* World = GEngine->GetWorldFromContextObject(FAngelscriptEngine::GetAmbientWorldContext(), EGetWorldErrorMode::ReturnNull);
 	if (World == nullptr)
 	{
 		return nullptr;

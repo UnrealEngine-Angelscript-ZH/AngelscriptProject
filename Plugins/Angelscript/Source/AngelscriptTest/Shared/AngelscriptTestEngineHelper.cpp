@@ -96,7 +96,7 @@ namespace AngelscriptTestSupport
 			}
 
 			TArray<TSharedRef<FAngelscriptModuleDesc>> CompiledModules;
-			TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
+			TGuardValue<bool> AutomaticImportGuard(Engine->bUseAutomaticImportMethod, false);
 			FScopedAutomaticImportsOverride AutomaticImportsOverride(Engine->GetScriptEngine());
 			FAngelscriptEngineScope EngineScope(*Engine);
 			if (bSuppressCompileErrorLogs)
@@ -151,7 +151,7 @@ namespace AngelscriptTestSupport
 			ModulesToCompile.Add(ModuleDesc);
 
 			TArray<TSharedRef<FAngelscriptModuleDesc>> CompiledModules;
-			TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
+			TGuardValue<bool> AutomaticImportGuard(Engine->bUseAutomaticImportMethod, false);
 			FScopedAutomaticImportsOverride AutomaticImportsOverride(Engine->GetScriptEngine());
 			FAngelscriptEngineScope EngineScope(*Engine);
 			const ECompileResult CompileResult = Engine->CompileModules(CompileType, ModulesToCompile, CompiledModules);
@@ -217,7 +217,7 @@ namespace AngelscriptTestSupport
 			}
 
 			TArray<TSharedRef<FAngelscriptModuleDesc>> CompiledModules;
-			TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
+			TGuardValue<bool> AutomaticImportGuard(Engine->bUseAutomaticImportMethod, false);
 			FScopedAutomaticImportsOverride AutomaticImportsOverride(Engine->GetScriptEngine());
 			const ECompileResult CompileResult = Engine->CompileModules(CompileType, ModulesToCompile, CompiledModules);
 			if (OutCompileResult != nullptr)

@@ -123,12 +123,12 @@ int BrokenEntry()
 	TArray<FAngelscriptEngine::FFilenamePair> DiscoveryWithoutEditorScripts;
 	const TArray<FString> PreviousRoots = Engine.AllRootPaths;
 	{
-		TGuardValue<bool> UseEditorScriptsGuard(FAngelscriptEngine::bUseEditorScripts, true);
+		TGuardValue<bool> UseEditorScriptsGuard(Engine.bUseEditorScripts, true);
 		Engine.AllRootPaths = {GetLearningFileSystemRoot()};
 		Engine.FindAllScriptFilenames(DiscoveryWithEditorScripts);
 	}
 	{
-		TGuardValue<bool> UseEditorScriptsGuard(FAngelscriptEngine::bUseEditorScripts, false);
+		TGuardValue<bool> UseEditorScriptsGuard(Engine.bUseEditorScripts, false);
 		Engine.AllRootPaths = {GetLearningFileSystemRoot()};
 		Engine.FindAllScriptFilenames(DiscoveryWithoutEditorScripts);
 	}

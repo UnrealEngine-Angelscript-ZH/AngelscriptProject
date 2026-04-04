@@ -527,7 +527,7 @@ asCScriptFunction* FAngelscriptPrecompiledFunction::Create(FAngelscriptPrecompil
 	bool bHasJITFunctions = false;
 	auto& JITDatabase = FJITDatabase::Get();
 	auto* JITFunctions = JITDatabase.Functions.Find(Id);
-	if (JITFunctions != nullptr && !FAngelscriptEngine::bScriptDevelopmentMode)
+	if (JITFunctions != nullptr && !FAngelscriptEngine::IsScriptDevelopmentModeForCurrentContext())
 	{
 		Function->jitFunction = JITFunctions->VMEntry;
 		Function->jitFunction_ParmsEntry = JITFunctions->ParmsEntry;
@@ -2375,7 +2375,7 @@ void FAngelscriptPrecompiledData::AddRefTo(const class asCDataType& DataType)
 
 void FAngelscriptPrecompiledData::PrepareToFinalizePrecompiledModules()
 {
-	if (FAngelscriptEngine::bScriptDevelopmentMode)
+	if (FAngelscriptEngine::IsScriptDevelopmentModeForCurrentContext())
 		return;
 
 	FJITDatabase& Database = FJITDatabase::Get();

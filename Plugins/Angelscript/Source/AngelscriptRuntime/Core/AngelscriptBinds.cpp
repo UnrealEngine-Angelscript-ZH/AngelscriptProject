@@ -151,11 +151,6 @@ void FAngelscriptBinds::ResetBindState()
 	GetBindState() = FAngelscriptBindState();
 }
 
-void FAngelscriptBinds::ResetBindStateForKey(const void* StateKey)
-{
-	ResetBindState();
-}
-
 void FAngelscriptBinds::CallBinds()
 {
 	CallBinds(TSet<FName>());
@@ -435,7 +430,7 @@ int FAngelscriptBinds::CompileOutInTest(int FunctionId)
 	auto& Manager = FAngelscriptEngine::Get();
 	auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(FunctionId);
 
-	if (UE_BUILD_TEST || UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::bSimulateCooked))
+	if (UE_BUILD_TEST || UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::IsSimulatingCookedForCurrentContext()))
 	{
 		Function->compileOutType = asECompileOutType::CompileOutEntirely;
 	}
@@ -453,7 +448,7 @@ int FAngelscriptBinds::CompileOutIfNoLog(int FunctionId)
 	auto& Manager = FAngelscriptEngine::Get();
 	auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(FunctionId);
 
-	if (UE_BUILD_TEST || UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::bSimulateCooked))
+	if (UE_BUILD_TEST || UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::IsSimulatingCookedForCurrentContext()))
 	{
 		Function->compileOutType = asECompileOutType::CompileOutEntirely;
 	}
@@ -472,7 +467,7 @@ int FAngelscriptBinds::CompileOutAsEnsure(int FunctionId)
 	auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(FunctionId);
 	Function->traits.SetTrait(asTRAIT_NODISCARD, true);
 
-	if (UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::bSimulateCooked))
+	if (UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::IsSimulatingCookedForCurrentContext()))
 	{
 		Function->compileOutType = asECompileOutType::ReplaceWithFirstParam;
 	}
@@ -484,7 +479,7 @@ int FAngelscriptBinds::CompileOutAsCheck(int FunctionId)
 	auto& Manager = FAngelscriptEngine::Get();
 	auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(FunctionId);
 
-	if (UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::bSimulateCooked))
+	if (UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::IsSimulatingCookedForCurrentContext()))
 	{
 		Function->compileOutType = asECompileOutType::CompileOutEntirely;
 	}
@@ -499,7 +494,7 @@ int FAngelscriptBinds::CompileOutAsCheck(int FunctionId)
 
 int FAngelscriptBinds::CompileReplaceWithFirstArgInTest(int FunctionId)
 {
-	if (UE_BUILD_TEST || UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::bSimulateCooked))
+	if (UE_BUILD_TEST || UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::IsSimulatingCookedForCurrentContext()))
 	{
 		auto& Manager = FAngelscriptEngine::Get();
 		auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(FunctionId);
