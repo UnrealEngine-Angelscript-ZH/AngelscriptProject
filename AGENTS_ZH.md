@@ -21,6 +21,7 @@
 - `Documents/Guides/`：构建、测试、查询指南。
 - `Documents/Rules/`：Git 提交等规则文档。
 - `Documents/Plans/`：多阶段任务的计划文档。
+- `Documents/Plans/Archives/`：已完成或已关闭 Plan 的归档目录与摘要。
 - `Tools/`：本地辅助脚本。
 
 ## 外部参考仓库
@@ -67,6 +68,7 @@
 ## 计划与 TODO
 
 - 需要多阶段推进的任务，在 `Documents/Plans/` 下创建 Plan 文档，编写规则见 `Documents/Plans/Plan.md`。
+- 已完成或已关闭的 Plan 从 `Documents/Plans/` 移入 `Documents/Plans/Archives/`；归档时必须补齐归档状态、归档日期、完成判断和结果摘要，并同步更新索引文档。
 - TODO 应按"插件目标"拆解，避免把旧工程遗留问题混成一个大任务。
 - 涉及重命名、模块迁移、对外 API 调整时，要同步梳理受影响文件和文档。
 
@@ -81,4 +83,5 @@
 | `Documents/Guides/UE_Search_Guide.md` | UE 知识查询指南 |
 | `Documents/Rules/GitCommitRule.md` | 英文提交规范 |
 | `Documents/Plans/Plan.md` | Plan 文档编写规则 |
+| `Documents/Plans/Archives/README.md` | 已归档 Plan 清单与摘要 |
 | `Documents/Tools/Tool.md` | 内部工具说明 |
