@@ -7,7 +7,8 @@
 #>
 param(
     [int]$TimeoutMs = 0,
-    [switch]$UseWaitMutex
+    [switch]$UseWaitMutex,
+    [switch]$NoMutex
 )
 
 Set-StrictMode -Version Latest
@@ -99,6 +100,10 @@ function Get-ProjectProcessIds {
             continue
         }
 
+        if (-not (Test-IsTrackedBuildProcess -ProcessName $proc.Name -CommandLine $commandLine)) {
+            continue
+        }
+
         try {
             $startTime = [System.Management.ManagementDateTimeConverter]::ToDateTime($proc.CreationDate)
         } catch {
@@ -146,6 +151,27 @@ function Stop-BuildProcesses {
     }
 }
 
+function Test-IsTrackedBuildProcess {
+    param(
+        [string]$ProcessName,
+        [string]$CommandLine
+    )
+
+    switch ($ProcessName.ToLowerInvariant()) {
+        'dotnet.exe' {
+            return $CommandLine.IndexOf('UnrealBuildTool', [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
+                $CommandLine.IndexOf('UnrealHeaderTool', [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+        }
+        'cmd.exe' {
+            return $CommandLine.IndexOf('Build.bat', [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
+                $CommandLine.IndexOf('RunUBT.bat', [System.StringComparison]::OrdinalIgnoreCase) -ge 0
+        }
+        default {
+            return $true
+        }
+    }
+}
+
 function Test-ExistingProjectBuild {
     param(
         [string]$ProjectFile,
@@ -172,6 +198,10 @@ function Test-ExistingProjectBuild {
         $matchesProject = $commandLine.IndexOf($ProjectFile, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
             $commandLine.IndexOf($ProjectRoot, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
         if (-not $matchesProject) {
+            continue
+        }
+
+        if (-not (Test-IsTrackedBuildProcess -ProcessName $proc.Name -CommandLine $commandLine)) {
             continue
         }
 
@@ -204,13 +234,21 @@ $platform = Get-IniValue -Ini $ini -Section "Build" -Key "Platform" -Default "Wi
 $configuration = Get-IniValue -Ini $ini -Section "Build" -Key "Configuration" -Default "Development"
 $architecture = Get-IniValue -Ini $ini -Section "Build" -Key "Architecture" -Default "x64"
 
+if ($UseWaitMutex -and $NoMutex) {
+    throw "-UseWaitMutex and -NoMutex are mutually exclusive."
+}
+
+if (-not $UseWaitMutex -and -not $NoMutex) {
+    $NoMutex = $true
+}
+
 if ($TimeoutMs -le 0) {
     $TimeoutMs = [int](Get-IniValue -Ini $ini -Section "Build" -Key "DefaultTimeoutMs" -Default (Get-IniValue -Ini $ini -Section "Test" -Key "DefaultTimeoutMs" -Default "600000"))
 }
 
-$buildBat = Join-Path $engineRoot "Engine\Build\BatchFiles\Build.bat"
-if (-not (Test-Path -LiteralPath $buildBat)) {
-    throw "Build.bat not found: $buildBat"
+$runUbtBat = Join-Path $engineRoot "Engine\Build\BatchFiles\RunUBT.bat"
+if (-not (Test-Path -LiteralPath $runUbtBat)) {
+    throw "RunUBT.bat not found: $runUbtBat"
 }
 
 $timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
@@ -220,9 +258,9 @@ $stdoutLog = Join-Path $outputDir "build.stdout.log"
 $stderrLog = Join-Path $outputDir "build.stderr.log"
 
 $argList = @(
-    $editorTarget
-    $platform
-    $configuration
+	$editorTarget
+	$platform
+	$configuration
     "-Project=$projectFile"
     "-FromMsBuild"
     "-architecture=$architecture"
@@ -232,6 +270,10 @@ if ($UseWaitMutex) {
     $argList += "-WaitMutex"
 }
 
+if ($NoMutex) {
+    $argList += "-NoMutex"
+}
+
 Write-Host "================================================================"
 Write-Host "  Angelscript Build Runner"
 Write-Host "================================================================"
@@ -239,13 +281,15 @@ Write-Host "Target      : $editorTarget"
 Write-Host "Project     : $projectFile"
 Write-Host "TimeoutMs   : $TimeoutMs"
 Write-Host "WaitMutex   : $UseWaitMutex"
+Write-Host "NoMutex     : $NoMutex"
+Write-Host "RunUBT.bat  : $runUbtBat"
 Write-Host "Stdout log  : $stdoutLog"
 Write-Host "Stderr log  : $stderrLog"
 Write-Host "----------------------------------------------------------------"
 
 $existingBuilds = @(Test-ExistingProjectBuild -ProjectFile $projectFile -ProjectRoot $projectRoot)
 if ($existingBuilds.Count -gt 0) {
-    Write-Host "[ERROR] Found existing build-related process(es) for this project. Refusing to block on them."
+    Write-Host "[ERROR] Found existing build-related process(es) for this project. Refusing to overlap the same worktree build."
     foreach ($proc in $existingBuilds) {
         Write-Host ("  PID {0} {1}" -f $proc.ProcessId, $proc.Name)
     }
@@ -254,7 +298,7 @@ if ($existingBuilds.Count -gt 0) {
 
 $startedAt = Get-Date
 $sw = [System.Diagnostics.Stopwatch]::StartNew()
-$proc = Start-Process -FilePath $buildBat -ArgumentList $argList -PassThru -NoNewWindow -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
+$proc = Start-Process -FilePath $runUbtBat -ArgumentList $argList -PassThru -NoNewWindow -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
 $completed = $proc.WaitForExit($TimeoutMs)
 if (-not $completed) {
     Stop-BuildProcesses -RootProcessId $proc.Id -ProjectFile $projectFile -ProjectRoot $projectRoot -StartedAfter $startedAt.AddSeconds(-2)

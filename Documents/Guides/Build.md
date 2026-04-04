@@ -12,18 +12,21 @@
 
 ## Agent 环境命令
 
-在 AI Agent 环境中执行时，建议统一使用 `Tools\RunBuild.ps1`，避免无超时的裸 `Build.bat` 调用卡死。
+在 AI Agent 环境中执行时，建议统一使用 `Tools\RunBuild.ps1`，避免无超时的裸 `Build.bat` 调用卡死。对于多个 worktree / 多个 agent 并发构建，优先使用无锁模式（`-NoMutex`），该模式会通过 `RunUBT.bat` 透传 `-NoMutex` 给 UBT，不等待其他 UBT 实例，同时绕开 `Build.bat` 的脚本级锁文件。
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File "Tools\RunBuild.ps1"
+powershell.exe -ExecutionPolicy Bypass -File "Tools\RunBuild.ps1" -NoMutex
 ```
 
 脚本会读取 `Build.DefaultTimeoutMs`（若缺失则回退到 `Test.DefaultTimeoutMs` / `600000`），超时后强制终止构建进程树并返回 `124`。
 
-先根据 `AgentConfig.ini` 中的 `Paths.EngineRoot` 获取 `Engine\Build\BatchFiles\Build.bat` 的完整路径；若 `Paths.ProjectFile` 为空，则先回退到仓库根目录 `.uproject`，其余构建参数按默认值补齐：
+- `-NoMutex`：调用 `RunUBT.bat ... -NoMutex`，不等待也不阻塞其他 worktree 的 UBT。
+- `-UseWaitMutex`：显式串行等待同一 UBT 全局锁，仅在你明确需要避免并发时使用。
+
+先根据 `AgentConfig.ini` 中的 `Paths.EngineRoot` 获取 `Engine\Build\BatchFiles\RunUBT.bat` 的完整路径；若 `Paths.ProjectFile` 为空，则先回退到仓库根目录 `.uproject`，其余构建参数按默认值补齐：
 
 ```powershell
-powershell.exe -Command "& '<EngineRoot>\Engine\Build\BatchFiles\Build.bat' <EditorTarget> <Platform> <Configuration> '-Project=<ResolvedProjectFile>' -WaitMutex -FromMsBuild -architecture=<Architecture> 2>&1 | Out-String"
+powershell.exe -ExecutionPolicy Bypass -File "Tools\RunBuild.ps1" -TimeoutMs <BuildTimeoutMs> -NoMutex
 ```
 
 默认参数速查
@@ -37,7 +40,7 @@ powershell.exe -Command "& '<EngineRoot>\Engine\Build\BatchFiles\Build.bat' <Edi
 示例（占位符形式）
 
 ```powershell
-powershell.exe -Command "& '<EngineRoot>\Engine\Build\BatchFiles\Build.bat' AngelscriptProjectEditor Win64 Development '-Project=<RepoRoot>\AngelscriptProject.uproject' -WaitMutex -FromMsBuild -architecture=x64 2>&1 | Out-String"
+powershell.exe -ExecutionPolicy Bypass -File "Tools\RunBuild.ps1" -TimeoutMs 1200000 -NoMutex
 ```
 
 - `<Architecture>` 通常为 `x64`
@@ -82,9 +85,9 @@ powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\W
 - 如果 `Paths.ProjectFile` 为空，回退到仓库根目录下的 `AngelscriptProject.uproject`。
 - 如果 `Build.EditorTarget`、`Build.Platform`、`Build.Configuration`、`Build.Architecture` 缺失，分别回退到 `AngelscriptProjectEditor`、`Win64`、`Development`、`x64`。
 - 文档中的工具路径均为相对路径，执行前必须基于 `Paths.EngineRoot` 解析为完整路径。
-- 构建 `Build.bat` 时，必须使用 `powershell.exe -Command` 调用。
-- 不要使用 `cmd.exe /c` 包装 `Build.bat`。
-- 构建命令必须追加 `2>&1 | Out-String`，确保完整捕获输出。
+- 并发 worktree / agent 构建优先使用 `Tools\RunBuild.ps1 -NoMutex`；该模式会调用 `RunUBT.bat -NoMutex`。
+- 只有在你明确需要串行等待其他 UBT 时，才使用 `Tools\RunBuild.ps1 -UseWaitMutex`。
+- 不要在 AI Agent 环境中直接调用 `cmd.exe /c Build.bat`。
 - 运行 `UnrealEditor-Cmd.exe` 时，优先使用 `Start-Process -Wait -NoNewWindow`。
 - 自动化测试建议启用 `-Unattended -NoPause -NoSplash -NullRHI -NOSOUND`。
 - 长时间任务必须使用超时包装执行；构建优先读取 `Build.DefaultTimeoutMs`，默认推荐 `1200000ms`。

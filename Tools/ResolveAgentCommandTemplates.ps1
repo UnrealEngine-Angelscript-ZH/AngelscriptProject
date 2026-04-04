@@ -94,7 +94,8 @@ if (-not (Test-Path -LiteralPath $editorCmd)) {
 $buildRunner = Join-Path $ProjectRoot 'Tools\RunBuild.ps1'
 $testRunner = Join-Path $ProjectRoot 'Tools\RunTests.ps1'
 
-$buildCommand = 'powershell.exe -ExecutionPolicy Bypass -File "{0}" -TimeoutMs {1}' -f $buildRunner, $buildTimeoutMs
+$buildCommand = 'powershell.exe -ExecutionPolicy Bypass -File "{0}" -TimeoutMs {1} -NoMutex' -f $buildRunner, $buildTimeoutMs
+$buildCommandWaitMutex = 'powershell.exe -ExecutionPolicy Bypass -File "{0}" -TimeoutMs {1} -UseWaitMutex' -f $buildRunner, $buildTimeoutMs
 $testCommand = 'powershell.exe -ExecutionPolicy Bypass -File "{0}" -TestPrefix "{1}" -TimeoutMs {2}' -f $testRunner, $TestName, $defaultTimeoutMs
 
 $resolved = [ordered]@{
@@ -109,6 +110,7 @@ $resolved = [ordered]@{
     BuildTimeoutMs = [int]$buildTimeoutMs
     DefaultTimeoutMs = [int]$defaultTimeoutMs
     BuildCommand = $buildCommand
+    BuildCommandWaitMutex = $buildCommandWaitMutex
     TestCommand = $testCommand
 }
 
