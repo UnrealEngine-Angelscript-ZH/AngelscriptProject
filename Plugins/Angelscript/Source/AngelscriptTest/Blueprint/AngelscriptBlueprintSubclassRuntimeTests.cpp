@@ -125,6 +125,7 @@ namespace BlueprintSubclassRuntimeTest
 
 	bool InvokeNoParamScriptFunction(
 		FAutomationTestBase& Test,
+		FAngelscriptEngine& Engine,
 		UObject* Object,
 		FName FunctionName,
 		const TCHAR* Context)
@@ -142,13 +143,14 @@ namespace BlueprintSubclassRuntimeTest
 			return false;
 		}
 
-		FScopedTestWorldContextScope WorldContextScope(Object);
+		FAngelscriptEngineScope FunctionScope(Engine, Object);
 		Object->ProcessEvent(Function, nullptr);
 		return true;
 	}
 
 	bool InvokeIntScriptFunction(
 		FAutomationTestBase& Test,
+		FAngelscriptEngine& Engine,
 		UObject* Object,
 		FName FunctionName,
 		int32 Value,
@@ -170,7 +172,7 @@ namespace BlueprintSubclassRuntimeTest
 		FSingleIntParam Params;
 		Params.Value = Value;
 
-		FScopedTestWorldContextScope WorldContextScope(Object);
+		FAngelscriptEngineScope FunctionScope(Engine, Object);
 		Object->ProcessEvent(Function, &Params);
 		return true;
 	}
@@ -261,7 +263,7 @@ class AScenarioBlueprintChildInheritsScriptBeginPlayParent : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 BeginPlayCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("BeginPlayCount"), BeginPlayCount))
@@ -341,7 +343,7 @@ class AScenarioBlueprintChildInheritsScriptTickParent : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 InitialLogicalTickCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("LogicalTickCount"), InitialLogicalTickCount))
@@ -349,7 +351,7 @@ class AScenarioBlueprintChildInheritsScriptTickParent : AAngelscriptActor
 		return false;
 	}
 
-	TickWorld(Spawner.GetWorld(), BlueprintSubclassRuntimeTest::ScenarioTickDeltaTime, BlueprintSubclassRuntimeTest::InheritedTickCount);
+	TickWorld(Engine, Spawner.GetWorld(), BlueprintSubclassRuntimeTest::ScenarioTickDeltaTime, BlueprintSubclassRuntimeTest::InheritedTickCount);
 
 	int32 LogicalTickCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("LogicalTickCount"), LogicalTickCount))
@@ -425,6 +427,7 @@ class AScenarioBlueprintChildScriptUFunctionStillCallableParent : AAngelscriptAc
 
 	if (!BlueprintSubclassRuntimeTest::InvokeIntScriptFunction(
 			*this,
+			Engine,
 			Actor,
 			TEXT("RecordExternalCall"),
 			77,
@@ -515,9 +518,10 @@ class AScenarioBlueprintChildRecreateStateParent : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*FirstActor);
+	BeginPlayActor(Engine, *FirstActor);
 	if (!BlueprintSubclassRuntimeTest::InvokeNoParamScriptFunction(
 			*this,
+			Engine,
 			FirstActor,
 			TEXT("BumpState"),
 			TEXT("Blueprint child recreate scenario first actor mutation")))
@@ -532,7 +536,7 @@ class AScenarioBlueprintChildRecreateStateParent : AAngelscriptActor
 	}
 
 	FirstActor->Destroy();
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 
 	AActor* SecondActor = SpawnScriptActor(*this, Spawner, BlueprintClass);
 	if (!TestNotNull(TEXT("Blueprint child recreate scenario should spawn the second actor"), SecondActor))
@@ -540,7 +544,7 @@ class AScenarioBlueprintChildRecreateStateParent : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*SecondActor);
+	BeginPlayActor(Engine, *SecondActor);
 
 	int32 SecondStatefulValue = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, SecondActor, TEXT("StatefulValue"), SecondStatefulValue))
@@ -804,9 +808,9 @@ class AScenarioBlueprintChildOverrideChainScriptChild : AScenarioBlueprintChildO
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
-	TickWorld(Spawner.GetWorld(), BlueprintSubclassRuntimeTest::ScenarioTickDeltaTime, BlueprintSubclassRuntimeTest::OverrideChainTickCount);
+	TickWorld(Engine, Spawner.GetWorld(), BlueprintSubclassRuntimeTest::ScenarioTickDeltaTime, BlueprintSubclassRuntimeTest::OverrideChainTickCount);
 
 	int32 ParentBeginPlayCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("ParentBeginPlayCount"), ParentBeginPlayCount))

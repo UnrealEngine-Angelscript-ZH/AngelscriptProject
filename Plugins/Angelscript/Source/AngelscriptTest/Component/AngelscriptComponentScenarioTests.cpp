@@ -133,7 +133,7 @@ class UScenarioComponentBeginPlay : UAngelscriptComponent
 		return false;
 	}
 
-	BeginPlayActor(HostActor);
+	BeginPlayActor(Engine, HostActor);
 
 	bool bReady = false;
 	if (!ReadPropertyValue<FBoolProperty>(*this, Component, TEXT("bReady"), bReady))
@@ -191,8 +191,8 @@ class UScenarioComponentTick : UAngelscriptComponent
 
 	Component->PrimaryComponentTick.bCanEverTick = true;
 	Component->SetComponentTickEnabled(true);
-	BeginPlayActor(HostActor);
-	TickWorld(Spawner.GetWorld(), ComponentScenarioDeltaTime, 5);
+	BeginPlayActor(Engine, HostActor);
+	TickWorld(Engine, Spawner.GetWorld(), ComponentScenarioDeltaTime, 5);
 
 	int32 TickCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Component, TEXT("TickCount"), TickCount))
@@ -248,9 +248,9 @@ class UScenarioComponentReceiveEndPlay : UAngelscriptComponent
 		return false;
 	}
 
-	BeginPlayActor(HostActor);
+	BeginPlayActor(Engine, HostActor);
 	HostActor.Destroy();
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 
 	bool bCleanedUp = false;
 	if (!ReadPropertyValue<FBoolProperty>(*this, Component, TEXT("bCleanedUp"), bCleanedUp))
@@ -328,7 +328,7 @@ class UScenarioComponentActorOwner : UAngelscriptComponent
 		return false;
 	}
 
-	BeginPlayActor(*HostActor);
+	BeginPlayActor(Engine, *HostActor);
 
 	int32 ReadOwnerValue = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Component, TEXT("ReadOwnerValue"), ReadOwnerValue))
@@ -387,7 +387,7 @@ class AScenarioDefaultComponentBasic : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	UClass* RootComponentClass = FindGeneratedClass(&Engine, TEXT("UScenarioDefaultComponentBasicRoot"));
 	if (!TestNotNull(TEXT("Scenario default-component root class should be generated"), RootComponentClass))
@@ -460,7 +460,7 @@ class AScenarioDefaultComponentMultiple : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	UClass* RootSceneClass = FindGeneratedClass(&Engine, TEXT("UScenarioDefaultComponentMultipleRoot"));
 	UClass* BillboardClass = FindGeneratedClass(&Engine, TEXT("UScenarioDefaultComponentMultipleBillboard"));

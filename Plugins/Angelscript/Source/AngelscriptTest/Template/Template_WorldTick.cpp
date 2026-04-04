@@ -17,24 +17,27 @@ using namespace AngelscriptScenarioTestUtils;
 
 namespace TemplateWorldTickTest
 {
-	void BeginPlayActor(AActor& Actor)
+	void BeginPlayActor(FAngelscriptEngine& Engine, AActor& Actor)
 	{
+		FAngelscriptEngineScope ActorScope(Engine, &Actor);
 		if (!Actor.HasActorBegunPlay())
 		{
 			Actor.DispatchBeginPlay();
 		}
 	}
 
-	void TickWorld(UWorld& World, float DeltaTime, int32 NumTicks)
+	void TickWorld(FAngelscriptEngine& Engine, UWorld& World, float DeltaTime, int32 NumTicks)
 	{
 		for (int32 TickIndex = 0; TickIndex < NumTicks; ++TickIndex)
 		{
+			FAngelscriptEngineScope WorldScope(Engine);
 			World.Tick(ELevelTick::LEVELTICK_All, DeltaTime);
 
 			for (TActorIterator<AActor> ActorIt(&World); ActorIt; ++ActorIt)
 			{
 				if (AActor* Actor = *ActorIt)
 				{
+					FAngelscriptEngineScope ActorScope(Engine, Actor);
 					Actor->Tick(DeltaTime);
 
 					TArray<UActorComponent*> Components;
@@ -43,6 +46,7 @@ namespace TemplateWorldTickTest
 					{
 						if (Component != nullptr && Component->IsRegistered() && Component->IsComponentTickEnabled())
 						{
+							FAngelscriptEngineScope ComponentScope(Engine, Component);
 							Component->TickComponent(DeltaTime, ELevelTick::LEVELTICK_All, &Component->PrimaryComponentTick);
 						}
 					}
@@ -66,16 +70,16 @@ namespace TemplateWorldTickTest
 			return bIsValid && World != nullptr;
 		}
 
-		void BeginPlay(AActor& Actor) const
+		void BeginPlay(FAngelscriptEngine& Engine, AActor& Actor) const
 		{
-			BeginPlayActor(Actor);
+			BeginPlayActor(Engine, Actor);
 		}
 
-		void Tick(float DeltaTime, int32 NumTicks) const
+		void Tick(FAngelscriptEngine& Engine, float DeltaTime, int32 NumTicks) const
 		{
 			if (IsValid())
 			{
-				TickWorld(*World, DeltaTime, NumTicks);
+				TickWorld(Engine, *World, DeltaTime, NumTicks);
 			}
 		}
 
@@ -168,8 +172,8 @@ class ATemplateWorldTickScriptActor : AAngelscriptActor
 		return false;
 	}
 
-	WorldTemplate.BeginPlay(*Actor);
-	WorldTemplate.Tick(0.016f, 3);
+	WorldTemplate.BeginPlay(Engine, *Actor);
+	WorldTemplate.Tick(Engine, 0.016f, 3);
 
 	int32 BeginPlayCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("BeginPlayCount"), BeginPlayCount))

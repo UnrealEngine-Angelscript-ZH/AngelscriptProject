@@ -59,6 +59,8 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptType : TSharedFromThis<FAngelscriptTyp
 	static void SetScriptMulticastDelegate(TSharedPtr<FAngelscriptType> Type);
 
 	static class asITypeInfo* ArrayTemplateTypeInfo;
+	static class asITypeInfo* GetArrayTemplateTypeInfo();
+	static void SetArrayTemplateTypeInfo(class asITypeInfo* TypeInfo);
 
 	static TSharedPtr<FAngelscriptType>& ScriptFloatType();
 	static TSharedPtr<FAngelscriptType>& ScriptDoubleType();
@@ -71,6 +73,7 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptType : TSharedFromThis<FAngelscriptTyp
 	static void Register(TSharedRef<FAngelscriptType> Type);
 
 	static void ResetTypeDatabase();
+	static void ResetTypeDatabaseForKey(const void* StateKey);
 
 	// Register an alias for a specific type
 	static void RegisterAlias(const FString& Alias, TSharedRef<FAngelscriptType> Type);

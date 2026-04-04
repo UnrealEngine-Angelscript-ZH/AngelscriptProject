@@ -13,13 +13,7 @@ using namespace AngelscriptTestSupport;
 
 namespace
 {
-	FAngelscriptEngine& AcquireFreshLearningEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
-
-	struct FLearningGeneratedPropertySummary
+struct FLearningGeneratedPropertySummary
 	{
 		FString Name;
 		FString Type;
@@ -83,7 +77,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningClassGenerationTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshLearningEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("LearningClassGenerationTraceModule"));
 	ON_SCOPE_EXIT
 	{

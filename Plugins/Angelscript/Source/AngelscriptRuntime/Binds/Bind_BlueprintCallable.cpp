@@ -44,7 +44,7 @@ void BindBlueprintCallable(
 	if (OwningClass != nullptr)
 	{
 		FString Name = Function->GetFName().ToString();
-		auto* map = FAngelscriptBinds::ClassFuncMaps.Find(OwningClass);
+		auto* map = FAngelscriptBinds::GetClassFuncMaps().Find(OwningClass);
 
 		if (map)
 			Entry = map->Find(Name);

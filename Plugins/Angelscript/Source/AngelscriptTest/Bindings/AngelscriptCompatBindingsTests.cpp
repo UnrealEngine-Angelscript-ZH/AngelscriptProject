@@ -127,7 +127,7 @@ class UBindingCastComponent : UActorComponent
 	}
 
 	int32 AnnotatedResult = 0;
-	if (!TestTrue(TEXT("Compat cast reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(RuntimeComponent, ReadCastCompatFunction, AnnotatedResult)))
+	if (!TestTrue(TEXT("Compat cast reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(&Engine, RuntimeComponent, ReadCastCompatFunction, AnnotatedResult)))
 	{
 		return false;
 	}

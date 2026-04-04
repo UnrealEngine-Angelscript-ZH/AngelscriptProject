@@ -64,7 +64,7 @@
 
 
 { ERASE_METHOD_PTR(UAudioAnalyzer, StartAnalyzing, (const UObject, UAudioBus), ERASE_ARGUMENT_PACK(void)) },
-{ ERASE_METHOD_PTR(UAudioAnalyzer, StopAnalyzing, (const UObject = __WorldContext), ERASE_ARGUMENT_PACK(void)) },
+{ ERASE_METHOD_PTR(UAudioAnalyzer, StopAnalyzing, (const UObject = __WorldContext()), ERASE_ARGUMENT_PACK(void)) },
 
 
 { ERASE_METHOD_PTR(UConstantQAnalyzer, GetCenterFrequencies, (TArray<float32>&), ERASE_ARGUMENT_PACK(void)) },

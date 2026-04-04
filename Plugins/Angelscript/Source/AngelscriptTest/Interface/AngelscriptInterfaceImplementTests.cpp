@@ -13,11 +13,6 @@ using namespace AngelscriptScenarioTestUtils;
 
 namespace
 {
-	FAngelscriptEngine& AcquireFreshInterfaceEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -37,7 +32,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioInterfaceImplementBasicTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceImplementBasic"));
 	ON_SCOPE_EXIT
 	{
@@ -95,7 +90,7 @@ class AScenarioInterfaceImplBasic : AAngelscriptActor, UIDamageableImpl
 
 bool FAngelscriptScenarioInterfaceImplementMultipleTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceImplementMultiple"));
 	ON_SCOPE_EXIT
 	{
@@ -173,7 +168,7 @@ class AScenarioInterfaceImplMultiple : AAngelscriptActor, UIDamageableMulti, UIH
 
 bool FAngelscriptScenarioInterfaceImplementsInterfaceMethodTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceImplMethod"));
 	ON_SCOPE_EXIT
 	{
@@ -226,7 +221,7 @@ class AScenarioInterfaceImplMethod : AAngelscriptActor, UIDamageableImplCheck
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	UClass* InterfaceClass = FindGeneratedClass(&Engine, TEXT("UIDamageableImplCheck"));
 	TestNotNull(TEXT("Interface class should exist"), InterfaceClass);

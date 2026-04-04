@@ -244,7 +244,7 @@ class AScenarioScriptClassCanSpawnInTestWorld : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 BeginPlayObserved = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("BeginPlayObserved"), BeginPlayObserved))
@@ -384,7 +384,7 @@ class AScenarioScriptClassBlueprintChildCompiles : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 BeginPlayCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("BeginPlayCount"), BeginPlayCount))

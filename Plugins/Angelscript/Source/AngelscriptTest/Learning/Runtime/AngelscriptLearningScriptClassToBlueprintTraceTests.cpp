@@ -23,13 +23,7 @@ using namespace AngelscriptScenarioTestUtils;
 
 namespace
 {
-	FAngelscriptEngine& AcquireFreshLearningEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
-
-	UBlueprint* CreateTransientLearningBlueprintChild(
+UBlueprint* CreateTransientLearningBlueprintChild(
 		FAutomationTestBase& Test,
 		UClass* ParentClass,
 		FStringView Suffix,
@@ -121,7 +115,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningScriptClassToBlueprintTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshLearningEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("LearningScriptClassToBlueprintModule"));
 	ON_SCOPE_EXIT
 	{
@@ -218,7 +212,7 @@ class ALearningScriptClassToBlueprintActor : AAngelscriptActor
 
 	Trace.AddStep(TEXT("SpawnBlueprintActor"), TEXT("Spawned an actor instance from the Blueprint-generated class into a test world"));
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	Trace.AddStep(TEXT("InvokeBeginPlay"), TEXT("Invoked BeginPlay on the spawned actor to trigger the script-defined BlueprintOverride"));
 

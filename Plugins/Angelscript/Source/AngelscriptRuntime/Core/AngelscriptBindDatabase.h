@@ -123,11 +123,9 @@ struct FAngelscriptClassHeader
 class FAngelscriptBindDatabase
 {
 public:
-
-	FORCEINLINE static FAngelscriptBindDatabase& Get()
-	{
-		return Instance;
-	}
+	static FAngelscriptBindDatabase& Get();
+	static FAngelscriptBindDatabase& GetForKey(const void* StateKey);
+	static void ResetForKey(const void* StateKey);
 	
 	void Save(const FString& Filename);
 	void Load(const FString& Filename, bool bGeneratingPrecompiledData);
@@ -143,6 +141,4 @@ public:
 
 private:
 	void Serialize(FArchive& Archive);
-
-	static FAngelscriptBindDatabase Instance;
 };

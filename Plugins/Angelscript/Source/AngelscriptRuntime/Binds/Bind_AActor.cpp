@@ -49,7 +49,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_AActor_Base((int32)FAngelscrip
 		}
 
 		asCObjectType* ObjectType = (asCObjectType*)(ScriptType);
-		if (ObjectType->templateBaseType != FAngelscriptType::ArrayTemplateTypeInfo)
+		if (ObjectType->templateBaseType != FAngelscriptType::GetArrayTemplateTypeInfo())
 		{
 			FAngelscriptEngine::Throw("GetComponentsByClass must take a TArray of components as its out argument.");
 			return;
@@ -99,7 +99,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_AActor_Base((int32)FAngelscrip
 		}
 
 		asCObjectType* ObjectType = (asCObjectType*)(ScriptType);
-		if (ObjectType->templateBaseType != FAngelscriptType::ArrayTemplateTypeInfo)
+		if (ObjectType->templateBaseType != FAngelscriptType::GetArrayTemplateTypeInfo())
 		{
 			FAngelscriptEngine::Throw("GetComponentsByClass must take a TArray of components as its out argument.");
 			return;
@@ -166,7 +166,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_AActor_Base((int32)FAngelscrip
 AActor* FAngelscriptActorBinds::SpawnActorFromMeta(class asCScriptFunction* Meta, const FVector& Location, const FRotator& Rotation, const FName& Name, ULevel* Level)
 {
 	UClass* ActorClass = (UClass*)Meta->userData;
-	UObject* WorldContext = FAngelscriptEngine::CurrentWorldContext;
+		UObject* WorldContext = FAngelscriptEngine::TryGetCurrentWorldContextObject();
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContext, EGetWorldErrorMode::ReturnNull);
 	if (World == nullptr)
 	{
@@ -198,7 +198,7 @@ AActor* FAngelscriptActorBinds::SpawnActorFromMeta(class asCScriptFunction* Meta
 
 AActor* FAngelscriptActorBinds::SpawnActor(const TSubclassOf<AActor>& Class, const FVector& Location, const FRotator& Rotation, const FName& Name, bool bDeferredSpawn, ULevel* Level)
 {
-	UObject* WorldContext = FAngelscriptEngine::CurrentWorldContext;
+		UObject* WorldContext = FAngelscriptEngine::TryGetCurrentWorldContextObject();
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContext, EGetWorldErrorMode::ReturnNull);
 	if (World == nullptr)
 	{
@@ -231,7 +231,7 @@ AActor* FAngelscriptActorBinds::SpawnActor(const TSubclassOf<AActor>& Class, con
 
 AActor* FAngelscriptActorBinds::SpawnPersistentActor(const TSubclassOf<AActor>& Class, const FVector& Location, const FRotator& Rotation, const FName& Name, bool bDeferredSpawn)
 {
-	UObject* WorldContext = FAngelscriptEngine::CurrentWorldContext;
+		UObject* WorldContext = FAngelscriptEngine::TryGetCurrentWorldContextObject();
 	UWorld* World = GEngine->GetWorldFromContextObject(WorldContext, EGetWorldErrorMode::ReturnNull);
 	if (World == nullptr)
 	{
@@ -327,7 +327,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Actors((int32)FAngelscriptBind
 		}
 
 		asCObjectType* ObjectType = (asCObjectType*)(ScriptType);
-		if (ObjectType->templateBaseType != FAngelscriptType::ArrayTemplateTypeInfo)
+		if (ObjectType->templateBaseType != FAngelscriptType::GetArrayTemplateTypeInfo())
 		{
 			FAngelscriptEngine::Throw("GetAllActors must take a TArray of actors as its out argument.");
 			return;
@@ -349,7 +349,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Actors((int32)FAngelscriptBind
 			return;
 		}
 
-		UGameplayStatics::GetAllActorsOfClass(FAngelscriptEngine::CurrentWorldContext, ActorClass, OutActors);
+		UGameplayStatics::GetAllActorsOfClass(FAngelscriptEngine::TryGetCurrentWorldContextObject(), ActorClass, OutActors);
 	});
 
 	FAngelscriptBinds::BindGlobalFunction("void GetAllActorsOfClass(UClass Class, ?& OutActors)",
@@ -365,7 +365,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Actors((int32)FAngelscriptBind
 		}
 
 		asCObjectType* ObjectType = (asCObjectType*)(ScriptType);
-		if (ObjectType->templateBaseType != FAngelscriptType::ArrayTemplateTypeInfo)
+		if (ObjectType->templateBaseType != FAngelscriptType::GetArrayTemplateTypeInfo())
 		{
 			FAngelscriptEngine::Throw("GetAllActors must take a TArray of actors as its out argument.");
 			return;
@@ -399,13 +399,13 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Actors((int32)FAngelscriptBind
 			return;
 		}
 
-		UGameplayStatics::GetAllActorsOfClass(FAngelscriptEngine::CurrentWorldContext, ActorClass, OutActors);
+		UGameplayStatics::GetAllActorsOfClass(FAngelscriptEngine::TryGetCurrentWorldContextObject(), ActorClass, OutActors);
 	});
 
 	FAngelscriptBinds::BindGlobalFunction("void __Actor_GetAllByClass(UClass Class, ?& OutActors)",
 	[](UClass* ActorClass, TArray<AActor*>& OutActors, int TypeId)
 	{
-		UGameplayStatics::GetAllActorsOfClass(FAngelscriptEngine::CurrentWorldContext, ActorClass, OutActors);
+		UGameplayStatics::GetAllActorsOfClass(FAngelscriptEngine::TryGetCurrentWorldContextObject(), ActorClass, OutActors);
 	});
 
 	FAngelscriptBinds::BindGlobalFunction("void GetAllActorsOfClassWithTag(FName TagName, ?& OutActors)",
@@ -421,7 +421,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Actors((int32)FAngelscriptBind
 		}
 
 		asCObjectType* ObjectType = (asCObjectType*)(ScriptType);
-		if (ObjectType->templateBaseType != FAngelscriptType::ArrayTemplateTypeInfo)
+		if (ObjectType->templateBaseType != FAngelscriptType::GetArrayTemplateTypeInfo())
 		{
 			FAngelscriptEngine::Throw("GetAllActors must take a TArray of actors as its out argument.");
 			return;
@@ -443,7 +443,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Actors((int32)FAngelscriptBind
 			return;
 		}
 
-		UGameplayStatics::GetAllActorsOfClassWithTag(FAngelscriptEngine::CurrentWorldContext, ActorClass, Tag, OutActors);
+		UGameplayStatics::GetAllActorsOfClassWithTag(FAngelscriptEngine::TryGetCurrentWorldContextObject(), ActorClass, Tag, OutActors);
 	});
 #endif
 

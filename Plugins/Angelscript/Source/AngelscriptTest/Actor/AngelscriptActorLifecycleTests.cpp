@@ -83,7 +83,7 @@ class AScenarioActorBeginPlay : AAngelscriptActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 BeginPlayCalled = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("BeginPlayCalled"), BeginPlayCalled))
@@ -141,8 +141,8 @@ class AScenarioActorTick : AAngelscriptActor
 	Actor->PrimaryActorTick.bCanEverTick = true;
 	Actor->SetActorTickEnabled(true);
 	Actor->RegisterAllActorTickFunctions(true, false);
-	BeginPlayActor(*Actor);
-	TickWorld(Spawner.GetWorld(), LifecycleScenarioDeltaTime, 5);
+	BeginPlayActor(Engine, *Actor);
+	TickWorld(Engine, Spawner.GetWorld(), LifecycleScenarioDeltaTime, 5);
 
 	int32 TickCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("TickCount"), TickCount))
@@ -197,9 +197,9 @@ class AScenarioActorReceiveEndPlay : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	Actor->Destroy();
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 
 	int32 EndPlayCalled = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("EndPlayCalled"), EndPlayCalled))
@@ -254,9 +254,9 @@ class AScenarioActorReceiveDestroyed : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	Actor->Destroy();
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 
 	int32 DestroyedCalled = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("DestroyedCalled"), DestroyedCalled))
@@ -311,7 +311,7 @@ class AScenarioActorReset : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	FIntProperty* ResetValueProperty = FindFProperty<FIntProperty>(Actor->GetClass(), TEXT("ResetValue"));
 	if (!TestNotNull(TEXT("Reset scenario property should exist"), ResetValueProperty))
 	{

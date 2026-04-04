@@ -88,6 +88,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptEngineCreateForTestingUsesScopedSourceEngineTest,
+	"Angelscript.CppTests.MultiEngine.CreateForTesting.UsesScopedSourceEngine",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptEngineCreateForTestingFallbacksToFullTest,
 	"Angelscript.CppTests.MultiEngine.CreateForTesting.FallbacksToFull",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -222,6 +227,35 @@ bool FAngelscriptEngineCreateForTestingDefaultsToCloneTest::RunTest(const FStrin
 	return TestTrue(TEXT("MultiEngine.CreateForTesting.DefaultsToClone should share the global asIScriptEngine"), TestEngine->GetScriptEngine() == SourceEngine->GetScriptEngine());
 }
 
+bool FAngelscriptEngineCreateForTestingUsesScopedSourceEngineTest::RunTest(const FString& Parameters)
+{
+	ResetToIsolatedEngineState();
+
+	const FAngelscriptEngineConfig Config;
+	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
+	TUniquePtr<FAngelscriptEngine> SourceEngine = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+	if (!TestNotNull(TEXT("MultiEngine.CreateForTesting.UsesScopedSourceEngine should create a source engine"), SourceEngine.Get()))
+	{
+		return false;
+	}
+
+	TUniquePtr<FAngelscriptEngine> TestEngine;
+	{
+		FAngelscriptEngineScope SourceScope(*SourceEngine);
+		TestEngine = FAngelscriptEngine::CreateForTesting(Config, Dependencies);
+	}
+
+	if (!TestNotNull(TEXT("MultiEngine.CreateForTesting.UsesScopedSourceEngine should create a testing engine"), TestEngine.Get()))
+	{
+		return false;
+	}
+
+	TestEqual(TEXT("MultiEngine.CreateForTesting.UsesScopedSourceEngine should choose Clone mode when a scoped source engine exists"), TestEngine->GetCreationMode(), EAngelscriptEngineCreationMode::Clone);
+	TestFalse(TEXT("MultiEngine.CreateForTesting.UsesScopedSourceEngine should not own the shared script engine"), TestEngine->OwnsEngine());
+	TestTrue(TEXT("MultiEngine.CreateForTesting.UsesScopedSourceEngine should point back to the scoped source engine"), TestEngine->GetSourceEngine() == SourceEngine.Get());
+	return TestTrue(TEXT("MultiEngine.CreateForTesting.UsesScopedSourceEngine should share the scoped source script engine"), TestEngine->GetScriptEngine() == SourceEngine->GetScriptEngine());
+}
+
 bool FAngelscriptEngineCreateForTestingFallbacksToFullTest::RunTest(const FString& Parameters)
 {
 	ResetToIsolatedEngineState();
@@ -322,7 +356,11 @@ bool FAngelscriptCloneKeepsSharedStateAliveTest::RunTest(const FString& Paramete
 		return false;
 	}
 
-	const int32 RegisteredTypeCountBeforeDestroy = FAngelscriptType::GetTypes().Num();
+	int32 RegisteredTypeCountBeforeDestroy = 0;
+	{
+		FAngelscriptEngineScope SourceScope(*SourceEngine);
+		RegisteredTypeCountBeforeDestroy = FAngelscriptType::GetTypes().Num();
+	}
 	if (!TestTrue(TEXT("MultiEngine.CloneKeepsSharedStateAlive should start with registered types"), RegisteredTypeCountBeforeDestroy > 0))
 	{
 		return false;
@@ -331,7 +369,10 @@ bool FAngelscriptCloneKeepsSharedStateAliveTest::RunTest(const FString& Paramete
 	AddExpectedError(TEXT("Rejecting Full engine shutdown while Clone instances still reference shared state"), EAutomationExpectedErrorFlags::Contains, 1);
 	SourceEngine.Reset();
 
-	TestTrue(TEXT("MultiEngine.CloneKeepsSharedStateAlive should keep global type registrations alive while the clone remains"), FAngelscriptType::GetTypes().Num() > 0);
+	{
+		FAngelscriptEngineScope CloneScope(*CloneEngine);
+		TestTrue(TEXT("MultiEngine.CloneKeepsSharedStateAlive should keep shared type registrations alive while the clone remains"), FAngelscriptType::GetTypes().Num() > 0);
+	}
 	return TestNotNull(TEXT("MultiEngine.CloneKeepsSharedStateAlive should keep the shared script engine reachable from the clone"), CloneEngine->GetScriptEngine());
 }
 
@@ -370,16 +411,35 @@ bool FAngelscriptSecondFullCreateIsRejectedBeforeBindRegistrationTest::RunTest(c
 		return false;
 	}
 
-	if (!TestTrue(TEXT("MultiEngine.SecondFullCreateIsRejectedBeforeBindRegistration should start with registered type metadata"), FAngelscriptType::GetTypes().Num() > 0))
+	int32 FirstOwnerTypeCount = 0;
+	{
+		FAngelscriptEngineScope FirstOwnerScope(*FirstOwner);
+		FirstOwnerTypeCount = FAngelscriptType::GetTypes().Num();
+	}
+
+	if (!TestTrue(TEXT("MultiEngine.SecondFullCreateIsRejectedBeforeBindRegistration should start with registered type metadata"), FirstOwnerTypeCount > 0))
 	{
 		return false;
 	}
 
-	AddExpectedError(TEXT("Rejecting concurrent Full engine creation while another shared-state epoch is still alive."), EAutomationExpectedErrorFlags::Contains, 1);
 	TUniquePtr<FAngelscriptEngine> SecondOwner = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
 
-	TestNull(TEXT("MultiEngine.SecondFullCreateIsRejectedBeforeBindRegistration should reject a second full owner during the same shared-state epoch"), SecondOwner.Get());
-	return TestTrue(TEXT("MultiEngine.SecondFullCreateIsRejectedBeforeBindRegistration should keep the original type metadata intact"), FAngelscriptType::GetTypes().Num() > 0);
+	if (!TestNotNull(TEXT("MultiEngine.SecondFullCreateIsRejectedBeforeBindRegistration should now allow a second full owner"), SecondOwner.Get()))
+	{
+		return false;
+	}
+
+	{
+		FAngelscriptEngineScope FirstOwnerScope(*FirstOwner);
+		TestEqual(TEXT("MultiEngine.SecondFullCreateIsRejectedBeforeBindRegistration should keep the original full owner's type metadata intact"), FAngelscriptType::GetTypes().Num(), FirstOwnerTypeCount);
+	}
+
+	{
+		FAngelscriptEngineScope SecondOwnerScope(*SecondOwner);
+		TestTrue(TEXT("MultiEngine.SecondFullCreateIsRejectedBeforeBindRegistration should initialize type metadata for the second full owner"), FAngelscriptType::GetTypes().Num() > 0);
+	}
+
+	return true;
 }
 
 bool FAngelscriptSingleFullDestroyResetsGlobalStateTest::RunTest(const FString& Parameters)
@@ -395,9 +455,12 @@ bool FAngelscriptSingleFullDestroyResetsGlobalStateTest::RunTest(const FString& 
 		return false;
 	}
 
-	if (!TestTrue(TEXT("MultiEngine.SingleFullDestroyResetsGlobalState should populate type metadata before teardown"), FAngelscriptType::GetTypes().Num() > 0))
 	{
-		return false;
+		FAngelscriptEngineScope EngineScope(*Engine);
+		if (!TestTrue(TEXT("MultiEngine.SingleFullDestroyResetsGlobalState should populate type metadata before teardown"), FAngelscriptType::GetTypes().Num() > 0))
+		{
+			return false;
+		}
 	}
 
 	Engine.Reset();

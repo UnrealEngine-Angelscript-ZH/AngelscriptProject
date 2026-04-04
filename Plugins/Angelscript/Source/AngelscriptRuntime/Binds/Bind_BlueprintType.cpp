@@ -227,9 +227,9 @@ struct FUObjectType : TAngelscriptPODType<UObject*>
 			OutValue = TEXT("this");
 			return true;
 		}
-		if (InValue == TEXT("__WorldContext"))
+		if (InValue == TEXT("__WorldContext") || InValue == TEXT("__WorldContext()"))
 		{
-			OutValue = TEXT("__WorldContext");
+			OutValue = TEXT("__WorldContext()");
 			return true;
 		}
 		return false;
@@ -974,7 +974,7 @@ bool ShouldBindEngineType(UClass* Class)
 
 #if WITH_EDITOR
 	// Don't bind classes in editor modules in simulate-cooked mode
-	if (!FAngelscriptEngine::bUseEditorScripts)
+	if (!FAngelscriptEngine::ShouldUseEditorScriptsForCurrentContext())
 	{
 		if (IsEditorOnlyClass(Class))
 			return false;
@@ -1069,7 +1069,7 @@ void BindProperties(FAngelscriptBinds Binds, TSharedRef<FAngelscriptType> Type, 
 		FProperty* Property = *It;
 
 		// Don't bind editor-only stuff in simulate cooked mode
-		if (!FAngelscriptEngine::bUseEditorScripts && Property->HasAnyPropertyFlags(CPF_EditorOnly))
+		if (!FAngelscriptEngine::ShouldUseEditorScriptsForCurrentContext() && Property->HasAnyPropertyFlags(CPF_EditorOnly))
 			continue;
 
 		FAngelscriptType::FBindParams Params = GetPropertyBindParams(Property);
@@ -1386,7 +1386,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Defaults((int32)FAngelscriptBi
 				continue;
 
 			// Don't bind editor-only functions when we're running in simulate-cooked mode
-			if (!FAngelscriptEngine::bUseEditorScripts)
+			if (!FAngelscriptEngine::ShouldUseEditorScriptsForCurrentContext())
 			{
 				if (Function->HasAnyFunctionFlags(FUNC_EditorOnly))
 					continue;
@@ -1416,7 +1416,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Defaults((int32)FAngelscriptBi
 			FProperty* Property = *It;
 
 			// Don't bind editor-only stuff in simulate cooked mode
-			if (!FAngelscriptEngine::bUseEditorScripts && Property->HasAnyPropertyFlags(CPF_EditorOnly))
+			if (!FAngelscriptEngine::ShouldUseEditorScriptsForCurrentContext() && Property->HasAnyPropertyFlags(CPF_EditorOnly))
 				continue;
 
 			FString BlueprintGetterName = Property->GetMetaData(NAME_Property_BlueprintGetter);

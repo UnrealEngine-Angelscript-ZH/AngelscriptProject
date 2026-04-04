@@ -63,6 +63,24 @@
 - 重要的是：**`GAngelscriptEngine` 仍然存在且仍在使用**。当前 runtime 并未完成 Context Stack 或 Engine-Local State 改造；`FAngelscriptEngine::Get()` 仍是 `Subsystem -> GAngelscriptEngine` 的双路径解析。
 - 结论：本轮只证明“通过更严格的测试 helper containment，可以把现有全量回归稳定下来”；它**不等于**本计划已完成，也不替代后续去全局化工作。
 
+### 2026-04-04 构建/测试工具链前置项（暂缓实现，先文档化）
+
+- 在继续推进 runtime 去全局化之前，当前仓库的 build/test 执行链路需要先标准化；否则后续每一轮 Phase 回归都会反复浪费在卡死、残留进程、日志不可观测和 worktree 冲突上。
+- 这部分工作**不属于 runtime 去全局化本身**，因此单独拆到了：
+  - `Documents/Plans/Plan_BuildTestScriptStandardization.md`
+  - `Documents/Knowledges/UBT.md`
+- 当前已确认的关键决策如下：
+  - 默认构建入口改为 direct UBT：`dotnet <EngineRoot>\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.dll`
+  - 默认并发模式使用 `-NoMutex -NoEngineChanges`，允许共享引擎目录上的不同 worktree 并发构建，但在需要改写引擎输出时快速失败
+  - 同一 worktree 仍然要求 single-flight；需要引擎改动时再显式切到串行模式
+  - 所有构建/测试脚本硬上限统一为 `300000ms`，默认值分别为 build `180000ms`、test `300000ms`
+  - timeout 或异常退出后必须清理进程树；测试脚本还必须通过 `-stdout -FullStdOutLogOutput -UTF8Output` 实现逐行实时输出
+- 当前仓库只补了脚本级 TDD 起点：
+  - `Tools/Tests/RunToolingSmokeTests.ps1`
+  - `Tools/Tests/Helpers/WriteLines.ps1`
+  - `Tools/Tests/Helpers/SpawnSleepTree.ps1`
+- 这些 smoke tests 现在是故意保留的“先红状态”，因为共享执行层和正式脚本还没有实现；因此暂时**不要**把 `AGENTS_ZH.md`、`Documents/Guides/Build.md`、`Documents/Guides/Test.md` 改成“必须走新脚本”的硬规则。
+
 ## 当前隔离机制分析
 
 ### 现有隔离手段

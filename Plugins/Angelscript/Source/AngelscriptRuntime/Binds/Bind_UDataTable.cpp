@@ -51,7 +51,7 @@ static const UStruct* GetArraySubClass(const UDataTable* DataTable, FScriptArray
 
 	auto ObjectType = static_cast<const asCObjectType*>(TypeInfo);
 
-	if (ObjectType->templateBaseType != FAngelscriptType::ArrayTemplateTypeInfo)
+	if (ObjectType->templateBaseType != FAngelscriptType::GetArrayTemplateTypeInfo())
 	{
 		FAngelscriptEngine::Throw("OutArray must be a TArray of structs.");
 		return nullptr;

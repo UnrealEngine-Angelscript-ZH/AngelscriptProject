@@ -18,7 +18,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_SystemTimers((int32)FAngelscri
 		"bool IsTimerPausedHandle(FTimerHandle Handle)",
 		[](FTimerHandle Handle)
 		{
-			return UKismetSystemLibrary::K2_IsTimerPausedHandle(FAngelscriptEngine::CurrentWorldContext, Handle);
+			return UKismetSystemLibrary::K2_IsTimerPausedHandle(FAngelscriptEngine::TryGetCurrentWorldContextObject(), Handle);
 		});
 	FAngelscriptBinds::SetPreviousBindRequiresWorldContext(true);
 
@@ -26,7 +26,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_SystemTimers((int32)FAngelscri
 		"void PauseTimerHandle(FTimerHandle Handle)",
 		[](FTimerHandle Handle)
 		{
-			UKismetSystemLibrary::K2_PauseTimerHandle(FAngelscriptEngine::CurrentWorldContext, Handle);
+			UKismetSystemLibrary::K2_PauseTimerHandle(FAngelscriptEngine::TryGetCurrentWorldContextObject(), Handle);
 		});
 	FAngelscriptBinds::SetPreviousBindRequiresWorldContext(true);
 
@@ -34,7 +34,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_SystemTimers((int32)FAngelscri
 		"void UnPauseTimerHandle(FTimerHandle Handle)",
 		[](FTimerHandle Handle)
 		{
-			UKismetSystemLibrary::K2_UnPauseTimerHandle(FAngelscriptEngine::CurrentWorldContext, Handle);
+			UKismetSystemLibrary::K2_UnPauseTimerHandle(FAngelscriptEngine::TryGetCurrentWorldContextObject(), Handle);
 		});
 	FAngelscriptBinds::SetPreviousBindRequiresWorldContext(true);
 
@@ -42,7 +42,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_SystemTimers((int32)FAngelscri
 		"void ClearAndInvalidateTimerHandle(FTimerHandle& Handle)",
 		[](FTimerHandle& Handle)
 		{
-			UKismetSystemLibrary::K2_ClearAndInvalidateTimerHandle(FAngelscriptEngine::CurrentWorldContext, Handle);
+			UKismetSystemLibrary::K2_ClearAndInvalidateTimerHandle(FAngelscriptEngine::TryGetCurrentWorldContextObject(), Handle);
 		});
 	FAngelscriptBinds::SetPreviousBindRequiresWorldContext(true);
 });

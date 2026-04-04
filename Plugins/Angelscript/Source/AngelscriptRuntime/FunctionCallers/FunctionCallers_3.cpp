@@ -1513,7 +1513,7 @@
 
 
 { ERASE_METHOD_PTR(USoundSubmixBase, DynamicConnect, (const UObject, USoundSubmixBase), ERASE_ARGUMENT_PACK(bool)) },
-{ ERASE_METHOD_PTR(USoundSubmixBase, DynamicDisconnect, (const UObject = __WorldContext), ERASE_ARGUMENT_PACK(bool)) },
+{ ERASE_METHOD_PTR(USoundSubmixBase, DynamicDisconnect, (const UObject = __WorldContext()), ERASE_ARGUMENT_PACK(bool)) },
 { ERASE_METHOD_PTR(USoundSubmixBase, FindDynamicAncestor, (), ERASE_ARGUMENT_PACK(USoundSubmixBase*)) },
 
 
@@ -1521,18 +1521,18 @@
 { ERASE_METHOD_PTR(USoundSubmixWithParentBase, SetbIsDynamic, (bool), ERASE_ARGUMENT_PACK(void)) },
 
 
-{ ERASE_METHOD_PTR(USoundSubmix, AddEnvelopeFollowerDelegate, (const UObject = __WorldContext, const FOnSubmixEnvelopeBP& = FOnSubmixEnvelopeBP ( ), ERASE_ARGUMENT_PACK(void)) },
+{ ERASE_METHOD_PTR(USoundSubmix, AddEnvelopeFollowerDelegate, (const UObject = __WorldContext(), const FOnSubmixEnvelopeBP& = FOnSubmixEnvelopeBP ( ), ERASE_ARGUMENT_PACK(void)) },
 { ERASE_METHOD_PTR(USoundSubmix, AddSpectralAnalysisDelegate, (const UObject, const TArray<FSoundSubmixSpectralAnalysisBandSettings>&, const FOnSubmixSpectralAnalysisBP& = FOnSubmixSpectralAnalysisBP ( ), ERASE_ARGUMENT_PACK(void)) },
-{ ERASE_METHOD_PTR(USoundSubmix, RemoveSpectralAnalysisDelegate, (const UObject = __WorldContext, const FOnSubmixSpectralAnalysisBP& = FOnSubmixSpectralAnalysisBP ( ), ERASE_ARGUMENT_PACK(void)) },
+{ ERASE_METHOD_PTR(USoundSubmix, RemoveSpectralAnalysisDelegate, (const UObject = __WorldContext(), const FOnSubmixSpectralAnalysisBP& = FOnSubmixSpectralAnalysisBP ( ), ERASE_ARGUMENT_PACK(void)) },
 { ERASE_METHOD_PTR(USoundSubmix, SetSubmixDryLevel, (const UObject, float32), ERASE_ARGUMENT_PACK(void)) },
 { ERASE_METHOD_PTR(USoundSubmix, SetSubmixOutputVolume, (const UObject, float32), ERASE_ARGUMENT_PACK(void)) },
 { ERASE_METHOD_PTR(USoundSubmix, SetSubmixWetLevel, (const UObject, float32), ERASE_ARGUMENT_PACK(void)) },
-{ ERASE_METHOD_PTR(USoundSubmix, StartEnvelopeFollowing, (const UObject = __WorldContext), ERASE_ARGUMENT_PACK(void)) },
+{ ERASE_METHOD_PTR(USoundSubmix, StartEnvelopeFollowing, (const UObject = __WorldContext()), ERASE_ARGUMENT_PACK(void)) },
 { ERASE_METHOD_PTR(USoundSubmix, StartRecordingOutput, (const UObject, float32), ERASE_ARGUMENT_PACK(void)) },
-{ ERASE_METHOD_PTR(USoundSubmix, StartSpectralAnalysis, (const UObject = __WorldContext, EFFTSize = EFFTSize :: DefaultSize, EFFTPeakInterpolationMethod = EFFTPeakInterpolationMethod :: Linear, EFFTWindowType = EFFTWindowType :: Hann, float32 = 0.000000, EAudioSpectrumType = EAudioSpectrumType :: MagnitudeSpectrum), ERASE_ARGUMENT_PACK(void)) },
-{ ERASE_METHOD_PTR(USoundSubmix, StopEnvelopeFollowing, (const UObject = __WorldContext), ERASE_ARGUMENT_PACK(void)) },
+{ ERASE_METHOD_PTR(USoundSubmix, StartSpectralAnalysis, (const UObject = __WorldContext(), EFFTSize = EFFTSize :: DefaultSize, EFFTPeakInterpolationMethod = EFFTPeakInterpolationMethod :: Linear, EFFTWindowType = EFFTWindowType :: Hann, float32 = 0.000000, EAudioSpectrumType = EAudioSpectrumType :: MagnitudeSpectrum), ERASE_ARGUMENT_PACK(void)) },
+{ ERASE_METHOD_PTR(USoundSubmix, StopEnvelopeFollowing, (const UObject = __WorldContext()), ERASE_ARGUMENT_PACK(void)) },
 { ERASE_METHOD_PTR(USoundSubmix, StopRecordingOutput, (const UObject, EAudioRecordingExportType, const FString&, FString, USoundWave = nullptr), ERASE_ARGUMENT_PACK(void)) },
-{ ERASE_METHOD_PTR(USoundSubmix, StopSpectralAnalysis, (const UObject = __WorldContext), ERASE_ARGUMENT_PACK(void)) },
+{ ERASE_METHOD_PTR(USoundSubmix, StopSpectralAnalysis, (const UObject = __WorldContext()), ERASE_ARGUMENT_PACK(void)) },
 { ERASE_METHOD_PTR(USoundSubmix, GetbMuteWhenBackgrounded, (), ERASE_ARGUMENT_PACK(bool)) },
 { ERASE_METHOD_PTR(USoundSubmix, SetbMuteWhenBackgrounded, (bool), ERASE_ARGUMENT_PACK(void)) },
 { ERASE_METHOD_PTR(USoundSubmix, GetbSendToAudioLink, (), ERASE_ARGUMENT_PACK(bool)) },

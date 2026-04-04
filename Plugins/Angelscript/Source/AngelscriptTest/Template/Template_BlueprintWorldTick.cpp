@@ -187,8 +187,8 @@ class ATemplateBlueprintActorChildWorldTickParent : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
-	TickWorld(Spawner.GetWorld(), 0.016f, 3);
+	BeginPlayActor(Engine, *Actor);
+	TickWorld(Engine, Spawner.GetWorld(), 0.016f, 3);
 
 	int32 BeginPlayCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("BeginPlayCount"), BeginPlayCount))

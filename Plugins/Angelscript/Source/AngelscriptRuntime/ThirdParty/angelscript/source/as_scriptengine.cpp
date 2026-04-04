@@ -52,6 +52,8 @@
 #include "as_bytecode.h"
 #include "as_debug.h"
 
+#include "AngelscriptEngine.h"
+
 #include <stdlib.h>
 
 BEGIN_AS_NAMESPACE
@@ -5068,7 +5070,8 @@ int asCScriptEngine::RefCastObject(void *obj, asITypeInfo *fromType, asITypeInfo
 
 		// Up casts to base class or interface can be done implicitly
 		if( fromType->DerivesFrom(toType) ||
-			fromType->Implements(toType) )
+			fromType->Implements(toType) ||
+			FAngelscriptEngine::CanCastScriptObjectToUnrealInterface(fromType, toType, obj) )
 		{
 			*newPtr = obj;
 			//reinterpret_cast<asCScriptObject*>(*newPtr)->AddRef();
@@ -5080,7 +5083,8 @@ int asCScriptEngine::RefCastObject(void *obj, asITypeInfo *fromType, asITypeInfo
 			// Get the true type of the object so the explicit cast can evaluate all possibilities
 			asITypeInfo *trueType = reinterpret_cast<asCScriptObject*>(obj)->GetObjectType();
 			if (trueType->DerivesFrom(toType) ||
-				trueType->Implements(toType))
+				trueType->Implements(toType) ||
+				FAngelscriptEngine::CanCastScriptObjectToUnrealInterface(trueType, toType, obj))
 			{
 				*newPtr = obj;
 				//reinterpret_cast<asCScriptObject*>(*newPtr)->AddRef();

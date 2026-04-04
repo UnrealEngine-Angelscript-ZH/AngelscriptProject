@@ -88,17 +88,22 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptTestEngineHelperCompileRestoresScopedGlobalEngineTest,
-	"Angelscript.TestModule.Shared.EngineHelper.CompileUsesScopedGlobalEngine",
+	"Angelscript.TestModule.Shared.EngineHelper.CompileRestoresOuterCurrentEngine",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptTestEngineHelperNestedGlobalScopeRestoreTest,
-	"Angelscript.TestModule.Shared.EngineHelper.NestedGlobalEngineScopeRestoresPreviousEngine",
+	"Angelscript.TestModule.Shared.EngineHelper.NestedCurrentEngineScopeRestoresPreviousEngine",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptTestEngineHelperWorldContextScopeRestoreTest,
 	"Angelscript.TestModule.Shared.EngineHelper.WorldContextScopeRestoresPreviousContext",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptTestEngineHelperEngineScopeWorldContextRestoreTest,
+	"Angelscript.TestModule.Shared.EngineHelper.EngineScopeRestoresWorldContextAndCurrentEngine",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -233,13 +238,21 @@ class URecoveredHelperObject : UObject
 
 bool FAngelscriptTestEngineHelperSharedEngineNeverAttachesToProductionTest::RunTest(const FString& Parameters)
 {
+	FAngelscriptEngine* PreviousCurrentEngine = FAngelscriptTestEngineScopeAccess::GetCurrentEngine();
+	FAngelscriptEngine* PreviousGlobalEngine = FAngelscriptTestEngineScopeAccess::GetGlobalEngine();
 	FAngelscriptEngine& SharedEngine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	return TestTrue(
 		TEXT("Explicit shared clone helper should resolve to the shared clone engine instance"),
 		&AngelscriptTestSupport::GetOrCreateSharedCloneEngine() == &SharedEngine)
 		&& TestTrue(
 		TEXT("Clean shared clone helper should keep using the shared clone engine instance"),
-		&AngelscriptTestSupport::AcquireCleanSharedCloneEngine() == &SharedEngine);
+		&AngelscriptTestSupport::AcquireCleanSharedCloneEngine() == &SharedEngine)
+		&& TestTrue(
+		TEXT("Shared clone helper should not silently replace the current engine"),
+		FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == PreviousCurrentEngine)
+		&& TestTrue(
+		TEXT("Shared clone helper should not silently install itself as the legacy global engine"),
+		FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == PreviousGlobalEngine);
 }
 
 bool FAngelscriptTestEngineHelperProductionHelperRejectsMissingProductionTest::RunTest(const FString& Parameters)
@@ -266,6 +279,7 @@ bool FAngelscriptTestEngineHelperProductionHelperRejectsMissingProductionTest::R
 
 bool FAngelscriptTestEngineHelperCompileRestoresScopedGlobalEngineTest::RunTest(const FString& Parameters)
 {
+	FAngelscriptEngine* PreviousCurrentEngine = FAngelscriptTestEngineScopeAccess::GetCurrentEngine();
 	FAngelscriptEngine& SharedEngine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	TUniquePtr<FAngelscriptEngine> IsolatedEngine = AngelscriptTestSupport::CreateIsolatedCloneEngine();
 	if (!TestNotNull(TEXT("Compile restore test should create an isolated engine"), IsolatedEngine.Get()))
@@ -273,25 +287,35 @@ bool FAngelscriptTestEngineHelperCompileRestoresScopedGlobalEngineTest::RunTest(
 		return false;
 	}
 
-	AngelscriptTestSupport::FScopedGlobalEngineOverride GlobalScope(&SharedEngine);
-	const bool bCompiled = AngelscriptTestSupport::CompileModuleFromMemory(
-		IsolatedEngine.Get(),
-		TEXT("HelperScopedGlobalRestore"),
-		TEXT("HelperScopedGlobalRestore.as"),
-		TEXT("int Entry() { return 1; }"));
-
-	if (!TestTrue(TEXT("Scoped global restore test module should compile"), bCompiled))
 	{
-		return false;
+		FAngelscriptEngineScope SharedScope(SharedEngine);
+		const bool bCompiled = AngelscriptTestSupport::CompileModuleFromMemory(
+			IsolatedEngine.Get(),
+			TEXT("HelperScopedGlobalRestore"),
+			TEXT("HelperScopedGlobalRestore.as"),
+			TEXT("int Entry() { return 1; }"));
+
+		if (!TestTrue(TEXT("Scoped current-engine restore test module should compile"), bCompiled))
+		{
+			return false;
+		}
+
+		if (!TestTrue(
+			TEXT("Compiling through helper should restore the previous scoped current engine"),
+			FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == &SharedEngine))
+		{
+			return false;
+		}
 	}
 
 	return TestTrue(
-		TEXT("Compiling through helper should restore the previous scoped global engine"),
-		FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == &SharedEngine);
+		TEXT("Leaving the outer scope should restore the previous current engine when no enclosing scoped test engine exists"),
+		FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == PreviousCurrentEngine);
 }
 
 bool FAngelscriptTestEngineHelperNestedGlobalScopeRestoreTest::RunTest(const FString& Parameters)
 {
+	FAngelscriptEngine* PreviousCurrentEngine = FAngelscriptTestEngineScopeAccess::GetCurrentEngine();
 	TUniquePtr<FAngelscriptEngine> EngineA = AngelscriptTestSupport::CreateIsolatedCloneEngine();
 	TUniquePtr<FAngelscriptEngine> EngineB = AngelscriptTestSupport::CreateIsolatedCloneEngine();
 	if (!TestNotNull(TEXT("Nested scope restore test should create engine A"), EngineA.Get())
@@ -301,33 +325,35 @@ bool FAngelscriptTestEngineHelperNestedGlobalScopeRestoreTest::RunTest(const FSt
 	}
 
 	{
-		AngelscriptTestSupport::FScopedGlobalEngineOverride ScopeA(EngineA.Get());
-		if (!TestTrue(TEXT("Outer scope should install engine A"), FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == EngineA.Get()))
+		FAngelscriptEngineScope ScopeA(*EngineA);
+		if (!TestTrue(TEXT("Outer scope should install engine A as the current engine"), FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == EngineA.Get()))
 		{
 			return false;
 		}
 
 		{
-			AngelscriptTestSupport::FScopedGlobalEngineOverride ScopeB(EngineB.Get());
-			if (!TestTrue(TEXT("Inner scope should temporarily install engine B"), FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == EngineB.Get()))
+			FAngelscriptEngineScope ScopeB(*EngineB);
+			if (!TestTrue(TEXT("Inner scope should temporarily install engine B as the current engine"), FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == EngineB.Get()))
 			{
 				return false;
 			}
 		}
 
-		if (!TestTrue(TEXT("Leaving inner scope should restore engine A"), FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == EngineA.Get()))
+		if (!TestTrue(TEXT("Leaving inner scope should restore engine A as the current engine"), FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == EngineA.Get()))
 		{
 			return false;
 		}
 	}
 
-	return true;
+	return TestTrue(
+		TEXT("Leaving the outer scope should restore the previous current engine when no enclosing scoped test engine exists"),
+		FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == PreviousCurrentEngine);
 }
 
 bool FAngelscriptTestEngineHelperWorldContextScopeRestoreTest::RunTest(const FString& Parameters)
 {
 	UObject* PreviousWorldContext = FAngelscriptEngine::CurrentWorldContext;
-	UObject* DummyContext = NewObject<UAngelscriptNativeScriptTestObject>(GetTransientPackage());
+	UObject* DummyContext = NewObject<UAngelscriptNativeScriptTestObject>();
 	if (!TestNotNull(TEXT("World context scope restore test should create a dummy context object"), DummyContext))
 	{
 		return false;
@@ -342,6 +368,41 @@ bool FAngelscriptTestEngineHelperWorldContextScopeRestoreTest::RunTest(const FSt
 	}
 
 	return TestTrue(TEXT("World context scope should restore the previous context"), FAngelscriptEngine::CurrentWorldContext == PreviousWorldContext);
+}
+
+bool FAngelscriptTestEngineHelperEngineScopeWorldContextRestoreTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine* PreviousCurrentEngine = FAngelscriptTestEngineScopeAccess::GetCurrentEngine();
+	TUniquePtr<FAngelscriptEngine> Engine = AngelscriptTestSupport::CreateIsolatedCloneEngine();
+	UObject* PreviousWorldContext = FAngelscriptEngine::CurrentWorldContext;
+	UObject* DummyContext = NewObject<UAngelscriptNativeScriptTestObject>();
+	if (!TestNotNull(TEXT("Engine-scope world context test should create an isolated engine"), Engine.Get())
+		|| !TestNotNull(TEXT("Engine-scope world context test should create a dummy context object"), DummyContext))
+	{
+		return false;
+	}
+
+	{
+		FAngelscriptEngineScope EngineScope(*Engine, DummyContext);
+		if (!TestTrue(TEXT("Engine scope should install the isolated engine as current"), FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == Engine.Get()))
+		{
+			return false;
+		}
+
+		if (!TestTrue(TEXT("Engine scope should install the dummy world context"), FAngelscriptEngine::TryGetCurrentWorldContextObject() == DummyContext))
+		{
+			return false;
+		}
+	}
+
+	if (!TestTrue(
+		TEXT("Engine scope should restore the previous current engine"),
+		FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == PreviousCurrentEngine))
+	{
+		return false;
+	}
+
+	return TestTrue(TEXT("Engine scope should restore the previous world context"), FAngelscriptEngine::CurrentWorldContext == PreviousWorldContext);
 }
 
 bool FAngelscriptTestEngineHelperCompileSummaryPlainModuleTest::RunTest(const FString& Parameters)

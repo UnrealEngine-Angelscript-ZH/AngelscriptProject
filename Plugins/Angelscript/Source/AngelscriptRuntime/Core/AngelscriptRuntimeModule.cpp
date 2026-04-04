@@ -146,7 +146,14 @@ void FAngelscriptRuntimeModule::InitializeAngelscript()
 	#endif
 
 	FModuleManager::Get().LoadModuleChecked(TEXT("AngelscriptRuntime"));
-	FAngelscriptEngine::GetOrCreate().Initialize();
+	if (FAngelscriptEngine* CurrentEngine = FAngelscriptEngine::TryGetCurrentEngine())
+	{
+		CurrentEngine->Initialize();
+	}
+	else
+	{
+		FAngelscriptEngine::GetOrCreate().Initialize();
+	}
 }
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -166,11 +173,11 @@ bool FAngelscriptRuntimeModule::TickFallbackPrimaryEngine(float DeltaTime)
 {
 	if (!UAngelscriptGameInstanceSubsystem::HasAnyTickOwner())
 	{
-		if (FAngelscriptEngine* GlobalEngine = FAngelscriptEngine::TryGetGlobalEngine())
+		if (FAngelscriptEngine* CurrentEngine = FAngelscriptEngine::TryGetCurrentEngine())
 		{
-			if (GlobalEngine->ShouldTick())
+			if (CurrentEngine->ShouldTick())
 			{
-				GlobalEngine->Tick(DeltaTime);
+				CurrentEngine->Tick(DeltaTime);
 			}
 		}
 	}

@@ -5,6 +5,7 @@
 #include "Kismet/GameplayStatics.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
+#include "UObject/GarbageCollection.h"
 
 // Test Layer: UE Scenario
 #if WITH_DEV_AUTOMATION_TESTS
@@ -39,13 +40,14 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioActorPointDamageTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FScopedTestEngineGlobalScope GlobalScope(&Engine);
+	TUniquePtr<FAngelscriptEngine> EngineOwner = CreateFullTestEngine();
+	FAngelscriptEngine& Engine = *EngineOwner;
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorPointDamage"));
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(*ModuleName.ToString());
-		ResetSharedCloneEngine(Engine);
+		CollectGarbage(RF_NoFlags, true);
 	};
 
 	UClass* ScriptClass = CompileScriptModule(
@@ -81,7 +83,7 @@ class AScenarioActorPointDamage : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	UGameplayStatics::ApplyPointDamage(Actor, 42.0f, FVector::ForwardVector, FHitResult(), nullptr, nullptr, nullptr);
 
 	TestTrue(TEXT("Scenario point damage should route the applied damage into the script override"), FMath::IsNearlyEqual(Actor->GetActorTickInterval(), 42.0f));
@@ -90,12 +92,14 @@ class AScenarioActorPointDamage : AAngelscriptActor
 
 bool FAngelscriptScenarioActorRadialDamageTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	TUniquePtr<FAngelscriptEngine> EngineOwner = CreateFullTestEngine();
+	FAngelscriptEngine& Engine = *EngineOwner;
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorRadialDamage"));
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(*ModuleName.ToString());
-		ResetSharedCloneEngine(Engine);
+		CollectGarbage(RF_NoFlags, true);
 	};
 
 	UClass* ScriptClass = CompileScriptModule(
@@ -140,7 +144,7 @@ class AScenarioActorRadialDamage : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	TArray<AActor*> IgnoredActors;
 	const bool bAppliedDamage = UGameplayStatics::ApplyRadialDamage(&Spawner.GetWorld(), 24.0f, Actor->GetActorLocation(), 128.0f, nullptr, IgnoredActors, nullptr, nullptr, true);
 	if (!TestTrue(TEXT("Scenario radial-damage setup should apply damage through the engine overlap path"), bAppliedDamage))
@@ -154,12 +158,14 @@ class AScenarioActorRadialDamage : AAngelscriptActor
 
 bool FAngelscriptScenarioActorMultiSpawnTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	TUniquePtr<FAngelscriptEngine> EngineOwner = CreateFullTestEngine();
+	FAngelscriptEngine& Engine = *EngineOwner;
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorMultiSpawn"));
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(*ModuleName.ToString());
-		ResetSharedCloneEngine(Engine);
+		CollectGarbage(RF_NoFlags, true);
 	};
 
 	UClass* ScriptClass = CompileScriptModule(
@@ -197,7 +203,7 @@ class AScenarioActorMultiSpawn : AAngelscriptActor
 		{
 			return false;
 		}
-		BeginPlayActor(*Actor);
+		BeginPlayActor(Engine, *Actor);
 		SpawnedActors.Add(Actor);
 	}
 
@@ -219,12 +225,14 @@ class AScenarioActorMultiSpawn : AAngelscriptActor
 
 bool FAngelscriptScenarioActorCrossCallTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	TUniquePtr<FAngelscriptEngine> EngineOwner = CreateFullTestEngine();
+	FAngelscriptEngine& Engine = *EngineOwner;
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorCrossCall"));
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(*ModuleName.ToString());
-		ResetSharedCloneEngine(Engine);
+		CollectGarbage(RF_NoFlags, true);
 	};
 
 	UClass* ActorAClass = CompileScriptModule(
@@ -293,9 +301,9 @@ class AScenarioActorCrossCallA : AAngelscriptActor
 	ActorA->PrimaryActorTick.bCanEverTick = true;
 	ActorA->SetActorTickEnabled(true);
 	ActorA->RegisterAllActorTickFunctions(true, false);
-	BeginPlayActor(*ActorA);
-	BeginPlayActor(*ActorB);
-	TickWorld(Spawner.GetWorld(), InteractionScenarioDeltaTime, 1);
+	BeginPlayActor(Engine, *ActorA);
+	BeginPlayActor(Engine, *ActorB);
+	TickWorld(Engine, Spawner.GetWorld(), InteractionScenarioDeltaTime, 1);
 
 	int32 CallCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, ActorB, TEXT("CallCount"), CallCount))

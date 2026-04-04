@@ -180,7 +180,7 @@ class ALearningBlueprintSubclassBase : AAngelscriptActor
 
 	Trace.AddStep(TEXT("SpawnBlueprintActor"), TEXT("Spawned an instance of the Blueprint class"));
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	Trace.AddStep(TEXT("BeginPlayBlueprintActor"), TEXT("Called BeginPlay on the Blueprint actor instance"));
 
 	float PropertyValue = 0.0f;

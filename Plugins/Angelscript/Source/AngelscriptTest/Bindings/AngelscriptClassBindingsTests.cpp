@@ -356,7 +356,7 @@ class ABindingStaticClassActor : AActor
 	}
 
 	int32 AnnotatedResult = 0;
-	if (!TestTrue(TEXT("StaticClass compat reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(RuntimeActor, ReadStaticClassCompatFunction, AnnotatedResult)))
+	if (!TestTrue(TEXT("StaticClass compat reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(&Engine, RuntimeActor, ReadStaticClassCompatFunction, AnnotatedResult)))
 	{
 		return false;
 	}

@@ -49,14 +49,14 @@ namespace
 		return Function;
 	}
 
-	bool TryInvokeGeneratedFunction(UObject* Object, UFunction* Function, void* Params = nullptr)
+	bool TryInvokeGeneratedFunction(FAngelscriptEngine& Engine, UObject* Object, UFunction* Function, void* Params = nullptr)
 	{
 		if (!::IsValid(Object) || Function == nullptr)
 		{
 			return false;
 		}
 
-		FScopedTestWorldContextScope WorldContextScope(Object);
+		FAngelscriptEngineScope FunctionScope(Engine, Object);
 		Object->ProcessEvent(Function, Params);
 		return true;
 	}
@@ -164,7 +164,7 @@ class AScenarioScriptActorBeginPlayRunsInWorld : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 BeginPlayObserved = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("BeginPlayObserved"), BeginPlayObserved))
@@ -223,7 +223,7 @@ class AScenarioScriptActorNativeUFunctionCanBeInvoked : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	UFunction* Function = RequireGeneratedFunction(*this, Actor->GetClass(), TEXT("ReceiveNativeValue"), TEXT("Scenario native-UFUNCTION invocation"));
 	if (Function == nullptr)
@@ -233,7 +233,7 @@ class AScenarioScriptActorNativeUFunctionCanBeInvoked : AAngelscriptActor
 
 	FSingleIntParam Params;
 	Params.Value = 77;
-	if (!TestTrue(TEXT("Scenario native-UFUNCTION invocation should succeed through ProcessEvent"), TryInvokeGeneratedFunction(Actor, Function, &Params)))
+	if (!TestTrue(TEXT("Scenario native-UFUNCTION invocation should succeed through ProcessEvent"), TryInvokeGeneratedFunction(Engine, Actor, Function, &Params)))
 	{
 		return false;
 	}
@@ -304,7 +304,7 @@ class AScenarioScriptActorBeginPlayCallsAnotherScriptUFunction : AAngelscriptAct
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 ScriptDispatchObserved = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("ScriptDispatchObserved"), ScriptDispatchObserved))
@@ -374,7 +374,7 @@ class AScenarioScriptActorTickRunsNTimes : AAngelscriptActor
 	}
 
 	EnableScriptActorTick(*Actor);
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 InitialLogicalTickCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("LogicalTickCount"), InitialLogicalTickCount))
@@ -382,7 +382,7 @@ class AScenarioScriptActorTickRunsNTimes : AAngelscriptActor
 		return false;
 	}
 
-	TickWorld(Spawner.GetWorld(), ScriptActorScenarioDeltaTime, ScriptActorScenarioTickCount);
+	TickWorld(Engine, Spawner.GetWorld(), ScriptActorScenarioDeltaTime, ScriptActorScenarioTickCount);
 
 	int32 FinalLogicalTickCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("LogicalTickCount"), FinalLogicalTickCount))
@@ -462,7 +462,7 @@ class AScenarioScriptActorCrossInstanceCallDoesNotLeakState : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*SourceActor);
+	BeginPlayActor(Engine, *SourceActor);
 
 	int32 SourceLocalState = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, SourceActor, TEXT("LocalState"), SourceLocalState))
@@ -569,12 +569,12 @@ class AScenarioScriptActorDestroyedInvocationSource : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(*SourceActor);
-	BeginPlayActor(*TargetActor);
+	BeginPlayActor(Engine, *SourceActor);
+	BeginPlayActor(Engine, *TargetActor);
 
 	TWeakObjectPtr<AActor> WeakTargetActor = TargetActor;
 	TargetActor->Destroy();
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 
 	if (!TestFalse(TEXT("Scenario destroyed actor should no longer be valid after teardown tick"), WeakTargetActor.IsValid()))
 	{
@@ -642,8 +642,8 @@ class AScenarioScriptActorMissingFunctionReportsExplicitFailure : AAngelscriptAc
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	BeginPlayActor(Engine, *Actor);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 
 	int32 StableValue = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("StableValue"), StableValue))

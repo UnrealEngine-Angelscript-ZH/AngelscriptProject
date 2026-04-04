@@ -43,7 +43,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Subsystems((int32)FAngelscript
 #if WITH_EDITOR
 		if (Class->IsChildOf(UEditorSubsystem::StaticClass()))
 		{
-			if (FAngelscriptEngine::bUseEditorScripts)
+			if (FAngelscriptEngine::ShouldUseEditorScriptsForCurrentContext())
 			{
 				FAngelscriptBinds::BindGlobalFunction(ClassName + TEXT(" Get()"),
 					[]() -> UEditorSubsystem*
@@ -70,7 +70,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Subsystems((int32)FAngelscript
 			[]() -> UGameInstanceSubsystem*
 			{
 				UClass* SubsystemClass = FAngelscriptEngine::GetCurrentFunctionUserData<UClass>();
-				UWorld* World = GEngine->GetWorldFromContextObject(FAngelscriptEngine::CurrentWorldContext, EGetWorldErrorMode::ReturnNull);
+				UWorld* World = GEngine->GetWorldFromContextObject(FAngelscriptEngine::TryGetCurrentWorldContextObject(), EGetWorldErrorMode::ReturnNull);
 				if (World == nullptr)
 					return nullptr;
 				const UGameInstance* GameInstance = World->GetGameInstance();
@@ -86,7 +86,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Subsystems((int32)FAngelscript
 			[]() -> UWorldSubsystem*
 			{
 				UClass* SubsystemClass = FAngelscriptEngine::GetCurrentFunctionUserData<UClass>();
-				UWorld* World = GEngine->GetWorldFromContextObject(FAngelscriptEngine::CurrentWorldContext, EGetWorldErrorMode::ReturnNull);
+				UWorld* World = GEngine->GetWorldFromContextObject(FAngelscriptEngine::TryGetCurrentWorldContextObject(), EGetWorldErrorMode::ReturnNull);
 				if (World == nullptr)
 					return nullptr;
 

@@ -37,8 +37,8 @@ FOnAngelscriptPreprocessHook FAngelscriptPreprocessor::OnPostProcessCode;
 
 FAngelscriptPreprocessor::FAngelscriptPreprocessor()
 {
-	PreprocessorFlags.Add(TEXT("EDITOR"), FAngelscriptEngine::bUseEditorScripts);
-	PreprocessorFlags.Add(TEXT("EDITORONLY_DATA"), WITH_EDITORONLY_DATA && ((!IsRunningGame() && !IsRunningDedicatedServer()) || FAngelscriptEngine::bUseEditorScripts));
+	PreprocessorFlags.Add(TEXT("EDITOR"), FAngelscriptEngine::ShouldUseEditorScriptsForCurrentContext());
+	PreprocessorFlags.Add(TEXT("EDITORONLY_DATA"), WITH_EDITORONLY_DATA && ((!IsRunningGame() && !IsRunningDedicatedServer()) || FAngelscriptEngine::ShouldUseEditorScriptsForCurrentContext()));
 	PreprocessorFlags.Add(TEXT("COOK_COMMANDLET"), IsRunningCookCommandlet());
 	PreprocessorFlags.Add(TEXT("RELEASE"), UE_BUILD_SHIPPING || UE_BUILD_TEST);
 	PreprocessorFlags.Add(TEXT("TEST"), !UE_BUILD_SHIPPING);
@@ -229,7 +229,7 @@ bool FAngelscriptPreprocessor::Preprocess()
 	for (FFile& File : Files)
 		ParseIntoChunks(File);
 
-	if (!FAngelscriptEngine::bUseAutomaticImportMethod)
+	if (!FAngelscriptEngine::ShouldUseAutomaticImportMethodForCurrentContext())
 	{
 		// Put the files in the correct order to satisfy explicit imports
 		TArray<FFile> SortedFiles;
@@ -482,7 +482,7 @@ void FAngelscriptPreprocessor::ProcessImports(FFile& File, TArray<FFile>& OutSor
 		File.Module->ImportedModules.Add(ImportDesc.ModuleName);
 		ReplaceWithBlank(File.ChunkedCode[ImportDesc.ChunkIndex], ImportDesc.StartPosInChunk, ImportDesc.EndPosInChunk+1);
 
-		if (FAngelscriptEngine::bUseAutomaticImportMethod)
+		if (FAngelscriptEngine::ShouldUseAutomaticImportMethodForCurrentContext())
 		{
 			if (GetDefault<UAngelscriptSettings>()->bWarnOnManualImportStatements)
 			{

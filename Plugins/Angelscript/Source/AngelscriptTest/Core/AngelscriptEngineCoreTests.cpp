@@ -38,6 +38,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	"Angelscript.TestModule.Engine.FullDestroyAllowsCleanRecreate",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptFullDestroyAllowsAnnotatedRecreateTest,
+	"Angelscript.TestModule.Engine.FullDestroyAllowsAnnotatedRecreate",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
 bool FAngelscriptTestModuleLifecycleTest::RunTest(const FString& Parameters)
 {
 	AngelscriptTestSupport::DestroySharedTestEngine();
@@ -219,6 +224,90 @@ bool FAngelscriptFullDestroyAllowsCleanRecreateTest::RunTest(const FString& Para
 
 	TestEqual(TEXT("Full destroy recreate core test should preserve the expected return value after recreation"), Result, 17);
 	return true;
+}
+
+bool FAngelscriptFullDestroyAllowsAnnotatedRecreateTest::RunTest(const FString& Parameters)
+{
+	AngelscriptTestSupport::DestroySharedTestEngine();
+	if (FAngelscriptEngine::IsInitialized())
+	{
+		AngelscriptTestSupport::FAngelscriptTestEngineScopeAccess::DestroyGlobalEngine();
+	}
+	ON_SCOPE_EXIT
+	{
+		if (FAngelscriptEngine::IsInitialized())
+		{
+			AngelscriptTestSupport::FAngelscriptTestEngineScopeAccess::DestroyGlobalEngine();
+		}
+		AngelscriptTestSupport::DestroySharedTestEngine();
+	};
+
+	auto CompileAnnotatedActor = [this](FAngelscriptEngine* Engine, FName ModuleName, const TCHAR* Filename, const TCHAR* ScriptSource, const TCHAR* ExpectedClassName)
+	{
+		if (!TestTrue(
+			FString::Printf(TEXT("%s should compile after full-engine setup"), *ModuleName.ToString()),
+			AngelscriptTestSupport::CompileAnnotatedModuleFromMemory(Engine, ModuleName, Filename, ScriptSource)))
+		{
+			return false;
+		}
+
+		UClass* GeneratedClass = AngelscriptTestSupport::FindGeneratedClass(Engine, ExpectedClassName);
+		return TestNotNull(
+			*FString::Printf(TEXT("%s should resolve the generated class after compile"), ExpectedClassName),
+			GeneratedClass);
+	};
+
+	TUniquePtr<FAngelscriptEngine> FirstEngine = AngelscriptTestSupport::CreateFullTestEngine();
+	if (!TestNotNull(TEXT("Annotated recreate test should create the first full engine"), FirstEngine.Get()))
+	{
+		return false;
+	}
+
+	if (!CompileAnnotatedActor(
+		FirstEngine.Get(),
+		TEXT("RecreateAnnotatedActorA"),
+		TEXT("RecreateAnnotatedActorA.as"),
+		TEXT(R"(
+UCLASS()
+class ARecreateAnnotatedActorA : AAngelscriptActor
+{
+	UPROPERTY()
+	int Value = 11;
+}
+)"),
+		TEXT("ARecreateAnnotatedActorA")))
+	{
+		return false;
+	}
+
+	FirstEngine->DiscardModule(TEXT("RecreateAnnotatedActorA"));
+	CollectGarbage(RF_NoFlags, true);
+	FirstEngine.Reset();
+
+	if (!TestEqual(TEXT("Annotated recreate test should clear type metadata after the first full engine exits"), FAngelscriptType::GetTypes().Num(), 0))
+	{
+		return false;
+	}
+
+	TUniquePtr<FAngelscriptEngine> SecondEngine = AngelscriptTestSupport::CreateFullTestEngine();
+	if (!TestNotNull(TEXT("Annotated recreate test should create the second full engine"), SecondEngine.Get()))
+	{
+		return false;
+	}
+
+	return CompileAnnotatedActor(
+		SecondEngine.Get(),
+		TEXT("RecreateAnnotatedActorB"),
+		TEXT("RecreateAnnotatedActorB.as"),
+		TEXT(R"(
+UCLASS()
+class ARecreateAnnotatedActorB : AAngelscriptActor
+{
+	UPROPERTY()
+	int Value = 22;
+}
+)"),
+		TEXT("ARecreateAnnotatedActorB"));
 }
 
 #endif

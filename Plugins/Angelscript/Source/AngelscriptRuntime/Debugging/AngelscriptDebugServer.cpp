@@ -1434,7 +1434,7 @@ void FAngelscriptDebugServer::SendDebugDatabase(FSocket* Client)
 	auto* ScriptEngine = FAngelscriptEngine::Get().Engine;
 
 	FAngelscriptDebugDatabaseSettings DebugSettings;
-	DebugSettings.bAutomaticImports = FAngelscriptEngine::bUseAutomaticImportMethod;
+	DebugSettings.bAutomaticImports = FAngelscriptEngine::Get().ShouldUseAutomaticImportMethod();
 	DebugSettings.bFloatIsFloat64 = GetDefault<UAngelscriptSettings>()->bScriptFloatIsFloat64;
 	DebugSettings.bUseAngelscriptHaze = !!WITH_ANGELSCRIPT_HAZE;
 	DebugSettings.bDeprecateStaticClass = GetDefault<UAngelscriptSettings>()->StaticClassDeprecation == EAngelscriptStaticClassMode::Deprecated;

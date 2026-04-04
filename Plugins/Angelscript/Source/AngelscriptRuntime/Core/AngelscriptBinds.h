@@ -458,6 +458,16 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 	static TArray<FName> GetAllRegisteredBindNames();
 	static TArray<FBindInfo> GetBindInfoList(const TSet<FName>& DisabledBindNames = TSet<FName>());
 	static void ResetBindState();
+	static void ResetBindStateForKey(const void* StateKey);
+	static TMap<FString, TArray<TObjectPtr<UClass>>>& GetRuntimeClassDB();
+#if WITH_EDITOR
+	static TMap<FString, TArray<TObjectPtr<UClass>>>& GetEditorClassDB();
+#endif
+	static TMap<UClass*, TMap<FString, FFuncEntry>>& GetClassFuncMaps();
+	static TArray<FString>& GetBindModuleNames();
+	static TMap<UClass*, TSet<FString>>& GetSkipBinds();
+	static TSet<TTuple<FName, FName>>& GetSkipBindNames();
+	static TSet<FName>& GetSkipBindClasses();
 
 	struct ANGELSCRIPTRUNTIME_API FNamespace
 	{
@@ -469,22 +479,9 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 
 	//WILL-EDIT ================================================================
 
-	static TMap<FString, TArray<TObjectPtr<UClass>>> RuntimeClassDB;
-#if WITH_EDITOR
-	static TMap<FString, TArray<TObjectPtr<UClass>>> EditorClassDB;
-#endif
-
-	static TMap<UClass*, TMap<FString, FFuncEntry>> ClassFuncMaps;
-	//It's really tempting to make this just a TSet with "ClassName FuncName"
-	//Only need to make sure it gets setup before Generate Binds can be called haha
-	static TArray<FString> BindModuleNames;
-	static TMap<UClass*, TSet<FString>> SkipBinds; 
-	static TSet<TTuple<FName, FName>> SkipBindNames; //Soft references to resolve later
-	static TSet<FName> SkipBindClasses;
-	//static TSet<TTuple<FString, FString>> SkipBindNames; //Soft references to resolve later
-
 	static void AddFunctionEntry(UClass* Class, FString Name, FFuncEntry Entry)
 	{
+		auto& ClassFuncMaps = GetClassFuncMaps();
 		if (ClassFuncMaps.Contains(Class))
 		{
 			if (!ClassFuncMaps[Class].Contains(Name))
@@ -501,6 +498,7 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 
 	static void SkipFunctionEntry(UClass* Class, FString Name)
 	{
+		auto& SkipBinds = GetSkipBinds();
 		if (SkipBinds.Contains(Class))
 		{
 			if (!SkipBinds[Class].Contains(Name))
@@ -517,6 +515,7 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 
 	static void AddSkipClass(FName ClassName)
 	{
+		auto& SkipBindClasses = GetSkipBindClasses();
 		if (!SkipBindClasses.Contains(ClassName))
 			SkipBindClasses.Add(ClassName);
 	}
@@ -524,6 +523,7 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 	//static void AddSkipEntry(FString ClassName, FString FunctionName)
 	static void AddSkipEntry(FName ClassName, FName FunctionName)
 	{
+		auto& SkipBindNames = GetSkipBindNames();
 		//TTuple<FString, FString> tuple = TTuple<FString, FString>(ClassName, FunctionName);
 		TTuple<FName, FName> tuple = TTuple<FName, FName>(ClassName, FunctionName);
 		if (!SkipBindNames.Contains(tuple))
@@ -534,6 +534,7 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 
 	static bool CheckForSkipClass(FName ClassName)
 	{
+		auto& SkipBindClasses = GetSkipBindClasses();
 		if (SkipBindClasses.Contains(ClassName))
 			return true;
 		return false;
@@ -542,6 +543,7 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 	//static bool CheckForSkipEntry(FString ClassName, FString FunctionName)
 	static bool CheckForSkipEntry(FName ClassName, FName FunctionName)
 	{
+		auto& SkipBindNames = GetSkipBindNames();
 		//TTuple<FString, FString> tuple = TTuple<FString, FString>(ClassName, FunctionName);
 		TTuple<FName, FName> tuple = TTuple<FName, FName>(ClassName, FunctionName);
 		
@@ -553,6 +555,7 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 
 	static bool CheckForSkip(UClass* Class, UFunction* Function)
 	{		
+		auto& SkipBinds = GetSkipBinds();
 		if (SkipBinds.Contains(Class))
 		{
 			if (SkipBinds[Class].Contains(Function->GetName()))
@@ -565,6 +568,7 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 	//TO-DO make sure the binds are written to base directory not inside another module
 	static void SaveBindModules(FString Path)
 	{
+		auto& BindModuleNames = GetBindModuleNames();
 		//TArray<uint8> Data;
 		//FMemoryWriter Writer(Data);
 		//Writer << BindModuleNames;
@@ -574,6 +578,7 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 
 	static void LoadBindModules(FString Path)
 	{
+		auto& BindModuleNames = GetBindModuleNames();
 		//TArray<uint8> Data;
 		//FFileHelper::LoadFileToArray(Data, *Path);
 		//FMemoryReader Reader(Data);
@@ -605,8 +610,8 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 	bool HasSetter(const FString& PropertyName);
 
 	static asIScriptFunction* GetPreviousBind();
-	static int32 GetPreviousFunctionId() { return PreviouslyBoundFunction; }
-	static int32 GetPreviousGlobalVariableId() { return PreviouslyBoundGlobalProperty; }
+	static int32 GetPreviousFunctionId() { return GetPreviouslyBoundFunctionRef(); }
+	static int32 GetPreviousGlobalVariableId() { return GetPreviouslyBoundGlobalPropertyRef(); }
 	static void DeprecatePreviousBind(const ANSICHAR* DeprecationMessage);
 	static void SetPreviousBindIsGeneratedAccessor(bool bIsAccessor);
 	static void SetPreviousBindIsEditorOnly(bool bEditorOnly);
@@ -628,6 +633,8 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 	}
 
 private:
+	static int32& GetPreviouslyBoundFunctionRef();
+	static int32& GetPreviouslyBoundGlobalPropertyRef();
 	static FAngelscriptBinds ValueClass(FBindString Name, FBindFlags Flags, int32 Size);
 
 	explicit FAngelscriptBinds(FBindString Name, asQWORD Flags, int32 Size);
@@ -648,8 +655,6 @@ private:
 	void MarkAsImplicitConstructor();
 
 	static void OnBind(int FunctionId, void* UserData, const FAngelscriptType::FBindParams* BindParams);
-	static int PreviouslyBoundFunction;
-	static int PreviouslyBoundGlobalProperty;
 
 	static void SetPreviousBoundPropertyPureConstant(asQWORD ConstantValue);
 

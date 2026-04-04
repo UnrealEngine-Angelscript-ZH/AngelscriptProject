@@ -14,11 +14,6 @@ using namespace AngelscriptScenarioTestUtils;
 
 namespace
 {
-	FAngelscriptEngine& AcquireFreshInterfaceEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -70,7 +65,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioInterfaceInheritedInterfaceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceInherited"));
 	ON_SCOPE_EXIT
 	{
@@ -151,7 +146,7 @@ class AScenarioInterfaceInherited : AAngelscriptActor, UIKillableChild
 
 bool FAngelscriptScenarioInterfaceMissingMethodTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceMissingMethod"));
 	ON_SCOPE_EXIT
 	{
@@ -207,7 +202,7 @@ class AScenarioInterfaceMissingMethod : AAngelscriptActor, UIDamageableMissing
 
 bool FAngelscriptScenarioInterfaceNoPropertyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceNoProperty"));
 	ON_SCOPE_EXIT
 	{
@@ -246,7 +241,7 @@ interface UINoProperty
 
 bool FAngelscriptScenarioInterfaceGCSafeTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceGCSafe"));
 	ON_SCOPE_EXIT
 	{
@@ -286,7 +281,7 @@ class AScenarioInterfaceGCSafe : AAngelscriptActor, UIDamageableGC
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	UClass* InterfaceClass = FindGeneratedClass(&Engine, TEXT("UIDamageableGC"));
 	if (InterfaceClass != nullptr)
@@ -296,7 +291,7 @@ class AScenarioInterfaceGCSafe : AAngelscriptActor, UIDamageableGC
 
 	TWeakObjectPtr<AActor> WeakActor = Actor;
 	Actor->Destroy();
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 	CollectGarbage(RF_NoFlags, true);
 
 	TestTrue(TEXT("Interface actor should be collected after destroy + GC"), !WeakActor.IsValid());
@@ -306,7 +301,7 @@ class AScenarioInterfaceGCSafe : AAngelscriptActor, UIDamageableGC
 #if 1
 bool FAngelscriptScenarioInterfaceHotReloadTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceHotReload"));
 	ON_SCOPE_EXIT
 	{
@@ -405,7 +400,7 @@ class AScenarioInterfaceHotReload : AAngelscriptActor, UIDamageableHR
 
 bool FAngelscriptScenarioInterfaceCppInterfaceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceCppInterface"));
 	ON_SCOPE_EXIT
 	{
@@ -464,7 +459,7 @@ class AScenarioInterfaceCppBase : AAngelscriptActor, UICppTestInterface
 
 bool FAngelscriptScenarioInterfaceInheritedMethodDispatchTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceInheritedDispatch"));
 	ON_SCOPE_EXIT
 	{
@@ -551,7 +546,7 @@ class AScenarioInterfaceInheritedDispatch : AAngelscriptActor, UIKillableDispatc
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 ParentCastWorked = 0;
 	int32 ChildCastWorked = 0;
@@ -574,7 +569,7 @@ class AScenarioInterfaceInheritedDispatch : AAngelscriptActor, UIKillableDispatc
 
 bool FAngelscriptScenarioInterfaceMultipleInheritanceChainTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceMultiChain"));
 	ON_SCOPE_EXIT
 	{
@@ -659,7 +654,7 @@ class AScenarioInterfaceMultiChain : AAngelscriptActor, UILeafChain
 
 bool FAngelscriptScenarioInterfaceMultipleInheritanceDispatchTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioInterfaceMultiDispatch"));
 	ON_SCOPE_EXIT
 	{
@@ -758,7 +753,7 @@ class AScenarioInterfaceMultiDispatch : AAngelscriptActor, UILeafDispatchChain
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 BaseResult = 0;
 	int32 MidResult = 0;

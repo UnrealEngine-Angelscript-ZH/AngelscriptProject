@@ -13,11 +13,6 @@ using namespace AngelscriptTestSupport;
 
 namespace
 {
-	FAngelscriptEngine& AcquireFreshHotReloadEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -85,7 +80,7 @@ struct FAngelscriptHotReloadTestAccess
 
 bool FAngelscriptModuleRecordTrackingTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	const FString ScriptA = TEXT(R"AS(
 UCLASS()
 class UTrackedObjectA : UObject
@@ -153,7 +148,7 @@ class UTrackedObjectB : UObject
 
 bool FAngelscriptDiscardModuleTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	const FString ScriptA = TEXT(R"AS(
 UCLASS()
 class UDiscardableObject : UObject
@@ -213,7 +208,7 @@ int SurvivorEntry()
 
 bool FAngelscriptDiscardAndRecompileTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
 class UDiscardRecompileTarget : UObject
@@ -296,7 +291,7 @@ class UDiscardRecompileTargetV2 : UObject
 
 bool FAngelscriptModuleWatcherQueuesFileChangesTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 
 	const FAngelscriptEngine::FFilenamePair FilenamePair{
 		TEXT("J:/UnrealEngine/Temp/UE-Angelscript/Saved/Automation/WatcherTest.as"),
@@ -392,7 +387,7 @@ class UHotReloadModifyLookupFlow : UObject
 	}
 
 	int32 Result = 0;
-	if (!TestTrue(TEXT("Modify/lookup flow should execute the reloaded generated function"), ExecuteGeneratedIntEventOnGameThread(TestObject, GetValueFunction, Result)))
+	if (!TestTrue(TEXT("Modify/lookup flow should execute the reloaded generated function"), ExecuteGeneratedIntEventOnGameThread(&Engine, TestObject, GetValueFunction, Result)))
 	{
 		return false;
 	}
@@ -466,7 +461,7 @@ class UHotReloadFailureKeepsOldCode : UObject
 	}
 
 	int32 ResultBeforeFailure = 0;
-	if (!TestTrue(TEXT("Failure fallback test should execute the initial generated function"), ExecuteGeneratedIntEventOnGameThread(TestObject, GetValueBeforeFailure, ResultBeforeFailure)))
+	if (!TestTrue(TEXT("Failure fallback test should execute the initial generated function"), ExecuteGeneratedIntEventOnGameThread(&Engine, TestObject, GetValueBeforeFailure, ResultBeforeFailure)))
 	{
 		return false;
 	}
@@ -479,7 +474,7 @@ class UHotReloadFailureKeepsOldCode : UObject
 	TestTrue(TEXT("Failure fallback test should collect diagnostics for the broken file"), FAngelscriptHotReloadTestAccess::GetDiagnosticsCount(Engine, AbsoluteFilename) > 0);
 
 	int32 ResultAfterFailure = 0;
-	if (!TestTrue(TEXT("Failure fallback test should still execute the old generated function after reload failure"), ExecuteGeneratedIntEventOnGameThread(TestObject, GetValueBeforeFailure, ResultAfterFailure)))
+	if (!TestTrue(TEXT("Failure fallback test should still execute the old generated function after reload failure"), ExecuteGeneratedIntEventOnGameThread(&Engine, TestObject, GetValueBeforeFailure, ResultAfterFailure)))
 	{
 		return false;
 	}

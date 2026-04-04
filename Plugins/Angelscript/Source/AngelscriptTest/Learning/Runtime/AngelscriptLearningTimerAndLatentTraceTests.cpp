@@ -97,7 +97,7 @@ class ALearningTimerActor : AAngelscriptActor
 
 	Trace.AddStep(TEXT("SpawnTimerActor"), TEXT("Spawned an instance of the timer script actor"));
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	Trace.AddStep(TEXT("BeginPlayTimerActor"), TEXT("Called BeginPlay, which sets up the repeating timer via System::SetTimer"));
 
 	int32 InitialCallCount = 0;
@@ -109,7 +109,7 @@ class ALearningTimerActor : AAngelscriptActor
 	Trace.AddStep(TEXT("CheckInitialCallCount"), TEXT("Checked initial timer call count before any ticks"));
 	Trace.AddKeyValue(TEXT("InitialCallCount"), FString::FromInt(InitialCallCount));
 
-	TickWorld(Spawner.GetWorld(), LearningTimerDeltaTime, 20);
+	TickWorld(Engine, Spawner.GetWorld(), LearningTimerDeltaTime, 20);
 	Trace.AddStep(TEXT("TickWorld"), TEXT("Ticked the world to allow timer to fire"));
 
 	int32 AfterTickCount = 0;

@@ -15,11 +15,6 @@ using namespace AngelscriptScenarioTestUtils;
 
 namespace
 {
-	FAngelscriptEngine& AcquireFreshInterfaceEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
 }
 
 namespace
@@ -130,7 +125,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioInterfaceNativeImplementTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceNativeImplement"));
 	EnsureNativeInterfaceFixturesBound();
 	ON_SCOPE_EXIT
@@ -197,7 +193,7 @@ class AScenarioInterfaceNativeImplement : AAngelscriptActor, UAngelscriptNativeP
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	TestTrue(TEXT("Script actor should implement native parent interface"), ScriptClass->ImplementsInterface(UAngelscriptNativeParentInterface::StaticClass()));
 
@@ -237,7 +233,8 @@ class AScenarioInterfaceNativeImplement : AAngelscriptActor, UAngelscriptNativeP
 
 bool FAngelscriptScenarioInterfaceNativeInheritedImplementTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshInterfaceEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceNativeInheritedImplement"));
 	EnsureNativeInterfaceFixturesBound();
 	ON_SCOPE_EXIT
@@ -323,7 +320,7 @@ class AScenarioInterfaceNativeInheritedImplement : AAngelscriptActor, UAngelscri
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	TestTrue(TEXT("Script actor should implement native child interface"), ScriptClass->ImplementsInterface(UAngelscriptNativeChildInterface::StaticClass()));
 	TestTrue(TEXT("Script actor implementing child interface should also satisfy native parent interface"), ScriptClass->ImplementsInterface(UAngelscriptNativeParentInterface::StaticClass()));

@@ -64,7 +64,7 @@ class AScenarioActorUProperty : AAngelscriptActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 Health = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("Health"), Health))
@@ -125,7 +125,7 @@ class AScenarioActorUFunction : AAngelscriptActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	UFunction* GetHealthFunction = FindGeneratedFunction(ScriptClass, TEXT("GetHealth"));
 	if (!TestNotNull(TEXT("Scenario actor reflected UFUNCTION should exist"), GetHealthFunction))
@@ -134,7 +134,7 @@ class AScenarioActorUFunction : AAngelscriptActor
 	}
 
 	int32 Result = 0;
-	if (!TestTrue(TEXT("Scenario actor reflected UFUNCTION should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(Actor, GetHealthFunction, Result)))
+	if (!TestTrue(TEXT("Scenario actor reflected UFUNCTION should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(&Engine, Actor, GetHealthFunction, Result)))
 	{
 		return false;
 	}
@@ -178,7 +178,7 @@ class AScenarioActorDefaultValues : AAngelscriptActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	TestTrue(TEXT("Scenario actor default values should enable ticking on the generated actor"), Actor->CanEverTick());
 	TestTrue(TEXT("Scenario actor default values should apply the configured tick interval"), FMath::IsNearlyEqual(Actor->PrimaryActorTick.TickInterval, 0.5f));

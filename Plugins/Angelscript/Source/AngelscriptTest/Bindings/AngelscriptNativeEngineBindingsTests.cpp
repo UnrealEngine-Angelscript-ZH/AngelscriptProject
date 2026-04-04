@@ -76,7 +76,7 @@ class ABindingExampleActor : AActor
 	}
 
 	int32 Result = 0;
-	if (!TestTrue(TEXT("Native actor binding reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(RuntimeActor, ReadNativeBindingsFunction, Result)))
+	if (!TestTrue(TEXT("Native actor binding reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(&Engine, RuntimeActor, ReadNativeBindingsFunction, Result)))
 	{
 		return false;
 	}
@@ -192,7 +192,7 @@ class UBindingSceneComponent : USceneComponent
 	OuterActor->AddOwnedComponent(RuntimeComponent);
 
 	int32 Result = 0;
-	if (!TestTrue(TEXT("Native component binding reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(RuntimeComponent, ReadComponentBindingsFunction, Result)))
+	if (!TestTrue(TEXT("Native component binding reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(&Engine, RuntimeComponent, ReadComponentBindingsFunction, Result)))
 	{
 		return false;
 	}
@@ -251,7 +251,7 @@ class UDestroyBindingComponent : UActorComponent
 	OuterActor->AddOwnedComponent(RuntimeComponent);
 
 	int32 Result = 0;
-	if (!TestTrue(TEXT("Destroy component reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(RuntimeComponent, DestroySelfFunction, Result)))
+	if (!TestTrue(TEXT("Destroy component reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(&Engine, RuntimeComponent, DestroySelfFunction, Result)))
 	{
 		return false;
 	}

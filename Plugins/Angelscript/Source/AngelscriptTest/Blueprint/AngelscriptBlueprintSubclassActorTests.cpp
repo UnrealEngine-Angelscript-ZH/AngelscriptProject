@@ -66,14 +66,14 @@ namespace BlueprintSubclassActorTest
 		return Blueprint;
 	}
 
-	void BeginPlayWorld(UWorld& World)
+	void BeginPlayWorld(FAngelscriptEngine& Engine, UWorld& World)
 	{
 		if (!World.HasBegunPlay())
 		{
 			AWorldSettings* WorldSettings = World.GetWorldSettings();
 			if (WorldSettings != nullptr)
 			{
-				FScopedTestWorldContextScope WorldContextScope(WorldSettings);
+				FAngelscriptEngineScope WorldScope(Engine, WorldSettings);
 				WorldSettings->NotifyBeginPlay();
 			}
 		}
@@ -169,7 +169,7 @@ class AScenarioActorBlueprintSubclassBeginPlay : AAngelscriptActor
 		return false;
 	}
 
-	BlueprintSubclassActorTest::BeginPlayWorld(Spawner.GetWorld());
+	BlueprintSubclassActorTest::BeginPlayWorld(Engine, Spawner.GetWorld());
 
 	int32 BeginPlayCalled = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("BeginPlayCalled"), BeginPlayCalled))
@@ -182,7 +182,7 @@ class AScenarioActorBlueprintSubclassBeginPlay : AAngelscriptActor
 		BeginPlayCalled,
 		1);
 
-	TickWorld(Spawner.GetWorld(), BlueprintSubclassActorTest::ScenarioTickDeltaTime, BlueprintSubclassActorTest::ScenarioTickCount);
+	TickWorld(Engine, Spawner.GetWorld(), BlueprintSubclassActorTest::ScenarioTickDeltaTime, BlueprintSubclassActorTest::ScenarioTickCount);
 
 	int32 TickCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("TickCount"), TickCount))

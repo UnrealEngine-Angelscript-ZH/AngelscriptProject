@@ -98,7 +98,7 @@ namespace AngelscriptTestSupport
 			TArray<TSharedRef<FAngelscriptModuleDesc>> CompiledModules;
 			TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
 			FScopedAutomaticImportsOverride AutomaticImportsOverride(Engine->GetScriptEngine());
-			FScopedTestEngineGlobalScope GlobalScope(Engine);
+			FAngelscriptEngineScope EngineScope(*Engine);
 			if (bSuppressCompileErrorLogs)
 			{
 				UE_SET_LOG_VERBOSITY(Angelscript, Fatal);
@@ -153,7 +153,7 @@ namespace AngelscriptTestSupport
 			TArray<TSharedRef<FAngelscriptModuleDesc>> CompiledModules;
 			TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
 			FScopedAutomaticImportsOverride AutomaticImportsOverride(Engine->GetScriptEngine());
-			FScopedGlobalEngineOverride GlobalScope(Engine);
+			FAngelscriptEngineScope EngineScope(*Engine);
 			const ECompileResult CompileResult = Engine->CompileModules(CompileType, ModulesToCompile, CompiledModules);
 			if (OutCompileResult != nullptr)
 			{
@@ -173,7 +173,7 @@ namespace AngelscriptTestSupport
 				return false;
 			}
 
-			FScopedGlobalEngineOverride GlobalScope(Engine);
+			FAngelscriptEngineScope EngineScope(*Engine);
 			FString AbsoluteFilename;
 
 			if (FPaths::IsRelative(Filename))
@@ -385,7 +385,7 @@ namespace AngelscriptTestSupport
 			return false;
 		}
 
-		FScopedTestEngineGlobalScope GlobalScope(Engine);
+		FAngelscriptEngineScope EngineScope(*Engine);
 
 		asIScriptContext* Context = Engine->CreateContext();
 		if (Context == nullptr)
@@ -414,24 +414,38 @@ namespace AngelscriptTestSupport
 		return true;
 	}
 
-	bool ExecuteGeneratedIntEventOnGameThread(UObject* Object, UFunction* Function, int32& OutResult)
+	bool ExecuteGeneratedIntEventOnGameThread(FAngelscriptEngine* Engine, UObject* Object, UFunction* Function, int32& OutResult)
 	{
 		if (Object == nullptr || Function == nullptr)
 		{
 			return false;
 		}
 
-		auto Invoke = [Object, Function, &OutResult]()
+		auto Invoke = [Engine, Object, Function, &OutResult]()
 		{
-			FScopedTestWorldContextScope WorldContextScope(Object);
-
-			if (UASFunction* ScriptFunction = Cast<UASFunction>(Function))
+			if (Engine != nullptr)
 			{
-				ScriptFunction->RuntimeCallEvent(Object, &OutResult);
+				FAngelscriptEngineScope EngineScope(*Engine, Object);
+				if (UASFunction* ScriptFunction = Cast<UASFunction>(Function))
+				{
+					ScriptFunction->RuntimeCallEvent(Object, &OutResult);
+				}
+				else
+				{
+					Object->ProcessEvent(Function, &OutResult);
+				}
 			}
 			else
 			{
-				Object->ProcessEvent(Function, &OutResult);
+				FScopedTestWorldContextScope WorldContextScope(Object);
+				if (UASFunction* ScriptFunction = Cast<UASFunction>(Function))
+				{
+					ScriptFunction->RuntimeCallEvent(Object, &OutResult);
+				}
+				else
+				{
+					Object->ProcessEvent(Function, &OutResult);
+				}
 			}
 		};
 

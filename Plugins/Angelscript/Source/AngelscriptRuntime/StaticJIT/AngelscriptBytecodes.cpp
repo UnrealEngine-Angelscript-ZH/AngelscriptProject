@@ -130,6 +130,20 @@ struct FScriptSystemCall
 		// Check if we satisfy all condition to make a fully native function call
 		bool bCanMakeNativeCall = bHaveNativeFunction && bAllTypesHaveNatives && NativeForm->CanCallNative(NativeContext);
 		bool bCanMakeCustomCall = NativeForm != nullptr && NativeForm->CanCallCustom(NativeContext);
+		if (FCStringAnsi::Strcmp(ScriptFunction->GetName(), "opCast") == 0)
+		{
+			UE_LOG(
+				Angelscript,
+				Display,
+				TEXT("StaticJIT dispatch decl=%s nativeForm=%s native=%s custom=%s allNative=%s allGeneric=%s callConv=%d"),
+				ANSI_TO_TCHAR(ScriptFunction->GetDeclaration()),
+				NativeForm != nullptr ? TEXT("true") : TEXT("false"),
+				bCanMakeNativeCall ? TEXT("true") : TEXT("false"),
+				bCanMakeCustomCall ? TEXT("true") : TEXT("false"),
+				bAllTypesHaveNatives ? TEXT("true") : TEXT("false"),
+				bAllTypesHaveGenerics ? TEXT("true") : TEXT("false"),
+				(int32)SysFunc->callConv);
+		}
 
 		// Proceed to the actual call method to use
 		if (bCanMakeCustomCall)

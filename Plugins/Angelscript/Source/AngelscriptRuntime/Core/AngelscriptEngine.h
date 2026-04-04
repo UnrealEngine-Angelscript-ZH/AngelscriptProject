@@ -39,10 +39,13 @@ class asIScriptFunction;
 class asIScriptObject;
 class asITypeInfo;
 class asCContext;
+class FAngelscriptBindDatabase;
 
 class FHotReloadTestRunner;
 struct FAngelscriptEngineLifetimeToken;
 struct FAngelscriptOwnedSharedState;
+struct FAngelscriptEngineContextStack;
+struct FAngelscriptEngineScope;
 
 struct FAngelscriptCodeCoverage;
 
@@ -115,12 +118,17 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptEngine
 	static TUniquePtr<FAngelscriptEngine> CreateTestingFullEngine(const FAngelscriptEngineConfig& InConfig, const FAngelscriptEngineDependencies& InDependencies);
 	static TUniquePtr<FAngelscriptEngine> CreateCloneFrom(FAngelscriptEngine& Source, const FAngelscriptEngineConfig& InConfig);
 	static TUniquePtr<FAngelscriptEngine> CreateCloneFrom(FAngelscriptEngine& Source, const FAngelscriptEngineConfig& InConfig, const FAngelscriptEngineDependencies& InDependencies);
+	static FAngelscriptEngine* TryGetCurrentEngine();
+	static const void* GetCurrentIsolationStateKey();
 	static FAngelscriptEngine& Get();
 	static bool IsInitialized();
 	static FString GetScriptRootDirectory();
 	static UPackage* GetPackage();
 	static TUniquePtr<FAngelscriptEngine> CreateForTesting(const FAngelscriptEngineConfig& InConfig, const FAngelscriptEngineDependencies& InDependencies, EAngelscriptEngineCreationMode Mode = EAngelscriptEngineCreationMode::Clone);
 	static UObject* CurrentWorldContext;
+	static UObject* TryGetCurrentWorldContextObject();
+	static bool ShouldUseEditorScriptsForCurrentContext();
+	static bool ShouldUseAutomaticImportMethodForCurrentContext();
 	static class asCThreadLocalData* GameThreadTLD;
 	static bool bSimulateCooked;
 	static bool bUseEditorScripts;
@@ -212,9 +220,16 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptEngine
 		return (asIScriptObject*)Object;
 	}
 
+	static bool CanCastScriptObjectToUnrealInterface(asITypeInfo* RuntimeType, asITypeInfo* TargetType, void* ObjectPtr);
+
 	static FORCEINLINE bool CanUseGameThreadData()
 	{
-		return IsInGameThread() || !bIsInitialCompileFinished;
+		if (FAngelscriptEngine* CurrentEngine = TryGetCurrentEngine())
+		{
+			return IsInGameThread() || !CurrentEngine->bIsInitialCompileFinished;
+		}
+
+		return IsInGameThread();
 	}
 
 	/* Throw an exception to the angelscript VM. */
@@ -240,7 +255,10 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptEngine
 
 	/* If the angelscript debugger is attached, do an angelscript breakpoint. Returns whether we broke in AS debugging. */
 	static bool TryBreakpointAngelscriptDebugging(const TCHAR* Message = nullptr);
-	UObject* GetCurrentWorldContextObject() const { return CurrentWorldContext; }
+	const void* GetIsolationStateKey() const;
+	UObject* GetCurrentWorldContextObject() const { return WorldContextObject; }
+	bool ShouldUseEditorScripts() const { return bUseEditorScriptsInstance; }
+	bool ShouldUseAutomaticImportMethod() const { return bUseAutomaticImportMethodInstance; }
 
 	/* Checks if the character is a valid alphanumeric character or an underscore. */
 	FORCEINLINE static bool IsValidIdentifierCharacter(TCHAR Character)
@@ -415,6 +433,8 @@ private:
 	TWeakPtr<FAngelscriptEngineLifetimeToken> SourceLifetimeToken;
 	bool bOwnsEngine = true;
 	FString InstanceId;
+	UObject* WorldContextObject = nullptr;
+	TSharedPtr<FAngelscriptEngineLifetimeToken> IsolationStateToken;
 
 	friend class UAngelscriptTestCommandlet;
 	friend class UAngelscriptGameInstanceSubsystem;
@@ -426,10 +446,12 @@ private:
 	friend class FAngelscriptRuntimeModule;
 	friend struct FAngelscriptBindConfigTestAccess;
 	friend struct FAngelscriptDependencyInjectionTestAccess;
+	friend struct FAngelscriptEngineIsolationTestAccess;
 	friend struct FAngelscriptMultiEngineTestAccess;
 	friend struct FAngelscriptSubsystemOwnershipTestAccess;
 	friend struct FAngelscriptTickBehaviorTestAccess;
 	friend struct FAngelscriptHotReloadTestAccess;
+	friend struct FAngelscriptEngineScope;
 	friend struct FScopedTestEngineGlobalScope;
 	friend struct FAngelscriptTestEngineScopeAccess;
 
@@ -439,9 +461,14 @@ public:
 	double LastFileChangeDetectedTime = -1.0;
 
 	bool bDidInitialCompileSucceed = true;
-	static bool bIsInitialCompileFinished;
+	bool bIsInitialCompileFinished = false;
 	
 	bool bCompletedAssetScan = false;
+
+	bool IsInitialCompileFinished() const
+	{
+		return bIsInitialCompileFinished;
+	}
 
 	struct FAngelscriptDebugFrame
 	{
@@ -516,6 +543,13 @@ public:
 	asCContext* CreateContext();
 	void UpdateLineCallbackState();
 
+#if WITH_DEV_AUTOMATION_TESTS
+	int32 GetToStringEntryCountForTesting() const;
+	FAngelscriptBindDatabase& GetBindDatabaseForTesting() const;
+	void SetUseEditorScriptsForTesting(bool bEnabled);
+	void SetAutomaticImportMethodForTesting(bool bEnabled);
+#endif
+
 	static TArray<FName> StaticNames;
 	static TMap<FName, int32> StaticNamesByIndex;
 
@@ -524,19 +558,7 @@ public:
 		return StaticNames[Index];
 	}
 
-	FORCEINLINE static void AssignWorldContext(UObject* NewWorldContext)
-	{
-		*(UObject* volatile*)&CurrentWorldContext = NewWorldContext;
-		check(FAngelscriptEngine::CanUseGameThreadData());
-
-#if WITH_EDITOR
-		extern ANGELSCRIPTRUNTIME_API void SetAngelscriptWorldContextAvailable(bool bAvailable);
-		SetAngelscriptWorldContextAvailable(
-			(NewWorldContext != nullptr)
-			&& !NewWorldContext->HasAnyFlags(RF_ArchetypeObject | RF_ClassDefaultObject)
-			&& (NewWorldContext->GetWorld() != nullptr));
-#endif
-	}
+	static void AssignWorldContext(UObject* NewWorldContext);
 
 	static void FindScriptFiles(
 		IFileManager& FileManager,
@@ -561,6 +583,35 @@ public:
 private:
 	FAngelscriptEngineConfig RuntimeConfig;
 	FAngelscriptEngineDependencies Dependencies;
+	bool bUseEditorScriptsInstance = false;
+	bool bUseAutomaticImportMethodInstance = false;
+};
+
+struct ANGELSCRIPTRUNTIME_API FAngelscriptEngineContextStack
+{
+	static void Push(FAngelscriptEngine* Engine);
+	static void Pop(FAngelscriptEngine* Engine);
+	static FAngelscriptEngine* Peek();
+	static bool IsEmpty();
+};
+
+struct ANGELSCRIPTRUNTIME_API FAngelscriptEngineScope
+{
+	explicit FAngelscriptEngineScope(FAngelscriptEngine& InEngine, UObject* InWorldContext = nullptr);
+	~FAngelscriptEngineScope();
+
+	FAngelscriptEngineScope(const FAngelscriptEngineScope&) = delete;
+	FAngelscriptEngineScope& operator=(const FAngelscriptEngineScope&) = delete;
+	FAngelscriptEngineScope(FAngelscriptEngineScope&& Other) noexcept;
+	FAngelscriptEngineScope& operator=(FAngelscriptEngineScope&& Other) noexcept;
+
+private:
+	void Reset();
+
+	FAngelscriptEngine* Engine = nullptr;
+	UObject* PreviousWorldContext = nullptr;
+	UObject* PreviousEngineWorldContext = nullptr;
+	bool bChangedWorldContext = false;
 };
 
 struct FScopedTestEngineGlobalScope
@@ -621,15 +672,21 @@ extern FAngelscriptEngine::FAngelscriptDebugStack* GAngelscriptStack;
 struct ANGELSCRIPTRUNTIME_API FAngelscriptPooledContextBase
 {
 	FAngelscriptPooledContextBase();
+	explicit FAngelscriptPooledContextBase(class asIScriptEngine* DesiredScriptEngine);
 
 	FORCEINLINE FAngelscriptPooledContextBase(class asCThreadLocalData* tld)
 	{
-		Init(tld);
+		Init(tld, nullptr);
+	}
+
+	FORCEINLINE FAngelscriptPooledContextBase(class asCThreadLocalData* tld, class asIScriptEngine* DesiredScriptEngine)
+	{
+		Init(tld, DesiredScriptEngine);
 	}
 
 	~FAngelscriptPooledContextBase();
 
-	void Init(class asCThreadLocalData* tld);
+	void Init(class asCThreadLocalData* tld, class asIScriptEngine* DesiredScriptEngine);
 
 	FAngelscriptPooledContextBase(FAngelscriptPooledContextBase&& Other);
 
@@ -680,19 +737,7 @@ struct FAngelscriptContext : public FAngelscriptPooledContextBase
 		bChangedWorldContext = false;
 	}
 
-	FAngelscriptContext(UObject* WorldContext)
-	{
-		if (FAngelscriptEngine::CanUseGameThreadData())
-		{
-			PreviousWorldContext = FAngelscriptEngine::CurrentWorldContext;
-			FAngelscriptEngine::AssignWorldContext(WorldContext);
-			bChangedWorldContext = true;
-		}
-		else
-		{
-			bChangedWorldContext = false;
-		}
-	}
+	FAngelscriptContext(UObject* WorldContext, class asIScriptEngine* DesiredScriptEngine = nullptr);
 
 	~FAngelscriptContext()
 	{
@@ -708,12 +753,7 @@ private:
 
 struct FAngelscriptGameThreadContext : public FAngelscriptPooledContextBase
 {
-	FAngelscriptGameThreadContext(UObject* WorldContext)
-		: FAngelscriptPooledContextBase(FAngelscriptEngine::GameThreadTLD)
-	{
-		PreviousWorldContext = FAngelscriptEngine::CurrentWorldContext;
-		FAngelscriptEngine::AssignWorldContext(WorldContext);
-	}
+	FAngelscriptGameThreadContext(UObject* WorldContext, class asIScriptEngine* DesiredScriptEngine = nullptr);
 
 	~FAngelscriptGameThreadContext()
 	{

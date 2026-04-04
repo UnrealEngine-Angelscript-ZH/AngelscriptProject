@@ -13,14 +13,7 @@ using namespace AngelscriptTestSupport;
 namespace
 {
 	using namespace AngelscriptScenarioTestUtils;
-
-	FAngelscriptEngine& AcquireFreshHotReloadEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
-
-	void InitializeHotReloadScenarioSpawner(FActorTestSpawner& Spawner)
+void InitializeHotReloadScenarioSpawner(FActorTestSpawner& Spawner)
 	{
 		Spawner.InitializeGameSubsystems();
 	}
@@ -48,7 +41,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioHotReloadPropertyPreservedTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioHotReloadPropertyPreserved"));
 	ON_SCOPE_EXIT
 	{
@@ -104,7 +97,7 @@ class AScenarioHotReloadPropertyPreserved : AAngelscriptActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	FIntProperty* CounterProperty = FindFProperty<FIntProperty>(ClassV1, TEXT("Counter"));
 	if (!TestNotNull(TEXT("Scenario hot-reload property should exist before reload"), CounterProperty))
@@ -145,7 +138,7 @@ class AScenarioHotReloadPropertyPreserved : AAngelscriptActor
 	}
 
 	int32 Result = 0;
-	if (!TestTrue(TEXT("Scenario hot-reload property-preserved function should execute after reload"), ExecuteGeneratedIntEventOnGameThread(Actor, GetValueFunction, Result)))
+	if (!TestTrue(TEXT("Scenario hot-reload property-preserved function should execute after reload"), ExecuteGeneratedIntEventOnGameThread(&Engine, Actor, GetValueFunction, Result)))
 	{
 		return false;
 	}
@@ -155,7 +148,7 @@ class AScenarioHotReloadPropertyPreserved : AAngelscriptActor
 
 bool FAngelscriptScenarioHotReloadAddPropertyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioHotReloadAddProperty"));
 	ON_SCOPE_EXIT
 	{
@@ -219,7 +212,7 @@ class AScenarioHotReloadAddProperty : AAngelscriptActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 ExistingValue = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("ExistingValue"), ExistingValue))
@@ -239,7 +232,7 @@ class AScenarioHotReloadAddProperty : AAngelscriptActor
 
 bool FAngelscriptScenarioHotReloadFunctionChangeTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioHotReloadFunctionChange"));
 	ON_SCOPE_EXIT
 	{
@@ -289,7 +282,7 @@ class AScenarioHotReloadFunctionChange : AAngelscriptActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	UFunction* GetValueBeforeReload = FindGeneratedFunction(ClassV1, TEXT("GetValue"));
 	if (!TestNotNull(TEXT("Scenario hot-reload function-change function should exist before reload"), GetValueBeforeReload))
@@ -298,7 +291,7 @@ class AScenarioHotReloadFunctionChange : AAngelscriptActor
 	}
 
 	int32 BeforeReloadResult = 0;
-	if (!TestTrue(TEXT("Scenario hot-reload function-change function should execute before reload"), ExecuteGeneratedIntEventOnGameThread(Actor, GetValueBeforeReload, BeforeReloadResult)))
+	if (!TestTrue(TEXT("Scenario hot-reload function-change function should execute before reload"), ExecuteGeneratedIntEventOnGameThread(&Engine, Actor, GetValueBeforeReload, BeforeReloadResult)))
 	{
 		return false;
 	}
@@ -328,7 +321,7 @@ class AScenarioHotReloadFunctionChange : AAngelscriptActor
 	}
 
 	int32 AfterReloadResult = 0;
-	if (!TestTrue(TEXT("Scenario hot-reload function-change function should execute after reload"), ExecuteGeneratedIntEventOnGameThread(Actor, GetValueAfterReload, AfterReloadResult)))
+	if (!TestTrue(TEXT("Scenario hot-reload function-change function should execute after reload"), ExecuteGeneratedIntEventOnGameThread(&Engine, Actor, GetValueAfterReload, AfterReloadResult)))
 	{
 		return false;
 	}
@@ -338,7 +331,7 @@ class AScenarioHotReloadFunctionChange : AAngelscriptActor
 
 bool FAngelscriptScenarioHotReloadPIEStructuralChangeNeedsFullReloadTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshHotReloadEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("ScenarioHotReloadPIEStructuralChange"));
 	ON_SCOPE_EXIT
 	{

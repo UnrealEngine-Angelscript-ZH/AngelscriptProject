@@ -104,11 +104,11 @@ class AScenarioGCActorDestroy : AAngelscriptActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	TWeakObjectPtr<AActor> WeakActor = Actor;
 	Actor->Destroy();
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 	CollectGarbage(RF_NoFlags, true);
 
 	TestTrue(TEXT("Scenario GC actor destroy should complete without leaving a live actor reference"), !WeakActor.IsValid());
@@ -153,7 +153,7 @@ class UScenarioGCComponentDestroy : UAngelscriptComponent
 
 	TWeakObjectPtr<UActorComponent> WeakComponent = Component;
 	Component->DestroyComponent();
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 	CollectGarbage(RF_NoFlags, true);
 
 	TestTrue(TEXT("Scenario GC component destroy should complete without leaving a live component reference"), !WeakComponent.IsValid());
@@ -211,7 +211,7 @@ class UScenarioGCWorldTeardownComponent : UAngelscriptComponent
 		{
 			return false;
 		}
-		BeginPlayActor(*Actor);
+		BeginPlayActor(Engine, *Actor);
 
 	UActorComponent* Component = CreateGCScenarioScriptComponent(*this, *Actor, ComponentClass, TEXT("GC.WorldTeardown"));
 		if (Component == nullptr)

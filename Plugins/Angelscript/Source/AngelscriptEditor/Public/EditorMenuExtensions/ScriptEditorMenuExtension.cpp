@@ -38,7 +38,7 @@ void UScriptEditorMenuExtension::InitializeExtensions()
 		UScriptEditorMenuExtension::UnregisterExtensions();
 	});
 
-	if (FAngelscriptEngine::bIsInitialCompileFinished)
+	if (FAngelscriptEngine::IsInitialized() && FAngelscriptEngine::Get().IsInitialCompileFinished())
 	{
 		UScriptEditorMenuExtension::RegisterExtensions();
 	}

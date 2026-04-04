@@ -273,6 +273,22 @@ struct FScriptNativeUObjectCast : public FScriptFunctionNativeForm
 
 			FAngelscriptType::FCppForm CppForm;
 			Usage.GetCppForm(CppForm);
+			UClass* TargetClass = Context.LastPushedTypeInfo != nullptr
+				? reinterpret_cast<UClass*>(Context.LastPushedTypeInfo->GetUserData())
+				: nullptr;
+			const bool bTargetIsInterface = TargetClass != nullptr && TargetClass->HasAnyClassFlags(CLASS_Interface);
+
+			if (bTargetIsInterface)
+			{
+				UE_LOG(
+					Angelscript,
+					Display,
+					TEXT("StaticJIT UObject cast targetType=%hs targetClass=%s cppType=%s cppGeneric=%s"),
+					Context.LastPushedTypeInfo->GetName(),
+					*TargetClass->GetName(),
+					CppForm.CppType.IsEmpty() ? TEXT("<empty>") : *CppForm.CppType,
+					CppForm.CppGenericType.IsEmpty() ? TEXT("<empty>") : *CppForm.CppGenericType);
+			}
 
 			if (!CppForm.CppType.IsEmpty())
 			{

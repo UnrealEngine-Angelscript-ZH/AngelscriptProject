@@ -3269,7 +3269,8 @@ void asCContext::ExecuteNext()
 				asASSERT( objType->flags & asOBJ_SCRIPT_OBJECT );
 				asASSERT( to->flags & asOBJ_SCRIPT_OBJECT );
 
-				if( objType->Implements(to) || objType->DerivesFrom(to) )
+				if( objType->Implements(to) || objType->DerivesFrom(to) ||
+					FAngelscriptEngine::CanCastScriptObjectToUnrealInterface(objType, to, obj) )
 				{
 					m_regs.objectType = 0;
 					m_regs.objectRegister = obj;

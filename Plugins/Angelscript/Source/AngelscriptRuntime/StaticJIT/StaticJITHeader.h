@@ -332,7 +332,7 @@ constexpr SIZE_T AlignmentMax(SIZE_T A, SIZE_T B)
 #define SCRIPT_CALLSTACK_FRAME_SIZE 10
 
 extern FAngelscriptEngine* GAngelscriptEngine;
-#define SCRIPT_ENGINE (GAngelscriptEngine->Engine)
+#define SCRIPT_ENGINE (FAngelscriptEngine::Get().Engine)
 #define SCRIPT_TLD (Execution.tld)
 
 #if AS_JIT_DEBUG_CALLSTACKS

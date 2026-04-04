@@ -137,10 +137,10 @@ class ALearningComponentHierarchyActor : AAngelscriptActor
 	}
 	Trace.AddKeyValue(TEXT("ScriptComponentCount"), FString::FromInt(ScriptComponentCount));
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	Trace.AddStep(TEXT("BeginPlayComponents"), TEXT("Called BeginPlay on the actor, which triggers BeginPlay on components"));
 
-	TickWorld(Spawner.GetWorld(), LearningComponentDeltaTime, 1);
+	TickWorld(Engine, Spawner.GetWorld(), LearningComponentDeltaTime, 1);
 	Trace.AddStep(TEXT("TickComponents"), TEXT("Ticked the world with a delta time, which propagates to component Tick"));
 
 	Trace.AddStep(TEXT("ComponentHierarchyObservation"), TEXT("Component hierarchy in Angelscript supports DefaultComponent specifier, RootComponent designation, and Attach relationships; component lifecycle mirrors actor lifecycle with BeginPlay/Tick"));

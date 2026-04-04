@@ -12,7 +12,7 @@ void UAngelscriptGameInstanceSubsystem::Initialize(FSubsystemCollectionBase& Col
 	Super::Initialize(Collection);
 
 	bInitialized = true;
-	PrimaryEngine = FAngelscriptEngine::TryGetGlobalEngine();
+	PrimaryEngine = FAngelscriptEngine::TryGetCurrentEngine();
 	if (PrimaryEngine == nullptr)
 	{
 		OwnedPrimaryEngine = MakeUnique<FAngelscriptEngine>();
@@ -98,6 +98,7 @@ UAngelscriptGameInstanceSubsystem* UAngelscriptGameInstanceSubsystem::GetCurrent
 		return nullptr;
 	}
 
+	// Avoid the accessor here: it resolves through TryGetCurrentEngine(), which consults this subsystem.
 	UWorld* World = GEngine->GetWorldFromContextObject(FAngelscriptEngine::CurrentWorldContext, EGetWorldErrorMode::ReturnNull);
 	if (World == nullptr)
 	{

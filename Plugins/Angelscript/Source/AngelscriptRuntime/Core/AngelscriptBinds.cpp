@@ -20,17 +20,108 @@
 #include "source/as_scriptengine.h"
 #include "EndAngelscriptHeaders.h"
 
-//WILL-EDIT
-TMap<UClass*, TMap<FString, FFuncEntry>> FAngelscriptBinds::ClassFuncMaps = TMap<UClass*, TMap<FString, FFuncEntry>>();
-TMap<FString, TArray<TObjectPtr<UClass>>> FAngelscriptBinds::RuntimeClassDB = TMap<FString, TArray<TObjectPtr<UClass>>>();
-TArray<FString> FAngelscriptBinds::BindModuleNames = TArray<FString>();
-TMap<UClass*, TSet<FString>> FAngelscriptBinds::SkipBinds = TMap<UClass*, TSet<FString>>();
-//TSet<TTuple<FString, FString>> FAngelscriptBinds::SkipBindNames = TSet<TTuple<FString, FString>>();
-TSet<TTuple<FName, FName>> FAngelscriptBinds::SkipBindNames = TSet<TTuple<FName, FName>>();
-TSet<FName> FAngelscriptBinds::SkipBindClasses = TSet<FName>();
+namespace
+{
+	struct FAngelscriptBindState
+	{
+		TMap<UClass*, TMap<FString, FFuncEntry>> ClassFuncMaps;
+		TMap<FString, TArray<TObjectPtr<UClass>>> RuntimeClassDB;
 #if WITH_EDITOR
-TMap<FString, TArray<TObjectPtr<UClass>>> FAngelscriptBinds::EditorClassDB = TMap<FString, TArray<TObjectPtr<UClass>>>();
+		TMap<FString, TArray<TObjectPtr<UClass>>> EditorClassDB;
 #endif
+		TArray<FString> BindModuleNames;
+		TMap<UClass*, TSet<FString>> SkipBinds;
+		TSet<TTuple<FName, FName>> SkipBindNames;
+		TSet<FName> SkipBindClasses;
+		int32 PreviouslyBoundFunction = -1;
+		int32 PreviouslyBoundGlobalProperty = -1;
+	};
+
+	const void* GetLegacyBindStateKey()
+	{
+		static uint8 LegacyBindStateKey = 0;
+		return &LegacyBindStateKey;
+	}
+
+	const void* ResolveBindStateKey(const void* StateKey = nullptr)
+	{
+		if (StateKey != nullptr)
+		{
+			return StateKey;
+		}
+
+		if (const void* CurrentKey = FAngelscriptEngine::GetCurrentIsolationStateKey())
+		{
+			return CurrentKey;
+		}
+
+		return GetLegacyBindStateKey();
+	}
+
+	TMap<const void*, TUniquePtr<FAngelscriptBindState>>& GetBindStates()
+	{
+		static TMap<const void*, TUniquePtr<FAngelscriptBindState>> BindStates;
+		return BindStates;
+	}
+
+	FAngelscriptBindState& GetBindState(const void* StateKey = nullptr)
+	{
+		TUniquePtr<FAngelscriptBindState>& BindState = GetBindStates().FindOrAdd(ResolveBindStateKey(StateKey));
+		if (!BindState.IsValid())
+		{
+			BindState = MakeUnique<FAngelscriptBindState>();
+		}
+
+		return *BindState;
+	}
+}
+
+TMap<FString, TArray<TObjectPtr<UClass>>>& FAngelscriptBinds::GetRuntimeClassDB()
+{
+	return GetBindState().RuntimeClassDB;
+}
+
+#if WITH_EDITOR
+TMap<FString, TArray<TObjectPtr<UClass>>>& FAngelscriptBinds::GetEditorClassDB()
+{
+	return GetBindState().EditorClassDB;
+}
+#endif
+
+TMap<UClass*, TMap<FString, FFuncEntry>>& FAngelscriptBinds::GetClassFuncMaps()
+{
+	return GetBindState().ClassFuncMaps;
+}
+
+TArray<FString>& FAngelscriptBinds::GetBindModuleNames()
+{
+	return GetBindState().BindModuleNames;
+}
+
+TMap<UClass*, TSet<FString>>& FAngelscriptBinds::GetSkipBinds()
+{
+	return GetBindState().SkipBinds;
+}
+
+TSet<TTuple<FName, FName>>& FAngelscriptBinds::GetSkipBindNames()
+{
+	return GetBindState().SkipBindNames;
+}
+
+TSet<FName>& FAngelscriptBinds::GetSkipBindClasses()
+{
+	return GetBindState().SkipBindClasses;
+}
+
+int32& FAngelscriptBinds::GetPreviouslyBoundFunctionRef()
+{
+	return GetBindState().PreviouslyBoundFunction;
+}
+
+int32& FAngelscriptBinds::GetPreviouslyBoundGlobalPropertyRef()
+{
+	return GetBindState().PreviouslyBoundGlobalProperty;
+}
 
 struct FBindFunction
 {
@@ -100,17 +191,12 @@ TArray<FAngelscriptBinds::FBindInfo> FAngelscriptBinds::GetBindInfoList(const TS
 
 void FAngelscriptBinds::ResetBindState()
 {
-	ClassFuncMaps.Reset();
-	RuntimeClassDB.Reset();
-#if WITH_EDITOR
-	EditorClassDB.Reset();
-#endif
-	BindModuleNames.Reset();
-	SkipBinds.Reset();
-	SkipBindNames.Reset();
-	SkipBindClasses.Reset();
-	PreviouslyBoundFunction = -1;
-	PreviouslyBoundGlobalProperty = -1;
+	ResetBindStateForKey(nullptr);
+}
+
+void FAngelscriptBinds::ResetBindStateForKey(const void* StateKey)
+{
+	GetBindStates().Remove(ResolveBindStateKey(StateKey));
 }
 
 void FAngelscriptBinds::CallBinds()
@@ -222,15 +308,13 @@ void FAngelscriptBinds::BindBehaviour(asEBehaviours Beh, FBindString Signature, 
 	OnBind(FunctionId, nullptr, nullptr);
 }
 
-int FAngelscriptBinds::PreviouslyBoundFunction = -1;
-int FAngelscriptBinds::PreviouslyBoundGlobalProperty = -1;
 asIScriptFunction* FAngelscriptBinds::GetPreviousBind()
 {
-	if (PreviouslyBoundFunction == -1)
+	if (GetPreviouslyBoundFunctionRef() == -1)
 		return nullptr;
 
 	auto& Manager = FAngelscriptEngine::Get();
-	return Manager.Engine->GetFunctionById(PreviouslyBoundFunction);
+	return Manager.Engine->GetFunctionById(GetPreviouslyBoundFunctionRef());
 }
 
 void FAngelscriptBinds::MarkAsImplicitConstructor()
@@ -357,7 +441,7 @@ void FAngelscriptBinds::OnBind(int FunctionId, void* UserData, const FAngelscrip
 		}
 	}
 
-	PreviouslyBoundFunction = FunctionId;
+	GetPreviouslyBoundFunctionRef() = FunctionId;
 }
 
 void FAngelscriptBinds::BindExternBehaviour(asEBehaviours Beh, FBindString Signature, asSFuncPtr Ptr, ASAutoCaller::FunctionCaller Caller, void* UserData)
@@ -470,14 +554,14 @@ int FAngelscriptBinds::CompileReplaceWithFirstArgInTest(int FunctionId)
 void FAngelscriptBinds::CompileOutPreviousBind()
 {
 	auto& Manager = FAngelscriptEngine::Get();
-	auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(PreviouslyBoundFunction);
+	auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(GetPreviouslyBoundFunctionRef());
 	Function->compileOutType = asECompileOutType::CompileOutEntirely;
 }
 
 void FAngelscriptBinds::CompileOutPreviousBindAsMethodChain()
 {
 	auto& Manager = FAngelscriptEngine::Get();
-	auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(PreviouslyBoundFunction);
+	auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(GetPreviouslyBoundFunctionRef());
 	Function->compileOutType = asECompileOutType::CompileOutAsMethodChain;
 }
 
@@ -550,13 +634,13 @@ int FAngelscriptBinds::BindGlobalGenericFunction(FBindString Signature, void(CDE
 void FAngelscriptBinds::BindGlobalVariable(FBindString Signature, const void* Address)
 {
 	auto& Manager = FAngelscriptEngine::Get();
-	PreviouslyBoundGlobalProperty = Manager.Engine->RegisterGlobalProperty(Signature.ToCString(), (void*)Address);
+	GetPreviouslyBoundGlobalPropertyRef() = Manager.Engine->RegisterGlobalProperty(Signature.ToCString(), (void*)Address);
 }
 
 void FAngelscriptBinds::SetPreviousBoundPropertyPureConstant(asQWORD ConstantValue)
 {
 	auto& Manager = FAngelscriptEngine::Get();
-	asCGlobalProperty* Property = Manager.Engine->globalProperties[PreviouslyBoundGlobalProperty];
+	asCGlobalProperty* Property = Manager.Engine->globalProperties[GetPreviouslyBoundGlobalPropertyRef()];
 	Property->isPureConstant = true;
 	Property->storage = ConstantValue;
 }

@@ -43,23 +43,65 @@ struct FAngelscriptTypeDatabase
 
 	TArray<FAngelscriptType::FTypeFinder> TypeFinders;
 	TArray<TSharedRef<FAngelscriptType>> TypesImplementingProperties;
-
-	static FAngelscriptTypeDatabase& Get()
-	{
-		static FAngelscriptTypeDatabase Database;
-		return Database;
-	}
+	TSharedPtr<FAngelscriptType> ScriptObjectType;
+	TSharedPtr<FAngelscriptType> ScriptEnumType;
+	TSharedPtr<FAngelscriptType> ScriptStructType;
+	TSharedPtr<FAngelscriptType> ScriptDelegateType;
+	TSharedPtr<FAngelscriptType> ScriptMulticastDelegateType;
+	TSharedPtr<FAngelscriptType> ScriptFloatType;
+	TSharedPtr<FAngelscriptType> ScriptDoubleType;
+	TSharedPtr<FAngelscriptType> ScriptFloatParamExtendedToDoubleType;
+	TSharedPtr<FAngelscriptType> ScriptBoolType;
+	asITypeInfo* ArrayTemplateTypeInfo = nullptr;
 };
+
+static const void* GetLegacyTypeDatabaseKey()
+{
+	static uint8 LegacyTypeDatabaseKey = 0;
+	return &LegacyTypeDatabaseKey;
+}
+
+static const void* ResolveTypeDatabaseKey(const void* StateKey = nullptr)
+{
+	if (StateKey != nullptr)
+	{
+		return StateKey;
+	}
+
+	if (const void* CurrentKey = FAngelscriptEngine::GetCurrentIsolationStateKey())
+	{
+		return CurrentKey;
+	}
+
+	return GetLegacyTypeDatabaseKey();
+}
+
+static TMap<const void*, TUniquePtr<FAngelscriptTypeDatabase>>& GetTypeDatabases()
+{
+	static TMap<const void*, TUniquePtr<FAngelscriptTypeDatabase>> TypeDatabases;
+	return TypeDatabases;
+}
+
+static FAngelscriptTypeDatabase& GetTypeDatabase(const void* StateKey = nullptr)
+{
+	TUniquePtr<FAngelscriptTypeDatabase>& Database = GetTypeDatabases().FindOrAdd(ResolveTypeDatabaseKey(StateKey));
+	if (!Database.IsValid())
+	{
+		Database = MakeUnique<FAngelscriptTypeDatabase>();
+	}
+
+	return *Database;
+}
 
 const TArray<TSharedRef<FAngelscriptType>>& FAngelscriptType::GetTypes()
 {
-	auto& Database = FAngelscriptTypeDatabase::Get();
+	auto& Database = GetTypeDatabase();
 	return Database.RegisteredTypes;
 }
 
 void FAngelscriptType::Register(TSharedRef<FAngelscriptType> Type)
 {
-	auto& Database = FAngelscriptTypeDatabase::Get();
+	auto& Database = GetTypeDatabase();
 
 	FString AngelscriptName = Type->GetAngelscriptTypeName();
 	if (Database.TypesByAngelscriptName.Contains(AngelscriptName))
@@ -107,41 +149,34 @@ void FAngelscriptType::Register(TSharedRef<FAngelscriptType> Type)
 
 void FAngelscriptType::ResetTypeDatabase()
 {
-	auto& Database = FAngelscriptTypeDatabase::Get();
-	Database.RegisteredTypes.Reset();
-	Database.TypesByAngelscriptName.Reset();
-	Database.TypesByClass.Reset();
-	Database.TypesByData.Reset();
-	Database.TypeFinders.Reset();
-	Database.TypesImplementingProperties.Reset();
+	ResetTypeDatabaseForKey(nullptr);
+}
 
-	SetScriptObject(nullptr);
-	SetScriptEnum(nullptr);
-	SetScriptStruct(nullptr);
-	SetScriptDelegate(nullptr);
-	SetScriptMulticastDelegate(nullptr);
-	ScriptFloatType().Reset();
-	ScriptDoubleType().Reset();
-	ScriptFloatParamExtendedToDoubleType().Reset();
-	ScriptBoolType().Reset();
-	ArrayTemplateTypeInfo = nullptr;
+void FAngelscriptType::ResetTypeDatabaseForKey(const void* StateKey)
+{
+	const void* ResolvedStateKey = ResolveTypeDatabaseKey(StateKey);
+	GetTypeDatabases().Remove(ResolvedStateKey);
+	if (ResolvedStateKey == ResolveTypeDatabaseKey())
+	{
+		ArrayTemplateTypeInfo = nullptr;
+	}
 }
 
 void FAngelscriptType::RegisterAlias(const FString& Alias, TSharedRef<FAngelscriptType> Type)
 {
-	auto& Database = FAngelscriptTypeDatabase::Get();
+	auto& Database = GetTypeDatabase();
 	Database.TypesByAngelscriptName.Add(Alias, Type);
 }
 
 void FAngelscriptType::RegisterTypeFinder(FTypeFinder Finder)
 {
-	auto& Database = FAngelscriptTypeDatabase::Get();
+	auto& Database = GetTypeDatabase();
 	Database.TypeFinders.Add(Finder);
 }
 
 TSharedPtr<FAngelscriptType> FAngelscriptType::GetByAngelscriptTypeName(const FString& Name)
 {
-	auto* Found = FAngelscriptTypeDatabase::Get().TypesByAngelscriptName.Find(Name);
+	auto* Found = GetTypeDatabase().TypesByAngelscriptName.Find(Name);
 	if (Found == nullptr)
 		return nullptr;
 	else
@@ -150,7 +185,7 @@ TSharedPtr<FAngelscriptType> FAngelscriptType::GetByAngelscriptTypeName(const FS
 
 TSharedPtr<FAngelscriptType> FAngelscriptType::GetByClass(UClass* ForClass)
 {
-	auto* Found = FAngelscriptTypeDatabase::Get().TypesByClass.Find(ForClass);
+	auto* Found = GetTypeDatabase().TypesByClass.Find(ForClass);
 	if (Found == nullptr)
 		return nullptr;
 	else
@@ -159,7 +194,7 @@ TSharedPtr<FAngelscriptType> FAngelscriptType::GetByClass(UClass* ForClass)
 
 TSharedPtr<FAngelscriptType> FAngelscriptType::GetByData(void* ForData)
 {
-	auto* Found = FAngelscriptTypeDatabase::Get().TypesByData.Find(ForData);
+	auto* Found = GetTypeDatabase().TypesByData.Find(ForData);
 	if (Found == nullptr)
 		return nullptr;
 	else
@@ -168,7 +203,7 @@ TSharedPtr<FAngelscriptType> FAngelscriptType::GetByData(void* ForData)
 
 TSharedPtr<FAngelscriptType> FAngelscriptType::GetByProperty(FProperty* Property, bool bQueryTypeFinders)
 {
-	auto& Database = FAngelscriptTypeDatabase::Get();
+	auto& Database = GetTypeDatabase();
 
 	// Query any Type Finders that were registered for a type
 	if (bQueryTypeFinders)
@@ -258,7 +293,7 @@ FAngelscriptTypeUsage FAngelscriptTypeUsage::FromProperty(FProperty* Property)
 	FAngelscriptTypeUsage Usage;
 
 	// Query any Type Finders that were registered for a type
-	auto& Database = FAngelscriptTypeDatabase::Get();
+	auto& Database = GetTypeDatabase();
 	for (auto& Finder : Database.TypeFinders)
 	{
 		if (Finder(Property, Usage))
@@ -511,8 +546,7 @@ FString FAngelscriptTypeUsage::GetFriendlyTypeName() const
 
 TSharedPtr<FAngelscriptType>& FAngelscriptType::GetScriptObject()
 {
-	static TSharedPtr<FAngelscriptType> ScriptObjectType;
-	return ScriptObjectType;
+	return GetTypeDatabase().ScriptObjectType;
 }
 
 void FAngelscriptType::SetScriptObject(TSharedPtr<FAngelscriptType> Type)
@@ -522,8 +556,7 @@ void FAngelscriptType::SetScriptObject(TSharedPtr<FAngelscriptType> Type)
 
 TSharedPtr<FAngelscriptType>& FAngelscriptType::GetScriptStruct()
 {
-	static TSharedPtr<FAngelscriptType> ScriptStructType;
-	return ScriptStructType;
+	return GetTypeDatabase().ScriptStructType;
 }
 
 void FAngelscriptType::SetScriptStruct(TSharedPtr<FAngelscriptType> Type)
@@ -533,8 +566,7 @@ void FAngelscriptType::SetScriptStruct(TSharedPtr<FAngelscriptType> Type)
 
 TSharedPtr<FAngelscriptType>& FAngelscriptType::GetScriptDelegate()
 {
-	static TSharedPtr<FAngelscriptType> ScriptDelegateType;
-	return ScriptDelegateType;
+	return GetTypeDatabase().ScriptDelegateType;
 }
 
 void FAngelscriptType::SetScriptDelegate(TSharedPtr<FAngelscriptType> Type)
@@ -544,8 +576,7 @@ void FAngelscriptType::SetScriptDelegate(TSharedPtr<FAngelscriptType> Type)
 
 TSharedPtr<FAngelscriptType>& FAngelscriptType::GetScriptMulticastDelegate()
 {
-	static TSharedPtr<FAngelscriptType> ScriptMulticastDelegateType;
-	return ScriptMulticastDelegateType;
+	return GetTypeDatabase().ScriptMulticastDelegateType;
 }
 
 void FAngelscriptType::SetScriptMulticastDelegate(TSharedPtr<FAngelscriptType> Type)
@@ -555,8 +586,7 @@ void FAngelscriptType::SetScriptMulticastDelegate(TSharedPtr<FAngelscriptType> T
 
 TSharedPtr<FAngelscriptType>& FAngelscriptType::GetScriptEnum()
 {
-	static TSharedPtr<FAngelscriptType> ScriptEnumType;
-	return ScriptEnumType;
+	return GetTypeDatabase().ScriptEnumType;
 }
 
 void FAngelscriptType::SetScriptEnum(TSharedPtr<FAngelscriptType> Type)
@@ -566,26 +596,34 @@ void FAngelscriptType::SetScriptEnum(TSharedPtr<FAngelscriptType> Type)
 
 TSharedPtr<FAngelscriptType>& FAngelscriptType::ScriptFloatType()
 {
-	static TSharedPtr<FAngelscriptType> Type;
-	return Type;
+	return GetTypeDatabase().ScriptFloatType;
 }
 
 TSharedPtr<FAngelscriptType>& FAngelscriptType::ScriptDoubleType()
 {
-	static TSharedPtr<FAngelscriptType> Type;
-	return Type;
+	return GetTypeDatabase().ScriptDoubleType;
 }
 
 TSharedPtr<FAngelscriptType>& FAngelscriptType::ScriptFloatParamExtendedToDoubleType()
 {
-	static TSharedPtr<FAngelscriptType> Type;
-	return Type;
+	return GetTypeDatabase().ScriptFloatParamExtendedToDoubleType;
 }
 
 TSharedPtr<FAngelscriptType>& FAngelscriptType::ScriptBoolType()
 {
-	static TSharedPtr<FAngelscriptType> Type;
-	return Type;
+	return GetTypeDatabase().ScriptBoolType;
+}
+
+asITypeInfo* FAngelscriptType::GetArrayTemplateTypeInfo()
+{
+	ArrayTemplateTypeInfo = GetTypeDatabase().ArrayTemplateTypeInfo;
+	return ArrayTemplateTypeInfo;
+}
+
+void FAngelscriptType::SetArrayTemplateTypeInfo(asITypeInfo* TypeInfo)
+{
+	GetTypeDatabase().ArrayTemplateTypeInfo = TypeInfo;
+	ArrayTemplateTypeInfo = TypeInfo;
 }
 
 FString FAngelscriptType::BuildFunctionDeclaration(const FAngelscriptTypeUsage& ReturnType, const FString& FunctionName, const TArray<FAngelscriptTypeUsage>& ArgumentTypes, const TArray<FString>& ArgumentNames, const TArray<FString>& ArgumentDefaults, bool bConstMethod)
@@ -668,7 +706,7 @@ bool FAngelscriptType::GetDebuggerValueFromFunction(asIScriptFunction* InScriptF
 			return false;
 		if (ScriptFunction->GetParamCount() == 1)
 		{
-			if (ScriptFunction->hiddenArgumentIndex != 0 || ScriptFunction->hiddenArgumentDefault != "__WorldContext")
+			if (ScriptFunction->hiddenArgumentIndex != 0 || ScriptFunction->hiddenArgumentDefault != "__WorldContext()")
 				return false;
 			else
 				bHasWorldContext = true;
@@ -727,7 +765,7 @@ bool FAngelscriptType::GetDebuggerValueFromFunction(asIScriptFunction* InScriptF
 			if (Object != nullptr)
 				Context->SetObject(Object);
 			if (bHasWorldContext)
-				Context->SetArgObject(0, FAngelscriptEngine::CurrentWorldContext);
+				Context->SetArgObject(0, FAngelscriptEngine::TryGetCurrentWorldContextObject());
 			Context->Execute();
 
 			if (ReturnValue.bIsReference)

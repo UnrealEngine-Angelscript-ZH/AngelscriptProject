@@ -15,7 +15,7 @@ struct FScriptConsoleVariable
 		Variable = IConsoleManager::Get().FindConsoleVariable(*Name);
 		if (Variable == nullptr)
 		{
-			if (!FAngelscriptEngine::Get().bIsInitialCompileFinished)
+			if (!FAngelscriptEngine::Get().IsInitialCompileFinished())
 			{
 				// If we're still in the initial compile, we should not initialize the CVar until after compile is finished.
 				// The initial compile can happen on a separate thread, so registering it now might end up crashing.

@@ -20,7 +20,7 @@ namespace AngelscriptScenarioTestUtils
 		const FString& ScriptSource,
 		FName GeneratedClassName)
 	{
-		AngelscriptTestSupport::FScopedGlobalEngineOverride GlobalScope(&Engine);
+		FAngelscriptEngineScope EngineScope(Engine);
 
 		if (!Test.TestTrue(
 			*FString::Printf(TEXT("Scenario module '%s' should compile"), *ModuleName.ToString()),
@@ -36,17 +36,18 @@ namespace AngelscriptScenarioTestUtils
 		return ScriptClass;
 	}
 
-	inline void TickWorld(UWorld& World, float DeltaTime, int32 NumTicks)
+	inline void TickWorld(FAngelscriptEngine& Engine, UWorld& World, float DeltaTime, int32 NumTicks)
 	{
 		for (int32 TickIndex = 0; TickIndex < NumTicks; ++TickIndex)
 		{
+			FAngelscriptEngineScope WorldScope(Engine);
 			World.Tick(ELevelTick::LEVELTICK_All, DeltaTime);
 
 			for (TActorIterator<AActor> ActorIt(&World); ActorIt; ++ActorIt)
 			{
 				if (AActor* Actor = *ActorIt)
 				{
-					AngelscriptTestSupport::FScopedTestWorldContextScope ActorWorldContextScope(Actor);
+					FAngelscriptEngineScope ActorScope(Engine, Actor);
 					Actor->Tick(DeltaTime);
 
 					TArray<UActorComponent*> Components;
@@ -55,7 +56,7 @@ namespace AngelscriptScenarioTestUtils
 					{
 						if (Component != nullptr && Component->IsRegistered() && Component->IsComponentTickEnabled())
 						{
-							AngelscriptTestSupport::FScopedTestWorldContextScope ComponentWorldContextScope(Component);
+							FAngelscriptEngineScope ComponentScope(Engine, Component);
 							Component->TickComponent(DeltaTime, ELevelTick::LEVELTICK_All, &Component->PrimaryComponentTick);
 						}
 					}
@@ -64,9 +65,9 @@ namespace AngelscriptScenarioTestUtils
 		}
 	}
 
-	inline void BeginPlayActor(AActor& Actor)
+	inline void BeginPlayActor(FAngelscriptEngine& Engine, AActor& Actor)
 	{
-		AngelscriptTestSupport::FScopedTestWorldContextScope WorldContextScope(&Actor);
+		FAngelscriptEngineScope ActorScope(Engine, &Actor);
 
 		if (!Actor.HasActorBegunPlay())
 		{

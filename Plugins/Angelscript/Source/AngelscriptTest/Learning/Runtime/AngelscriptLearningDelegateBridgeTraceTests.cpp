@@ -22,14 +22,7 @@ namespace
 		int32 Value = 0;
 		FString Label;
 	};
-
-	FAngelscriptEngine& AcquireFreshLearningEngine()
-	{
-		DestroySharedAndStrayGlobalTestEngine();
-		return AcquireCleanSharedCloneEngine();
-	}
-
-	void InitializeLearningDelegateSpawner(FActorTestSpawner& Spawner)
+void InitializeLearningDelegateSpawner(FActorTestSpawner& Spawner)
 	{
 		Spawner.InitializeGameSubsystems();
 	}
@@ -42,7 +35,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningDelegateBridgeTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshLearningEngine();
+	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
 	static const FName ModuleName(TEXT("LearningDelegateBridgeModule"));
 	ON_SCOPE_EXIT
 	{
@@ -124,7 +117,7 @@ class ALearningDelegateBridgeActor : AAngelscriptActor
 
 	Trace.AddStep(TEXT("SpawnDelegateActor"), TEXT("Spawned an instance of the script actor with delegate"));
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	Trace.AddStep(TEXT("BeginPlayDelegateActor"), TEXT("Called BeginPlay on the spawned actor"));
 
 	UAngelscriptNativeScriptTestObject* NativeReceiver = NewObject<UAngelscriptNativeScriptTestObject>(GetTransientPackage());
@@ -158,6 +151,7 @@ class ALearningDelegateBridgeActor : AAngelscriptActor
 		FLearningDelegateIntStringParams Params;
 		Params.Value = 99;
 		Params.Label = TEXT("BridgeTest");
+		FAngelscriptEngineScope ExecutionScope(Engine, Actor);
 		Actor->ProcessEvent(TriggerFunction, &Params);
 
 		Trace.AddStep(TEXT("ExecuteTrigger"), TEXT("Invoked the script trigger function which should execute the bound delegate"));

@@ -1186,7 +1186,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_StructDetails((int32)FAngelscr
 				continue;
 
 			// Don't bind editor-only stuff in simulate cooked mode
-			if (!FAngelscriptEngine::bUseEditorScripts && Property->HasAnyPropertyFlags(CPF_EditorOnly))
+			if (!FAngelscriptEngine::ShouldUseEditorScriptsForCurrentContext() && Property->HasAnyPropertyFlags(CPF_EditorOnly))
 				continue;
 
 			// Bind using angelscript type system otherwise

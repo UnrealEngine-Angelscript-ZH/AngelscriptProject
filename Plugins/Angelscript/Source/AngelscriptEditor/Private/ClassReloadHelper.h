@@ -153,7 +153,7 @@ struct FClassReloadHelper
 				GEditor->BroadcastBlueprintCompiled();	
 			}
 
-			if (!FAngelscriptEngine::bIsInitialCompileFinished)
+			if (!FAngelscriptEngine::IsInitialized() || !FAngelscriptEngine::Get().IsInitialCompileFinished())
 				FComponentTypeRegistry::Get().Invalidate();
 
 			// If we reloaded any volume classes, trigger a geometry rebuild

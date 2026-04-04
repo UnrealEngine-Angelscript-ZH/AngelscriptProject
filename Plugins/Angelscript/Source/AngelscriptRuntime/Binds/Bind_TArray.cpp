@@ -1348,7 +1348,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_TArray(FAngelscriptBinds::EOrd
 
 	auto TArray_ = FAngelscriptBinds::ValueClass<FScriptArray>("TArray<class T>", Flags);
 	TArray_.Constructor("void f()", FUNC_TRIVIAL(FArrayOperations::Construct));
-	FAngelscriptType::ArrayTemplateTypeInfo = TArray_.GetTypeInfo();
+	FAngelscriptType::SetArrayTemplateTypeInfo(TArray_.GetTypeInfo());
 	FAngelscriptEngine::Get().Engine->RegisterDefaultArrayType("TArray<T>");
 
 	TArray_.Destructor("void f()", &FArrayOperations::Destruct);

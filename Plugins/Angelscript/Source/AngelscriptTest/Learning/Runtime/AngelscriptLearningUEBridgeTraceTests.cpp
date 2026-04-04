@@ -99,7 +99,7 @@ class ALearningUEBridgeActor : AAngelscriptActor
 
 	Trace.AddStep(TEXT("SpawnBridgeActor"), TEXT("Spawned a UE actor instance from the script class"));
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	Trace.AddStep(TEXT("BeginPlayBridgeActor"), TEXT("Called BeginPlay on the actor to initialize properties"));
 
 	FProperty* HealthProp = FindFProperty<FProperty>(Actor->GetClass(), TEXT("HealthValue"));
@@ -128,6 +128,7 @@ class ALearningUEBridgeActor : AAngelscriptActor
 		FApplyDamageParams Params;
 		Params.Damage = 30.0f;
 
+		FAngelscriptEngineScope ExecutionScope(Engine, Actor);
 		Actor->ProcessEvent(ApplyDamageFunc, &Params);
 		Trace.AddStep(TEXT("CallScriptFunction"), TEXT("Invoked the script function via UE ProcessEvent"));
 		Trace.AddKeyValue(TEXT("CalledWithDamage"), FString::SanitizeFloat(Params.Damage));
