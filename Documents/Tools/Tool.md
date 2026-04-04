@@ -6,6 +6,8 @@
 | --- | --- | --- | --- | --- | --- |
 | GenerateAgentConfigTemplate | `Tools\GenerateAgentConfigTemplate.bat` | 在项目根目录生成本机专用的 `AgentConfig.ini` 模板，供 AI Agent 和开发者读取引擎路径、项目路径、默认构建参数与测试超时。 | `Tools\GenerateAgentConfigTemplate.bat` | 生成 `AgentConfig.ini` | 如果目标文件已存在，默认不会覆盖。 |
 | GenerateAgentConfigTemplate `--force` | `Tools\GenerateAgentConfigTemplate.bat` | 强制覆盖并重新生成 `AgentConfig.ini` 模板。 | `Tools\GenerateAgentConfigTemplate.bat --force` | 重新生成 `AgentConfig.ini` | 仅在确认需要覆盖本地配置时使用。 |
+| RunTests | `Tools\RunTests.ps1` | 一键运行 UE 自动化测试，自动读取 AgentConfig.ini，创建带时间戳输出目录，解析结果摘要。 | `.\Tools\RunTests.ps1 -TestPrefix "Angelscript"` | `Saved/Automation/<timestamp>_<Label>/test.log` + `Reports/` | 退出码 0=全通过，1=有失败。 |
+| RunTestSuite | `Tools\RunTestSuite.ps1` | 按具名 suite 顺序运行一组标准测试前缀，固化 smoke / native / scenario 等推荐波次。 | `.\Tools\RunTestSuite.ps1 -Suite Smoke` | 多个 `Saved/Automation/<timestamp>_<Label>/` 子目录 | 适合标准化回归流程；底层仍调用 `RunTests.ps1`。 |
 | PullReference `list` | `Tools\PullReference.bat` | 列出当前支持的外部参考仓库 key。 | `Tools\PullReference.bat list` | 输出可用 key 与说明 | 用于查看可拉取和不可拉取的参考源。 |
 | PullReference `angelscript` | `Tools\PullReference.bat` | 通过对应 SSH 克隆或同步 AngelScript 上游参考仓库。 | `Tools\PullReference.bat angelscript` | 在 `Reference\angelscript-v2.38.0` 拉取或更新仓库 | 默认同步到当前项目的 `Reference\angelscript-v2.38.0`。 |
 | PullReference `unrealcsharp` | `Tools\PullReference.bat` | 通过对应 SSH 克隆或同步 `UnrealCSharp` 参考仓库。 | `Tools\PullReference.bat unrealcsharp` | 在 `Reference\UnrealCSharp` 拉取或更新仓库 | 默认同步到当前项目的 `Reference\UnrealCSharp`。 |
@@ -55,6 +57,103 @@
 ```bat
 Tools\GenerateAgentConfigTemplate.bat
 Tools\GenerateAgentConfigTemplate.bat --force
+```
+
+## RunTests.ps1
+
+| 项目 | 说明 |
+| --- | --- |
+| 工具路径 | `Tools\RunTests.ps1` |
+| 主要用途 | 一键运行 UE 自动化测试，自动读取 `AgentConfig.ini`，创建带时间戳的输出目录，运行测试并解析结果摘要。 |
+| 依赖 | `AgentConfig.ini` 已配置 `Paths.EngineRoot`。 |
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `-TestPrefix` | string | `Angelscript` | UE 自动化测试过滤前缀。 |
+| `-Label` | string | 从 TestPrefix 派生 | 输出目录中的人可读标签。 |
+| `-OutputRoot` | string | `<ProjectRoot>/Saved/Automation` | 测试输出根目录。 |
+| `-NoReport` | switch | false | 跳过 `-ReportExportPath` JSON 报告导出。 |
+
+### 输出结构
+
+每次运行创建 `<OutputRoot>/<timestamp>_<Label>/` 目录，包含：
+
+| 文件/目录 | 说明 |
+| --- | --- |
+| `test.log` | 引擎标准输出捕获 |
+| `Reports/` | UE 自动化测试 JSON 报告（除非使用 `-NoReport`） |
+
+### 结果解析
+
+脚本自动从日志中提取并打印：
+- 进程退出码
+- `GIsCriticalError` 值
+- 通过/失败测试数量（`TEST COMPLETE` 行）
+- 前 50 条失败行
+
+脚本退出码：有测试失败或进程异常退出时返回 `1`，否则返回 `0`。
+
+### 使用示例
+
+```powershell
+# 运行全部 Angelscript 测试
+.\Tools\RunTests.ps1
+
+# 运行特定前缀
+.\Tools\RunTests.ps1 -TestPrefix "Angelscript.CppTests.MultiEngine"
+
+# 自定义标签
+.\Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.HotReload" -Label "HotReload_Verify"
+
+# AI Agent 环境执行（带超时）
+powershell.exe -ExecutionPolicy Bypass -File "Tools\RunTests.ps1" -TestPrefix "Angelscript"
+```
+
+## RunTestSuite.ps1
+
+| 项目 | 说明 |
+| --- | --- |
+| 工具路径 | `Tools\RunTestSuite.ps1` |
+| 主要用途 | 以具名 suite 方式顺序执行多组标准测试前缀，适合固定 smoke / native / learning / scenario 核查流程。 |
+| 依赖 | `Tools\RunTests.ps1`、`AgentConfig.ini`、`Paths.EngineRoot` |
+
+### 参数
+
+| 参数 | 类型 | 默认值 | 说明 |
+| --- | --- | --- | --- |
+| `-Suite` | string | 空 | 要执行的 suite 名称；不传时配合 `-ListSuites` 使用。 |
+| `-LabelPrefix` | string | 从 Suite 派生 | 每一波次输出目录前缀。 |
+| `-OutputRoot` | string | 空 | 透传给 `RunTests.ps1` 的输出根目录。 |
+| `-NoReport` | switch | false | 透传给 `RunTests.ps1`，跳过 JSON 报告导出。 |
+| `-ListSuites` | switch | false | 仅列出内置 suite 与其包含的测试前缀。 |
+| `-DryRun` | switch | false | 只打印即将执行的命令，不真正启动 UnrealEditor-Cmd。 |
+
+### 当前内置 suite
+
+- `Smoke`
+- `NativeCore`
+- `RuntimeCpp`
+- `Bindings`
+- `Internals`
+- `LearningNative`
+- `LearningRuntime`
+- `HotReload`
+- `ScenarioSamples`
+- `All`
+
+### 使用示例
+
+```powershell
+# 查看当前内置 suite
+.\Tools\RunTestSuite.ps1 -ListSuites
+
+# 跑一轮标准 smoke
+.\Tools\RunTestSuite.ps1 -Suite Smoke
+
+# 查看场景样本套件会执行哪些命令
+.\Tools\RunTestSuite.ps1 -Suite ScenarioSamples -DryRun
 ```
 
 ## PullReference.bat

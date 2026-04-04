@@ -19,6 +19,7 @@
 - `Documents/Guides/`: Build, test, and lookup guides.
 - `Documents/Rules/`: Git commit and other rule documents.
 - `Documents/Plans/`: Multi-phase task plan documents.
+- `Documents/Plans/Archives/`: Archive directory and summaries for completed or closed plans.
 - `Tools/`: Local helper scripts.
 
 ## External Reference Repositories
@@ -67,6 +68,7 @@
 ## Plans & TODO
 
 - Tasks requiring multi-phase execution should have a Plan document under `Documents/Plans/`. Writing rules are defined in `Documents/Plans/Plan.md`.
+- Completed or closed plans move from `Documents/Plans/` to `Documents/Plans/Archives/`; each archived plan must include archive status, archive date, closure rationale, and a short result summary, with indexes updated in sync.
 - TODOs should be broken down around the plugin goal. Avoid lumping legacy project issues into one large task.
 - When renaming, migrating modules, or adjusting public APIs, identify all affected files and documentation.
 - Tests under `Plugins/Angelscript/Source/AngelscriptTest/` should be organized by concrete theme (for example `Actor`, `Blueprint`, `Interface`, `HotReload`, `Shared`) rather than accumulated under a broad catch-all `Scenarios` bucket.
@@ -82,4 +84,5 @@
 | `Documents/Guides/UE_Search_Guide.md` | UE knowledge lookup guide |
 | `Documents/Rules/GitCommitRule.md` | English commit conventions |
 | `Documents/Plans/Plan.md` | Plan document writing rules |
+| `Documents/Plans/Archives/README.md` | Archived plan index and summaries |
 | `Documents/Tools/Tool.md` | Internal tool documentation |

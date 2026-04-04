@@ -1,11 +1,9 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "Components/ActorTestSpawner.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
-#include "UObject/GarbageCollection.h"
 
 // Test Layer: UE Scenario
 #if WITH_DEV_AUTOMATION_TESTS
@@ -40,14 +38,13 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioActorPointDamageTest::RunTest(const FString& Parameters)
 {
-	TUniquePtr<FAngelscriptEngine> EngineOwner = CreateFullTestEngine();
-	FAngelscriptEngine& Engine = *EngineOwner;
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorPointDamage"));
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(*ModuleName.ToString());
-		CollectGarbage(RF_NoFlags, true);
+		ResetSharedCloneEngine(Engine);
 	};
 
 	UClass* ScriptClass = CompileScriptModule(
@@ -57,7 +54,7 @@ bool FAngelscriptScenarioActorPointDamageTest::RunTest(const FString& Parameters
 		TEXT("ScenarioActorPointDamage.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorPointDamage : AAngelscriptActor
+class AScenarioActorPointDamage : AActor
 {
 	UFUNCTION(BlueprintOverride)
 	void PointDamage(float Damage, TObjectPtr<UDamageType> DamageType, FVector HitLocation,
@@ -83,7 +80,7 @@ class AScenarioActorPointDamage : AAngelscriptActor
 		return false;
 	}
 
-	BeginPlayActor(Engine, *Actor);
+	BeginPlayActor(*Actor);
 	UGameplayStatics::ApplyPointDamage(Actor, 42.0f, FVector::ForwardVector, FHitResult(), nullptr, nullptr, nullptr);
 
 	TestTrue(TEXT("Scenario point damage should route the applied damage into the script override"), FMath::IsNearlyEqual(Actor->GetActorTickInterval(), 42.0f));
@@ -92,14 +89,13 @@ class AScenarioActorPointDamage : AAngelscriptActor
 
 bool FAngelscriptScenarioActorRadialDamageTest::RunTest(const FString& Parameters)
 {
-	TUniquePtr<FAngelscriptEngine> EngineOwner = CreateFullTestEngine();
-	FAngelscriptEngine& Engine = *EngineOwner;
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorRadialDamage"));
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(*ModuleName.ToString());
-		CollectGarbage(RF_NoFlags, true);
+		ResetSharedCloneEngine(Engine);
 	};
 
 	UClass* ScriptClass = CompileScriptModule(
@@ -114,7 +110,7 @@ class UScenarioActorRadialDamageSphere : USphereComponent
 }
 
 UCLASS()
-class AScenarioActorRadialDamage : AAngelscriptActor
+class AScenarioActorRadialDamage : AActor
 {
 	UPROPERTY(DefaultComponent, RootComponent)
 	UScenarioActorRadialDamageSphere DamageSphere;
@@ -138,13 +134,13 @@ class AScenarioActorRadialDamage : AAngelscriptActor
 
 	FActorTestSpawner Spawner;
 	Spawner.InitializeGameSubsystems();
-	AAngelscriptActor* Actor = Cast<AAngelscriptActor>(SpawnScriptActor(*this, Spawner, ScriptClass));
-	if (!TestNotNull(TEXT("Scenario radial-damage actor should spawn as an AAngelscriptActor"), Actor))
+	AActor* Actor = Cast<AActor>(SpawnScriptActor(*this, Spawner, ScriptClass));
+	if (!TestNotNull(TEXT("Scenario radial-damage actor should spawn as an AActor"), Actor))
 	{
 		return false;
 	}
 
-	BeginPlayActor(Engine, *Actor);
+	BeginPlayActor(*Actor);
 	TArray<AActor*> IgnoredActors;
 	const bool bAppliedDamage = UGameplayStatics::ApplyRadialDamage(&Spawner.GetWorld(), 24.0f, Actor->GetActorLocation(), 128.0f, nullptr, IgnoredActors, nullptr, nullptr, true);
 	if (!TestTrue(TEXT("Scenario radial-damage setup should apply damage through the engine overlap path"), bAppliedDamage))
@@ -158,14 +154,13 @@ class AScenarioActorRadialDamage : AAngelscriptActor
 
 bool FAngelscriptScenarioActorMultiSpawnTest::RunTest(const FString& Parameters)
 {
-	TUniquePtr<FAngelscriptEngine> EngineOwner = CreateFullTestEngine();
-	FAngelscriptEngine& Engine = *EngineOwner;
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorMultiSpawn"));
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(*ModuleName.ToString());
-		CollectGarbage(RF_NoFlags, true);
+		ResetSharedCloneEngine(Engine);
 	};
 
 	UClass* ScriptClass = CompileScriptModule(
@@ -175,7 +170,7 @@ bool FAngelscriptScenarioActorMultiSpawnTest::RunTest(const FString& Parameters)
 		TEXT("ScenarioActorMultiSpawn.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorMultiSpawn : AAngelscriptActor
+class AScenarioActorMultiSpawn : AActor
 {
 	UPROPERTY()
 	int BeginPlayCount = 0;
@@ -203,7 +198,7 @@ class AScenarioActorMultiSpawn : AAngelscriptActor
 		{
 			return false;
 		}
-		BeginPlayActor(Engine, *Actor);
+		BeginPlayActor(*Actor);
 		SpawnedActors.Add(Actor);
 	}
 
@@ -225,14 +220,13 @@ class AScenarioActorMultiSpawn : AAngelscriptActor
 
 bool FAngelscriptScenarioActorCrossCallTest::RunTest(const FString& Parameters)
 {
-	TUniquePtr<FAngelscriptEngine> EngineOwner = CreateFullTestEngine();
-	FAngelscriptEngine& Engine = *EngineOwner;
+	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
 	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorCrossCall"));
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(*ModuleName.ToString());
-		CollectGarbage(RF_NoFlags, true);
+		ResetSharedCloneEngine(Engine);
 	};
 
 	UClass* ActorAClass = CompileScriptModule(
@@ -242,7 +236,7 @@ bool FAngelscriptScenarioActorCrossCallTest::RunTest(const FString& Parameters)
 		TEXT("ScenarioActorCrossCall.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorCrossCallB : AAngelscriptActor
+class AScenarioActorCrossCallB : AActor
 {
 	UPROPERTY()
 	int CallCount = 0;
@@ -255,7 +249,7 @@ class AScenarioActorCrossCallB : AAngelscriptActor
 }
 
 UCLASS()
-class AScenarioActorCrossCallA : AAngelscriptActor
+class AScenarioActorCrossCallA : AActor
 {
 	UPROPERTY()
 	AScenarioActorCrossCallB TargetActor;
@@ -284,7 +278,7 @@ class AScenarioActorCrossCallA : AAngelscriptActor
 
 	FActorTestSpawner Spawner;
 	Spawner.InitializeGameSubsystems();
-	AAngelscriptActor* ActorA = Cast<AAngelscriptActor>(SpawnScriptActor(*this, Spawner, ActorAClass));
+	AActor* ActorA = Cast<AActor>(SpawnScriptActor(*this, Spawner, ActorAClass));
 	AActor* ActorB = SpawnScriptActor(*this, Spawner, ActorBClass);
 	if (!TestNotNull(TEXT("Scenario cross-call actor A should spawn"), ActorA) || !TestNotNull(TEXT("Scenario cross-call actor B should spawn"), ActorB))
 	{
@@ -301,9 +295,9 @@ class AScenarioActorCrossCallA : AAngelscriptActor
 	ActorA->PrimaryActorTick.bCanEverTick = true;
 	ActorA->SetActorTickEnabled(true);
 	ActorA->RegisterAllActorTickFunctions(true, false);
-	BeginPlayActor(Engine, *ActorA);
-	BeginPlayActor(Engine, *ActorB);
-	TickWorld(Engine, Spawner.GetWorld(), InteractionScenarioDeltaTime, 1);
+	BeginPlayActor(*ActorA);
+	BeginPlayActor(*ActorB);
+	TickWorld(Spawner.GetWorld(), InteractionScenarioDeltaTime, 1);
 
 	int32 CallCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, ActorB, TEXT("CallCount"), CallCount))

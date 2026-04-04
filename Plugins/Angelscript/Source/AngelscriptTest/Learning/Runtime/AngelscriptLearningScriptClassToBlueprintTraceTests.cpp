@@ -4,7 +4,6 @@
 #include "../../Shared/AngelscriptTestUtilities.h"
 
 #include "Components/ActorTestSpawner.h"
-#include "Core/AngelscriptActor.h"
 #include "Engine/Blueprint.h"
 #include "Kismet2/KismetEditorUtilities.h"
 #include "Misc/AutomationTest.h"
@@ -116,6 +115,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptLearningScriptClassToBlueprintTraceTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("LearningScriptClassToBlueprintModule"));
 	ON_SCOPE_EXIT
 	{
@@ -125,7 +125,7 @@ bool FAngelscriptLearningScriptClassToBlueprintTraceTest::RunTest(const FString&
 
 	const FString ScriptSource = TEXT(R"AS(
 UCLASS()
-class ALearningScriptClassToBlueprintActor : AAngelscriptActor
+class ALearningScriptClassToBlueprintActor : AActor
 {
 	UPROPERTY()
 	int BeginPlayCount = 0;
@@ -212,7 +212,7 @@ class ALearningScriptClassToBlueprintActor : AAngelscriptActor
 
 	Trace.AddStep(TEXT("SpawnBlueprintActor"), TEXT("Spawned an actor instance from the Blueprint-generated class into a test world"));
 
-	BeginPlayActor(Engine, *Actor);
+	BeginPlayActor(*Actor);
 
 	Trace.AddStep(TEXT("InvokeBeginPlay"), TEXT("Invoked BeginPlay on the spawned actor to trigger the script-defined BlueprintOverride"));
 

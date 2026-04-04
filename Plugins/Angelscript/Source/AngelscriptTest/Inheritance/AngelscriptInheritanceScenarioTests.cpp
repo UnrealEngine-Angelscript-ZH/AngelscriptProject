@@ -1,6 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "ClassGenerator/AngelscriptClassGenerator.h"
 #include "Components/ActorTestSpawner.h"
 #include "Misc/AutomationTest.h"
@@ -48,7 +47,7 @@ bool FAngelscriptScenarioInheritanceScriptToScriptTest::RunTest(const FString& P
 
 	const FString BaselineScript = TEXT(R"AS(
 UCLASS()
-class AScenarioInheritanceBaseline : AAngelscriptActor
+class AScenarioInheritanceBaseline : AActor
 {
 }
 )AS");
@@ -67,7 +66,7 @@ class AScenarioInheritanceBaseline : AAngelscriptActor
 		TEXT("ScenarioInheritanceScriptToScript.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioInheritanceBase : AAngelscriptActor
+class AScenarioInheritanceBase : AActor
 {
 	UFUNCTION()
 	int GetScenarioValue()
@@ -111,7 +110,7 @@ bool FAngelscriptScenarioInheritanceSuperTest::RunTest(const FString& Parameters
 
 	const FString BaselineScript = TEXT(R"AS(
 UCLASS()
-class AScenarioInheritanceSuperBaseline : AAngelscriptActor
+class AScenarioInheritanceSuperBaseline : AActor
 {
 }
 )AS");
@@ -130,7 +129,7 @@ class AScenarioInheritanceSuperBaseline : AAngelscriptActor
 		TEXT("ScenarioInheritanceSuper.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioInheritanceSuperBase : AAngelscriptActor
+class AScenarioInheritanceSuperBase : AActor
 {
 	UFUNCTION()
 	int GetScenarioValue()
@@ -174,7 +173,7 @@ bool FAngelscriptScenarioInheritanceIsATest::RunTest(const FString& Parameters)
 
 	const FString BaselineScript = TEXT(R"AS(
 UCLASS()
-class AScenarioInheritanceIsABaseline : AAngelscriptActor
+class AScenarioInheritanceIsABaseline : AActor
 {
 }
 )AS");
@@ -193,7 +192,7 @@ class AScenarioInheritanceIsABaseline : AAngelscriptActor
 		TEXT("ScenarioInheritanceIsA.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioInheritanceIsABase : AAngelscriptActor
+class AScenarioInheritanceIsABase : AActor
 {
 }
 

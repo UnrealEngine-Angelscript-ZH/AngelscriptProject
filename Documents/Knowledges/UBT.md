@@ -133,13 +133,11 @@
 
 对应计划文档：
 
-- `Documents/Plans/Plan_BuildTestScriptStandardization.md`
+- `Documents/Plans/Archives/Plan_BuildTestScriptStandardization.md`
 
 ## 当前仓库状态（2026-04-04）
 
-- 仅增加了脚本级 smoke test 起点：
-  - `Tools/Tests/RunToolingSmokeTests.ps1`
-  - `Tools/Tests/Helpers/WriteLines.ps1`
-  - `Tools/Tests/Helpers/SpawnSleepTree.ps1`
-- 这些测试当前故意保持为“先红”状态，因为共享执行层 `Tools/Shared/UnrealCommandUtils.ps1` 还没有实现。
+- `Tools/Shared/UnrealCommandUtils.ps1`、`Tools/RunBuild.ps1`、`Tools/RunTests.ps1` 与 `Tools/Get-UbtProcess.ps1` 已落地。
+- `Tools/Tests/RunToolingSmokeTests.ps1` 与 `Tools/Tests/Helpers/*` 已用于验证 timeout、single-flight、流式输出、进程树清理与命令行解析。
+- 当前构建/测试脚本标准化已归档为已完成工作，后续如需调整执行约束，应直接更新脚本与 `Documents/Guides/Build.md` / `Documents/Guides/Test.md`，并视情况补新的 sibling plan。
 - `AGENTS_ZH.md`、`Documents/Guides/Build.md`、`Documents/Guides/Test.md` 这类“强制执行入口”文档暂未切换到新脚本，避免在脚本真正落地前把不存在的命令写成硬规则。

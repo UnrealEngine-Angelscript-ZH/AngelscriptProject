@@ -70,8 +70,11 @@ struct ANGELSCRIPTRUNTIME_API FSetOperations
 	uint32 InvokeHashFunction(const void* Object) const
 	{
 		ensure(HashFunction != nullptr);
-		FAngelscriptContext Context;
-		Context->Prepare(HashFunction);
+		FAngelscriptContext Context(HashFunction->GetEngine());
+		if (!PrepareAngelscriptContextWithLog(Context, HashFunction, TEXT("FSetOperations::InvokeHashFunction")))
+		{
+			return 0;
+		}
 		Context->SetObject(const_cast<void*>(Object));
 		Context->Execute();
 		return Context->GetReturnDWord();

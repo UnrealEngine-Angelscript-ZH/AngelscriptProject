@@ -1,6 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "Components/ActorTestSpawner.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
@@ -33,6 +32,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptScenarioInterfaceImplementBasicTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceImplementBasic"));
 	ON_SCOPE_EXIT
 	{
@@ -53,7 +53,7 @@ interface UIDamageableImpl
 }
 
 UCLASS()
-class AScenarioInterfaceImplBasic : AAngelscriptActor, UIDamageableImpl
+class AScenarioInterfaceImplBasic : AActor, UIDamageableImpl
 {
 	UPROPERTY()
 	float DamageReceived = 0.0;
@@ -91,6 +91,7 @@ class AScenarioInterfaceImplBasic : AAngelscriptActor, UIDamageableImpl
 bool FAngelscriptScenarioInterfaceImplementMultipleTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceImplementMultiple"));
 	ON_SCOPE_EXIT
 	{
@@ -117,7 +118,7 @@ interface UIHealableMulti
 }
 
 UCLASS()
-class AScenarioInterfaceImplMultiple : AAngelscriptActor, UIDamageableMulti, UIHealableMulti
+class AScenarioInterfaceImplMultiple : AActor, UIDamageableMulti, UIHealableMulti
 {
 	UPROPERTY()
 	float Health = 100.0;
@@ -169,6 +170,7 @@ class AScenarioInterfaceImplMultiple : AAngelscriptActor, UIDamageableMulti, UIH
 bool FAngelscriptScenarioInterfaceImplementsInterfaceMethodTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioInterfaceImplMethod"));
 	ON_SCOPE_EXIT
 	{
@@ -189,7 +191,7 @@ interface UIDamageableImplCheck
 }
 
 UCLASS()
-class AScenarioInterfaceImplMethod : AAngelscriptActor, UIDamageableImplCheck
+class AScenarioInterfaceImplMethod : AActor, UIDamageableImplCheck
 {
 	UPROPERTY()
 	int ImplementsResult = 0;
@@ -221,7 +223,7 @@ class AScenarioInterfaceImplMethod : AAngelscriptActor, UIDamageableImplCheck
 		return false;
 	}
 
-	BeginPlayActor(Engine, *Actor);
+	BeginPlayActor(*Actor);
 
 	UClass* InterfaceClass = FindGeneratedClass(&Engine, TEXT("UIDamageableImplCheck"));
 	TestNotNull(TEXT("Interface class should exist"), InterfaceClass);

@@ -5,7 +5,6 @@
 #include "../../Shared/AngelscriptNativeScriptTestObject.h"
 
 #include "Components/ActorTestSpawner.h"
-#include "Core/AngelscriptActor.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
 #include "UObject/ScriptDelegates.h"
@@ -36,6 +35,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptLearningDelegateBridgeTraceTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("LearningDelegateBridgeModule"));
 	ON_SCOPE_EXIT
 	{
@@ -47,7 +47,7 @@ bool FAngelscriptLearningDelegateBridgeTraceTest::RunTest(const FString& Paramet
 delegate void FLearningOnHealthChanged(int32 NewHealth, const FString& Label);
 
 UCLASS()
-class ALearningDelegateBridgeActor : AAngelscriptActor
+class ALearningDelegateBridgeActor : AActor
 {
 	UPROPERTY()
 	FLearningOnHealthChanged OnHealthChanged;
@@ -117,7 +117,7 @@ class ALearningDelegateBridgeActor : AAngelscriptActor
 
 	Trace.AddStep(TEXT("SpawnDelegateActor"), TEXT("Spawned an instance of the script actor with delegate"));
 
-	BeginPlayActor(Engine, *Actor);
+	BeginPlayActor(*Actor);
 	Trace.AddStep(TEXT("BeginPlayDelegateActor"), TEXT("Called BeginPlay on the spawned actor"));
 
 	UAngelscriptNativeScriptTestObject* NativeReceiver = NewObject<UAngelscriptNativeScriptTestObject>(GetTransientPackage());
@@ -151,7 +151,6 @@ class ALearningDelegateBridgeActor : AAngelscriptActor
 		FLearningDelegateIntStringParams Params;
 		Params.Value = 99;
 		Params.Label = TEXT("BridgeTest");
-		FAngelscriptEngineScope ExecutionScope(Engine, Actor);
 		Actor->ProcessEvent(TriggerFunction, &Params);
 
 		Trace.AddStep(TEXT("ExecuteTrigger"), TEXT("Invoked the script trigger function which should execute the bound delegate"));

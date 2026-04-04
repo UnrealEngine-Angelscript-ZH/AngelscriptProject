@@ -1,6 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "Core/AngelscriptComponent.h"
 #include "Components/ActorTestSpawner.h"
 #include "Components/BillboardComponent.h"
@@ -92,6 +91,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptScenarioComponentBeginPlayTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioComponentBeginPlay"));
 	ON_SCOPE_EXIT
 	{
@@ -148,6 +148,7 @@ class UScenarioComponentBeginPlay : UAngelscriptComponent
 bool FAngelscriptScenarioComponentTickTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioComponentTick"));
 	ON_SCOPE_EXIT
 	{
@@ -207,6 +208,7 @@ class UScenarioComponentTick : UAngelscriptComponent
 bool FAngelscriptScenarioComponentReceiveEndPlayTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioComponentReceiveEndPlay"));
 	ON_SCOPE_EXIT
 	{
@@ -265,6 +267,7 @@ class UScenarioComponentReceiveEndPlay : UAngelscriptComponent
 bool FAngelscriptScenarioComponentActorOwnerTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioComponentActorOwner"));
 	ON_SCOPE_EXIT
 	{
@@ -279,7 +282,7 @@ bool FAngelscriptScenarioComponentActorOwnerTest::RunTest(const FString& Paramet
 		TEXT("ScenarioComponentActorOwner.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioComponentOwnerActor : AAngelscriptActor
+class AScenarioComponentOwnerActor : AActor
 {
 	UPROPERTY()
 	int OwnerValue = 42;
@@ -351,6 +354,7 @@ bool FAngelscriptScenarioDefaultComponentBasicTest::RunTest(const FString& Param
 		return false;
 	}
 	FAngelscriptEngine& Engine = *ProductionEngine;
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioDefaultComponentBasic"));
 	ON_SCOPE_EXIT
 	{
@@ -369,7 +373,7 @@ class UScenarioDefaultComponentBasicRoot : USceneComponent
 }
 
 UCLASS()
-class AScenarioDefaultComponentBasic : AAngelscriptActor
+class AScenarioDefaultComponentBasic : AActor
 {
 	UPROPERTY(DefaultComponent, RootComponent)
 	UScenarioDefaultComponentBasicRoot RootScene;
@@ -416,6 +420,7 @@ bool FAngelscriptScenarioDefaultComponentMultipleTest::RunTest(const FString& Pa
 		return false;
 	}
 	FAngelscriptEngine& Engine = *ProductionEngine;
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioDefaultComponentMultiple"));
 	ON_SCOPE_EXIT
 	{
@@ -439,7 +444,7 @@ class UScenarioDefaultComponentMultipleBillboard : UBillboardComponent
 }
 
 UCLASS()
-class AScenarioDefaultComponentMultiple : AAngelscriptActor
+class AScenarioDefaultComponentMultiple : AActor
 {
 	UPROPERTY(DefaultComponent, RootComponent)
 	UScenarioDefaultComponentMultipleRoot RootScene;

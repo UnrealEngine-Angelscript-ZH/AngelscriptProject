@@ -1090,7 +1090,7 @@ void FAngelscriptClassGenerator::Analyze(FModuleData& ModuleData, FClassData& Cl
 			PrevStruct = ClassData.OldClass->Struct;
 	}
 #if AS_CAN_HOTRELOAD
-	else if (FAngelscriptEngine::Get().IsInitialCompileFinished())
+	else if (FAngelscriptEngine::Get().bIsInitialCompileFinished)
 	{
 		UASClass* ReplacedClass = FindObject<UASClass>(FAngelscriptEngine::GetPackage(), *UnrealName);
 		if (ReplacedClass != nullptr)
@@ -2157,7 +2157,7 @@ void FAngelscriptClassGenerator::PerformReload(bool bFullReload)
 {
 	// Create progress indicator
 	FScopedSlowTask SlowTask(1.8f);
-	if (bFullReload && FAngelscriptEngine::Get().IsInitialCompileFinished())
+	if (bFullReload && FAngelscriptEngine::Get().bIsInitialCompileFinished)
 		SlowTask.MakeDialogDelayed(0.5f);
 
 	bIsDoingFullReload = bFullReload;
@@ -2347,7 +2347,7 @@ void FAngelscriptClassGenerator::PerformReload(bool bFullReload)
 	if (bIsDoingFullReload)
 	{
 		// Update progress indicator
-		if (bReinstancingAny && FAngelscriptEngine::Get().IsInitialCompileFinished())
+		if (bReinstancingAny && FAngelscriptEngine::Get().bIsInitialCompileFinished)
 			SlowTask.MakeDialog();
 		SlowTask.EnterProgressFrame(0.5f, FText::FromString(TEXT("Unreal Hot Reload")));
 
@@ -3899,7 +3899,7 @@ void FAngelscriptClassGenerator::DoFullReload(FModuleData& ModuleData, FEnumData
 	// Need to inform editor if we changed an existing enum
 	if (!bExistingEnum)
 	{
-		if (FAngelscriptEngine::Get().IsInitialCompileFinished())
+		if (FAngelscriptEngine::bIsInitialCompileFinished)
 			OnEnumCreated.Broadcast(Enum);
 	}
 	else if (bHasChanged)
@@ -4865,8 +4865,11 @@ void FAngelscriptClassGenerator::ReinitializeScriptObject(class asCScriptObject*
 		// Call the angelscript constructor of the scriptobject
 		auto& Manager = FAngelscriptEngine::Get();
 		asIScriptFunction* ConstructFunction = Manager.Engine->GetFunctionById(ObjectTypeToConstruct->beh.construct);
-		FAngelscriptContext Context((UObject*)ScriptObject, ConstructFunction != nullptr ? ConstructFunction->GetEngine() : nullptr);
-		Context->Prepare(ConstructFunction);
+		FAngelscriptContext Context((UObject*)ScriptObject, ConstructFunction->GetEngine());
+		if (!PrepareAngelscriptContextWithLog(Context, ConstructFunction, TEXT("FAngelscriptClassGenerator::ReinitializeScriptObject")))
+		{
+			return;
+		}
 		Context->SetObject(ScriptObject);
 		Context->Execute();
 	}
@@ -5817,8 +5820,12 @@ void FAngelscriptClassGenerator::CallPostInitFunctions()
 				if (ScriptFunction->name != AnsiFunctionName.Get())
 					continue;
 
-				FAngelscriptContext Context;
-				Context->Prepare(ScriptFunction);
+				FAngelscriptContext Context(ScriptFunction->GetEngine());
+				if (!PrepareAngelscriptContextWithLog(Context, ScriptFunction, *InitFunctionName))
+				{
+					bFound = true;
+					break;
+				}
 				Context->Execute();
 				bFound = true;
 				break;

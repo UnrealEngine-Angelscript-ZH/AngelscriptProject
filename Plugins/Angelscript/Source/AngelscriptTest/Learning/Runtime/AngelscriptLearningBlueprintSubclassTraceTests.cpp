@@ -74,6 +74,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptLearningBlueprintSubclassTraceTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("LearningBlueprintSubclassModule"));
 	UBlueprint* Blueprint = nullptr;
 	ON_SCOPE_EXIT
@@ -92,7 +93,7 @@ bool FAngelscriptLearningBlueprintSubclassTraceTest::RunTest(const FString& Para
 
 	const FString ScriptSource = TEXT(R"AS(
 UCLASS(Blueprintable)
-class ALearningBlueprintSubclassBase : AAngelscriptActor
+class ALearningBlueprintSubclassBase : AActor
 {
 	UPROPERTY(BlueprintReadWrite)
 	float BaseValue = 100.0f;

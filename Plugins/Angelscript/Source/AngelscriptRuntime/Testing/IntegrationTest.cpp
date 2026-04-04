@@ -946,7 +946,7 @@ bool FAngelscriptIntegrationTests::RunTest(const FString& ModuleAndTestName)
 
 	FTestInMemory* TestInMemory = new FTestInMemory{Test};
 
-	FAngelscriptContext AngelscriptContext(World);
+	FAngelscriptContext AngelscriptContext(World, Test->GetTestFunction()->GetEngine());
 	Test->StartTest(AngelscriptContext);
 
 	// Enqueue latent actions to end the test after all test actions are finished.

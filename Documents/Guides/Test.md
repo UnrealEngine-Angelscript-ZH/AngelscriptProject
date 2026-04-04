@@ -3,6 +3,7 @@
 ## 强制规则
 
 - 本仓库的标准自动化测试入口是 `Tools\RunTests.ps1`。
+- 测试放置、命名、前缀与具名 suite 约定以 `Documents/Guides/TestConventions.md` 为准；`Test.md` 只说明执行入口与运行约束。
 - 不再允许把 `UnrealEditor-Cmd.exe` 直调命令、`Start-Process UnrealEditor-Cmd.exe` 拼参命令、或旧的 `Tools\RunAutomationTests.ps1` 作为标准执行方式写入指南。
 - 所有测试命令都必须显式带超时，且超时不得超过 `300000ms`。
 - 默认测试超时来自 `AgentConfig.ini` 中的 `Test.DefaultTimeoutMs`，仓库模板默认值为 `300000ms`。
@@ -44,6 +45,12 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Test
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Group AngelscriptSmoke
 ```
 
+### 按具名 suite 运行
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTestSuite.ps1 -Suite Smoke
+```
+
 ### 需要图形输出时
 
 默认测试会启用 `-NullRHI`。只有明确需要真实渲染时才使用：
@@ -64,6 +71,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Grou
 - 为每次运行生成独立的 `-ABSLOG` 和 `-ReportExportPath`
 - 对同一 worktree 启用单飞锁，防止同一 worktree 内并发跑多个 build/test
 - 在超时或异常退出时结束整个进程树
+
+`Tools\RunTestSuite.ps1` 是基于 `Tools\RunTests.ps1` 的薄封装，用于把常用 smoke / native / runtime / scenario 波次固化成具名入口；需要单条前缀或 group 控制时，仍直接使用 `Tools\RunTests.ps1`。
 
 ## 常用参数
 
@@ -122,6 +131,16 @@ Saved/Tests/<Label>/<Timestamp>/
 2. 无 world 的运行时回归：`AngelscriptRuntimeUnit`、`AngelscriptFast`
 3. 需要 world / actor / subsystem 的集成回归：`AngelscriptScenario`
 4. 编辑器相关：`AngelscriptEditor`
+
+常用具名 suite 以 `Tools\RunTestSuite.ps1 -ListSuites` 的输出为准，当前重点包括：
+
+- `Smoke`
+- `NativeCore`
+- `RuntimeCpp`
+- `Bindings`
+- `HotReload`
+- `ScenarioSamples`
+- `All`
 
 ## 与 Gauntlet 的边界
 

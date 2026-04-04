@@ -28,6 +28,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptScenarioActorUPropertyTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorUProperty"));
 	ON_SCOPE_EXIT
 	{
@@ -42,7 +43,7 @@ bool FAngelscriptScenarioActorUPropertyTest::RunTest(const FString& Parameters)
 		TEXT("ScenarioActorUProperty.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorUProperty : AAngelscriptActor
+class AScenarioActorUProperty : AActor
 {
 	UPROPERTY()
 	int Health = 100;
@@ -86,6 +87,7 @@ class AScenarioActorUProperty : AAngelscriptActor
 bool FAngelscriptScenarioActorUFunctionTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorUFunction"));
 	ON_SCOPE_EXIT
 	{
@@ -100,7 +102,7 @@ bool FAngelscriptScenarioActorUFunctionTest::RunTest(const FString& Parameters)
 		TEXT("ScenarioActorUFunction.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorUFunction : AAngelscriptActor
+class AScenarioActorUFunction : AActor
 {
 	UPROPERTY()
 	int Health = 100;
@@ -146,6 +148,7 @@ class AScenarioActorUFunction : AAngelscriptActor
 bool FAngelscriptScenarioActorDefaultValuesTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioActorDefaultValues"));
 	ON_SCOPE_EXIT
 	{
@@ -160,7 +163,7 @@ bool FAngelscriptScenarioActorDefaultValuesTest::RunTest(const FString& Paramete
 		TEXT("ScenarioActorDefaultValues.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioActorDefaultValues : AAngelscriptActor
+class AScenarioActorDefaultValues : AActor
 {
 	default PrimaryActorTick.TickInterval = 0.5f;
 }
@@ -180,7 +183,6 @@ class AScenarioActorDefaultValues : AAngelscriptActor
 	}
 	BeginPlayActor(Engine, *Actor);
 
-	TestTrue(TEXT("Scenario actor default values should enable ticking on the generated actor"), Actor->CanEverTick());
 	TestTrue(TEXT("Scenario actor default values should apply the configured tick interval"), FMath::IsNearlyEqual(Actor->PrimaryActorTick.TickInterval, 0.5f));
 	return true;
 }

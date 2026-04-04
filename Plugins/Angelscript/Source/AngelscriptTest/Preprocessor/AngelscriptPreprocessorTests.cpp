@@ -128,7 +128,7 @@ bool FAngelscriptPreprocessorMacroDetectionTest::RunTest(const FString& Paramete
 	const FString RelativeScriptPath = TEXT("Tests/Preprocessor/MacroActor.as");
 	const FString AbsoluteScriptPath = WriteFixtureFile(
 		RelativeScriptPath,
-		TEXT("class AMacroActor : AAngelscriptActor\n")
+		TEXT("class AMacroActor : AActor\n")
 		TEXT("{\n")
 		TEXT("    UPROPERTY(EditAnywhere, BlueprintReadWrite)\n")
 		TEXT("    UStaticMesh Mesh;\n\n")

@@ -1,6 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "Components/ActorTestSpawner.h"
 #include "Engine/Blueprint.h"
 #include "Kismet2/KismetEditorUtilities.h"
@@ -155,6 +154,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptScenarioScriptClassCompilesToUClassTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = ScriptClassCreationTest::AcquireFreshScriptClassEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptClassCompilesToUClass"));
 	ON_SCOPE_EXIT
 	{
@@ -169,7 +169,7 @@ bool FAngelscriptScenarioScriptClassCompilesToUClassTest::RunTest(const FString&
 		TEXT("ScenarioScriptClassCompilesToUClass.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptClassCompilesToUClass : AAngelscriptActor
+class AScenarioScriptClassCompilesToUClass : AActor
 {
 	UPROPERTY()
 	int SpawnMarker = 7;
@@ -181,7 +181,7 @@ class AScenarioScriptClassCompilesToUClass : AAngelscriptActor
 		return false;
 	}
 
-	TestTrue(TEXT("Script-class compile scenario should produce an actor-derived generated UClass"), ScriptClass->IsChildOf(AAngelscriptActor::StaticClass()));
+	TestTrue(TEXT("Script-class compile scenario should produce an actor-derived generated UClass"), ScriptClass->IsChildOf(AActor::StaticClass()));
 
 	FActorTestSpawner Spawner;
 	Spawner.InitializeGameSubsystems();
@@ -204,6 +204,7 @@ class AScenarioScriptClassCompilesToUClass : AAngelscriptActor
 bool FAngelscriptScenarioScriptClassCanSpawnInTestWorldTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = ScriptClassCreationTest::AcquireFreshScriptClassEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptClassCanSpawnInTestWorld"));
 	ON_SCOPE_EXIT
 	{
@@ -218,7 +219,7 @@ bool FAngelscriptScenarioScriptClassCanSpawnInTestWorldTest::RunTest(const FStri
 		TEXT("ScenarioScriptClassCanSpawnInTestWorld.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptClassCanSpawnInTestWorld : AAngelscriptActor
+class AScenarioScriptClassCanSpawnInTestWorld : AActor
 {
 	UPROPERTY()
 	int BeginPlayObserved = 0;
@@ -259,6 +260,7 @@ class AScenarioScriptClassCanSpawnInTestWorld : AAngelscriptActor
 bool FAngelscriptScenarioScriptClassMultiSpawnKeepsStateIsolationTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = ScriptClassCreationTest::AcquireFreshScriptClassEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptClassMultiSpawnKeepsStateIsolation"));
 	ON_SCOPE_EXIT
 	{
@@ -273,7 +275,7 @@ bool FAngelscriptScenarioScriptClassMultiSpawnKeepsStateIsolationTest::RunTest(c
 		TEXT("ScenarioScriptClassMultiSpawnKeepsStateIsolation.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptClassMultiSpawnKeepsStateIsolation : AAngelscriptActor
+class AScenarioScriptClassMultiSpawnKeepsStateIsolation : AActor
 {
 	UPROPERTY()
 	int LocalState = 3;
@@ -324,6 +326,7 @@ class AScenarioScriptClassMultiSpawnKeepsStateIsolation : AAngelscriptActor
 bool FAngelscriptScenarioScriptClassBlueprintChildCompilesTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = ScriptClassCreationTest::AcquireFreshScriptClassEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptClassBlueprintChildCompiles"));
 	ON_SCOPE_EXIT
 	{
@@ -338,7 +341,7 @@ bool FAngelscriptScenarioScriptClassBlueprintChildCompilesTest::RunTest(const FS
 		TEXT("ScenarioScriptClassBlueprintChildCompiles.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptClassBlueprintChildCompiles : AAngelscriptActor
+class AScenarioScriptClassBlueprintChildCompiles : AActor
 {
 	UPROPERTY()
 	int BeginPlayCount = 0;
@@ -399,6 +402,7 @@ class AScenarioScriptClassBlueprintChildCompiles : AAngelscriptActor
 bool FAngelscriptScenarioScriptClassCDOHasExpectedDefaultsTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = ScriptClassCreationTest::AcquireFreshScriptClassEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptClassCDOHasExpectedDefaults"));
 	ON_SCOPE_EXIT
 	{
@@ -413,7 +417,7 @@ bool FAngelscriptScenarioScriptClassCDOHasExpectedDefaultsTest::RunTest(const FS
 		TEXT("ScenarioScriptClassCDOHasExpectedDefaults.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptClassCDOHasExpectedDefaults : AAngelscriptActor
+class AScenarioScriptClassCDOHasExpectedDefaults : AActor
 {
 	UPROPERTY()
 	int DefaultCounter = 21;
@@ -486,6 +490,7 @@ class AScenarioScriptClassCDOHasExpectedDefaults : AAngelscriptActor
 bool FAngelscriptScenarioScriptClassRecompileDoesNotCrashClassSwitchTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = ScriptClassCreationTest::AcquireFreshScriptClassEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptClassRecompileDoesNotCrashClassSwitch"));
 	ON_SCOPE_EXIT
 	{
@@ -500,7 +505,7 @@ bool FAngelscriptScenarioScriptClassRecompileDoesNotCrashClassSwitchTest::RunTes
 		TEXT("ScenarioScriptClassRecompileDoesNotCrashClassSwitch.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptClassRecompileDoesNotCrashClassSwitch : AAngelscriptActor
+class AScenarioScriptClassRecompileDoesNotCrashClassSwitch : AActor
 {
 	UPROPERTY()
 	int GenerationValue = 1;
@@ -533,7 +538,7 @@ class AScenarioScriptClassRecompileDoesNotCrashClassSwitch : AAngelscriptActor
 		TEXT("ScenarioScriptClassRecompileDoesNotCrashClassSwitch.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptClassRecompileDoesNotCrashClassSwitch : AAngelscriptActor
+class AScenarioScriptClassRecompileDoesNotCrashClassSwitch : AActor
 {
 	UPROPERTY()
 	int GenerationValue = 2;
@@ -575,6 +580,7 @@ class AScenarioScriptClassRecompileDoesNotCrashClassSwitch : AAngelscriptActor
 bool FAngelscriptScenarioScriptClassNonUClassTypeCannotSpawnTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = ScriptClassCreationTest::AcquireFreshScriptClassEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptClassNonUClassTypeCannotSpawn"));
 	ON_SCOPE_EXIT
 	{
@@ -620,6 +626,7 @@ class UScenarioScriptClassNonUClassTypeCannotSpawn : UObject
 bool FAngelscriptScenarioScriptClassRenameReplacesOldClassTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = GetResetSharedTestEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("ScenarioScriptClassRenameReplacesOldClass"));
 	ON_SCOPE_EXIT
 	{
@@ -634,7 +641,7 @@ bool FAngelscriptScenarioScriptClassRenameReplacesOldClassTest::RunTest(const FS
 		TEXT("ScenarioScriptClassRenameReplacesOldClass.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptClassRenameOld : AAngelscriptActor
+class AScenarioScriptClassRenameOld : AActor
 {
 	UPROPERTY()
 	int Version = 1;
@@ -653,7 +660,7 @@ class AScenarioScriptClassRenameOld : AAngelscriptActor
 		TEXT("ScenarioScriptClassRenameReplacesOldClass.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioScriptClassRenameNew : AAngelscriptActor
+class AScenarioScriptClassRenameNew : AActor
 {
 	UPROPERTY()
 	int Version = 2;

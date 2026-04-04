@@ -96,8 +96,11 @@ struct FScriptConsoleCommand
 			if (Module == nullptr)
 				return;
 
-			FAngelscriptContext Context(World);
-			Context->Prepare(FunPtr.Get());
+			FAngelscriptContext Context(World, FunPtr->GetEngine());
+			if (!PrepareAngelscriptContextWithLog(Context, FunPtr.Get(), TEXT("FScriptConsoleCommand")))
+			{
+				return;
+			}
 			Context->SetArgAddress(0, (void*)&Args);
 			Context->Execute();
 		}));

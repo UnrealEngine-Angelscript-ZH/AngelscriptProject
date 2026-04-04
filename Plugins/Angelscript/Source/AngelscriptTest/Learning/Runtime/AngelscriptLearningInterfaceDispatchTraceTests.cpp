@@ -4,7 +4,6 @@
 #include "../../Shared/AngelscriptTestUtilities.h"
 
 #include "Components/ActorTestSpawner.h"
-#include "Core/AngelscriptActor.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
 
@@ -21,6 +20,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptLearningInterfaceDispatchTraceTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("LearningInterfaceDispatchModule"));
 	ON_SCOPE_EXIT
 	{
@@ -36,7 +36,7 @@ interface UILearningDamageable
 }
 
 UCLASS()
-class ALearningInterfaceDispatchActor : AAngelscriptActor, UILearningDamageable
+class ALearningInterfaceDispatchActor : AActor, UILearningDamageable
 {
 	UPROPERTY()
 	float DamageAccumulated = 0.0;

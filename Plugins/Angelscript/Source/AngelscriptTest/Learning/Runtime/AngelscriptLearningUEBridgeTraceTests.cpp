@@ -4,7 +4,6 @@
 #include "../../Shared/AngelscriptTestUtilities.h"
 
 #include "Components/ActorTestSpawner.h"
-#include "Core/AngelscriptActor.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
 
@@ -21,6 +20,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptLearningUEBridgeTraceTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngineScope EngineScope(Engine);
 	static const FName ModuleName(TEXT("LearningUEBridgeModule"));
 	ON_SCOPE_EXIT
 	{
@@ -30,7 +30,7 @@ bool FAngelscriptLearningUEBridgeTraceTest::RunTest(const FString& Parameters)
 
 	const FString ScriptSource = TEXT(R"AS(
 UCLASS()
-class ALearningUEBridgeActor : AAngelscriptActor
+class ALearningUEBridgeActor : AActor
 {
 	UPROPERTY()
 	float HealthValue = 100.0f;

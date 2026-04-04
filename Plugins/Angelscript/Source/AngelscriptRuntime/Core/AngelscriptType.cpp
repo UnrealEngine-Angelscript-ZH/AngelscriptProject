@@ -760,8 +760,11 @@ bool FAngelscriptType::GetDebuggerValueFromFunction(asIScriptFunction* InScriptF
 			FMemory::Memzero(ValueAddress, ReturnValue.GetValueSize());
 
 		{
-			FAngelscriptContext Context;
-			Context->Prepare(ScriptFunction);
+			FAngelscriptContext Context(ScriptFunction->GetEngine());
+			if (!PrepareAngelscriptContextWithLog(Context, ScriptFunction, TEXT("FAngelscriptType::GetDebuggerValue")))
+			{
+				return false;
+			}
 			if (Object != nullptr)
 				Context->SetObject(Object);
 			if (bHasWorldContext)

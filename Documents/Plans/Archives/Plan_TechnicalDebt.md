@@ -1,5 +1,13 @@
 # Angelscript 插件技术债清理计划
 
+> **归档状态**：已完成，已于 2026-04-04 归档到 `Documents/Plans/Archives/`
+> **归档日期**：2026-04-04
+> **完成判断**：Phase 0-6 与对应提交条目已全部勾选完成，文档同步、sibling plan 分流与最终回归摘要均已在 P6 收口。
+> **结果摘要**：
+> - 已完成构建稳定性、运行时安全、弃用 API、测试 helper 命名、Bind 差距审计与全局状态 containment 六类技术债收口。
+> - 已将高风险或跨主题事项分流到 sibling plan，并同步 `Build.md`、`Test.md`、`TestCatalog.md`、`TechnicalDebtInventory.md` 等配套文档。
+> - 已沉淀最终回归结论与已知失败项，后续工作可直接从归档摘要和 sibling plan 继续衔接。
+
 ## 背景与目标
 
 ### 背景
@@ -344,7 +352,7 @@ powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\W
 - [x] **P6.1** 📦 Git 提交：`[Binds] Test: verify or retire stale enum lookup performance debt`
 
 - [x] **P6.2** 完成文档体系同步
-  - 至少复核并按需更新：`Documents/Plans/Plan_TechnicalDebt.md`、`Documents/Guides/Build.md`、`Documents/Guides/Test.md`、`Documents/Guides/TestCatalog.md`、`Documents/Guides/TechnicalDebtInventory.md`，以及 `Documents/Plans/Plan_InterfaceBinding.md`、`Documents/Plans/Plan_HazelightBindModuleMigration.md`、`Documents/Plans/Plan_AS238NonLambdaPort.md`、`Documents/Plans/Plan_FullDeGlobalization.md` 的边界交叉引用
+  - 至少复核并按需更新：`Documents/Plans/Archives/Plan_TechnicalDebt.md`、`Documents/Guides/Build.md`、`Documents/Guides/Test.md`、`Documents/Guides/TestCatalog.md`、`Documents/Guides/TechnicalDebtInventory.md`，以及 `Documents/Plans/Plan_InterfaceBinding.md`、`Documents/Plans/Plan_HazelightBindModuleMigration.md`、`Documents/Plans/Plan_AS238NonLambdaPort.md`、`Documents/Plans/Plan_FullDeGlobalization.md` 的边界交叉引用
   - 确认文档中不再出现本地绝对路径，且所有引用的计划/指南都与当前插件优先边界一致
   - 如果某项债务已通过 sibling plan 承接，必须在本计划中写明去向，不允许“从这里删掉但没有着落”
 - [x] **P6.2** 📦 Git 提交：`[Docs] Chore: sync technical debt closeout across guides and plans`

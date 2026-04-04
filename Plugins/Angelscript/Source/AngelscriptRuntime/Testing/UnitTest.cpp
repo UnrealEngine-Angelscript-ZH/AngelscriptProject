@@ -320,7 +320,7 @@ void RunOneUnitTest(FAngelscriptTest& T)
 	// Cache global frame counter so we can "tick" it internally in tests.
 	const int GFrameCounterBefore = GFrameCounter;
 
-	FAngelscriptContext Context(World);
+	FAngelscriptContext Context(World, T.GetTestFunction()->GetEngine());
 	T.StartTest(Context);
 
 	RestoreAngelscriptAfterTest(State);

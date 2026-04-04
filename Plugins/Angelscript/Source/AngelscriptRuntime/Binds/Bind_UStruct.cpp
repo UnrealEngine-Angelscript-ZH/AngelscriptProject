@@ -375,16 +375,18 @@ struct FUStructType : FAngelscriptType
 			auto* Func = ScriptType->GetMethodByDecl("FString ToString() const");
 			if (Func != nullptr)
 			{
-				FAngelscriptContext Context;
-				Context->Prepare(Func);
-				Context->SetObject(NativeValue);
-				Context->Execute();
-
-				FString* ReturnString = (FString*)Context->GetReturnObject();
-				if (ReturnString != nullptr)
+				FAngelscriptContext Context(Func->GetEngine());
+				if (PrepareAngelscriptContextWithLog(Context, Func, TEXT("FUStructType::GetDebuggerValue")))
 				{
-					Value.Value = *ReturnString;
-					bHasToString = true;
+					Context->SetObject(NativeValue);
+					Context->Execute();
+
+					FString* ReturnString = (FString*)Context->GetReturnObject();
+					if (ReturnString != nullptr)
+					{
+						Value.Value = *ReturnString;
+						bHasToString = true;
+					}
 				}
 			}
 		}

@@ -21,7 +21,6 @@
 #include "source/as_scriptobject.h"
 #include "source/as_context.h"
 #include "AngelscriptComponent.h"
-#include "AngelscriptActor.h"
 #include "EndAngelscriptHeaders.h"
 
 #ifdef _MSC_VER
@@ -55,13 +54,8 @@ FORCEINLINE bool CheckGameThreadExecution(UASFunction* Function)
 {
 #if !UE_BUILD_TEST && !UE_BUILD_SHIPPING
 	// During initial compile we are allowed to do gamethread stuff in other threads
-	if (FAngelscriptEngine* CurrentEngine = FAngelscriptEngine::TryGetCurrentEngine())
-	{
-		if (!CurrentEngine->IsInitialCompileFinished())
-		{
-			return true;
-		}
-	}
+	if (!FAngelscriptEngine::bIsInitialCompileFinished)
+		return true;
 
 #if WITH_EDITOR
 	auto* ConstructingObject = UASClass::GetConstructingASObject();
@@ -120,6 +114,31 @@ FORCEINLINE static asCScriptFunction* ResolveScriptVirtual(UASFunction* Function
 	asCScriptFunction* RealScriptFunction = ObjectType->virtualFunctionTable[VirtualScriptFunction->vfTableIdx];
 	return RealScriptFunction;
 }
+
+template<typename TContext>
+FORCEINLINE static bool PrepareAngelscriptContext(TContext& Context, asIScriptFunction* ScriptFunction, const TCHAR* Callsite)
+{
+	return PrepareAngelscriptContextWithLog(Context, ScriptFunction, Callsite);
+}
+
+#define AS_PREPARE_CONTEXT_OR_RETURN(Context, Function) \
+	if (!PrepareAngelscriptContext(Context, Function, *GetPathName())) \
+	{ \
+		return; \
+	}
+
+#define AS_PREPARE_CONTEXT_OR_RETURN_VALUE(Context, Function, Value) \
+	if (!PrepareAngelscriptContext(Context, Function, *GetPathName())) \
+	{ \
+		return Value; \
+	}
+
+#define AS_PREPARE_CONTEXT_OR_SET_RESULT(Context, Function, Address, Value) \
+	if (!PrepareAngelscriptContext(Context, Function, *GetPathName())) \
+	{ \
+		*(Address) = Value; \
+		return; \
+	}
 
 template<bool TThreadSafe, bool TNonVirtual>
 static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromBPVM(UASFunction* ASFunction, UObject* Object, FFrame& Stack, RESULT_DECL)
@@ -348,7 +367,8 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromBPVM(UASFunction* ASFuncti
 		// Scope because FAngelscriptPooledContextBase needs to be destructed before we reset the world context
 		{
 			FAngelscriptPooledContextBase Context(ScriptFunction->GetEngine());
-			Context->Prepare(ScriptFunction);
+			if (!PrepareAngelscriptContext(Context, ScriptFunction, *ASFunction->GetPathName()))
+				return;
 
 			for (int32 i = 0, Num = ASFunction->Arguments.Num(); i < Num; ++i)
 			{
@@ -503,7 +523,8 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromParms(UASFunction* ASFunct
 		// Scope because FAngelscriptPooledContextBase needs to be destructed before we reset the world context
 		{
 			FAngelscriptPooledContextBase Context(ScriptFunction->GetEngine());
-			Context->Prepare(ScriptFunction);
+			if (!PrepareAngelscriptContext(Context, ScriptFunction, *ASFunction->GetPathName()))
+				return;
 
 			for(int32 i = 0, Num = ASFunction->Arguments.Num(); i < Num; ++i)
 			{
@@ -1059,37 +1080,16 @@ void* UASClass::AllocScriptObject(class asITypeInfo* ScriptType, size_t Size)
 
 static FORCEINLINE_DEBUGGABLE void ExecuteDefaultsFunctions(UObject* Object, UASClass* Class)
 {
-	auto ResolveDefaultsFunction = [](UASClass* InClass) -> asIScriptFunction*
-	{
-		if (InClass == nullptr)
-		{
-			return nullptr;
-		}
-
-		asCObjectType* ScriptType = reinterpret_cast<asCObjectType*>(InClass->ScriptTypePtr);
-		if (ScriptType == nullptr)
-		{
-			return InClass->DefaultsFunction;
-		}
-
-		asCScriptFunction* DefaultsFunction = reinterpret_cast<asCScriptFunction*>(ScriptType->GetMethodByDecl("void __InitDefaults()"));
-		if (DefaultsFunction != nullptr && DefaultsFunction->objectType == ScriptType)
-		{
-			return DefaultsFunction;
-		}
-
-		return nullptr;
-	};
-
 	UASClass* DefaultsClass = Class;
 	UASClass* ParentDefaults = Cast<UASClass>(Class->GetSuperClass());
 
 	if (ParentDefaults == nullptr)
 	{
-		if (asIScriptFunction* DefaultsFunction = ResolveDefaultsFunction(Class))
+		if (Class->DefaultsFunction != nullptr)
 		{
-			FAngelscriptContext Context(Object, DefaultsFunction->GetEngine());
-			Context->Prepare(DefaultsFunction);
+			FAngelscriptContext Context(Object, Class->DefaultsFunction->GetEngine());
+			if (!PrepareAngelscriptContext(Context, Class->DefaultsFunction, *Class->GetPathName()))
+				return;
 			Context->m_executeVirtualCall = false;
 			Context->SetObject(Object);
 			Context->Execute();
@@ -1100,17 +1100,16 @@ static FORCEINLINE_DEBUGGABLE void ExecuteDefaultsFunctions(UObject* Object, UAS
 		TArray<asIScriptFunction*, TFixedAllocator<32>> DefaultsFunctions;
 		while (DefaultsClass != nullptr)
 		{
-			if (asIScriptFunction* DefaultsFunction = ResolveDefaultsFunction(DefaultsClass))
-			{
-				DefaultsFunctions.Add(DefaultsFunction);
-			}
+			if (DefaultsClass->DefaultsFunction != nullptr)
+				DefaultsFunctions.Add(DefaultsClass->DefaultsFunction);
 			DefaultsClass = Cast<UASClass>(DefaultsClass->GetSuperClass());
 		}
 
 		for (int32 i = DefaultsFunctions.Num() - 1; i >= 0; --i)
 		{
 			FAngelscriptContext Context(Object, DefaultsFunctions[i]->GetEngine());
-			Context->Prepare(DefaultsFunctions[i]);
+			if (!PrepareAngelscriptContext(Context, DefaultsFunctions[i], *Class->GetPathName()))
+				return;
 			Context->m_executeVirtualCall = false;
 			Context->SetObject(Object);
 			Context->Execute();
@@ -1120,20 +1119,11 @@ static FORCEINLINE_DEBUGGABLE void ExecuteDefaultsFunctions(UObject* Object, UAS
 
 static FORCEINLINE_DEBUGGABLE void ExecuteConstructFunction(UObject* Object, UASClass* Class)
 {
-	asIScriptFunction* ConstructFunction = Class->ConstructFunction;
-	asCObjectType* ScriptType = reinterpret_cast<asCObjectType*>(Class->ScriptTypePtr);
-	if (ScriptType != nullptr && ScriptType->beh.construct != 0)
+	if (Class->ConstructFunction != nullptr)
 	{
-		if (asIScriptFunction* ResolvedConstructFunction = ScriptType->GetEngine()->GetFunctionById(ScriptType->beh.construct))
-		{
-			ConstructFunction = ResolvedConstructFunction;
-		}
-	}
-
-	if (ConstructFunction != nullptr)
-	{
-		FAngelscriptContext Context(Object, ConstructFunction->GetEngine());
-		Context->Prepare(ConstructFunction);
+		FAngelscriptContext Context(Object, Class->ConstructFunction->GetEngine());
+		if (!PrepareAngelscriptContext(Context, Class->ConstructFunction, *Class->GetPathName()))
+			return;
 		Context->SetObject(Object);
 		Context->Execute();
 	}
@@ -1398,31 +1388,6 @@ void UASClass::StaticActorConstructor(const FObjectInitializer& Initializer)
 	later
 	*/
 
-	//WILL-EDIT
-	//AAngelscriptActor* ASActor = Cast<AAngelscriptActor>(Actor);
-	//
-	//if (ASActor != nullptr)
-	//{
-	//	TArray<FName> FuncNames;
-	//	Class->GenerateFunctionList(FuncNames);		
-	//
-	//	//UWorld* World = Actor->GetWorld();
-	//	//NEED RUNTIME CALL EVENT, NEED UAS FUNCTION - local anonymous structs to pass arguments?
-	//	for (auto Name : FuncNames)
-	//	{
-	//		UFunction* Function = Class->FindFunctionByName(Name);
-	//		
-	//		FString str = Name.ToString();
-	//
-	//		if (str.Contains(TEXT("ReceiveBeginPlay")))
-	//			ASActor->OnBeginPlayFunc.AddUFunction(ASActor, Name);
-	//
-	//		if (str.Contains(TEXT("ReceiveTick")))
-	//			ASActor->OnTickFunc.AddUFunction(ASActor, Name);
-	//
-	//	}
-	//}
-
 	// Construct any default components we have marked in our hierarchy
 	CreateDefaultComponents(Initializer, Actor, Class);
 
@@ -1612,7 +1577,7 @@ uint8 UASFunction::OptimizedCall_ByteReturn(UObject* Object)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN_VALUE(Context, RealFunction, 0);
 		Context->SetObject(Object);
 		Context->Execute();
 
@@ -1648,7 +1613,7 @@ void UASFunction::OptimizedCall_FloatArg(UObject* Object, float Argument)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -1683,7 +1648,7 @@ void UASFunction::OptimizedCall_DoubleArg(UObject* Object, double Argument)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -1718,7 +1683,7 @@ void UASFunction::OptimizedCall(UObject* Object)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 		Context->Execute();
 	}
@@ -1745,7 +1710,7 @@ uint8 UASFunction::OptimizedCall_RefArg_ByteReturn(UObject* Object, void* Argume
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN_VALUE(Context, RealFunction, 0);
 		Context->SetObject(Object);
 		Context->SetArgAddress(0, Argument);
 
@@ -1780,7 +1745,7 @@ void UASFunction::OptimizedCall_RefArg(UObject* Object, void* Argument)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 		Context->SetArgAddress(0, Argument);
 
@@ -2019,7 +1984,7 @@ void UASFunction_NoParams::RuntimeCallFunction(UObject* Object, FFrame& Stack, R
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		P_FINISH;
@@ -2046,7 +2011,7 @@ void UASFunction_NoParams::RuntimeCallEvent(UObject* Object, void* Parms)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 		Context->Execute();
 	}
@@ -2076,7 +2041,7 @@ void UASFunction_DWordArg::RuntimeCallFunction(UObject* Object, FFrame& Stack, R
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -2110,7 +2075,7 @@ void UASFunction_DWordArg::RuntimeCallEvent(UObject* Object, void* Parms)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -2147,7 +2112,7 @@ void UASFunction_FloatArg::RuntimeCallFunction(UObject* Object, FFrame& Stack, R
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -2181,7 +2146,7 @@ void UASFunction_FloatArg::RuntimeCallEvent(UObject* Object, void* Parms)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -2218,7 +2183,7 @@ void UASFunction_DoubleArg::RuntimeCallFunction(UObject* Object, FFrame& Stack, 
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -2252,7 +2217,7 @@ void UASFunction_DoubleArg::RuntimeCallEvent(UObject* Object, void* Parms)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -2289,7 +2254,7 @@ void UASFunction_FloatExtendedToDoubleArg::RuntimeCallFunction(UObject* Object, 
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -2323,7 +2288,7 @@ void UASFunction_FloatExtendedToDoubleArg::RuntimeCallEvent(UObject* Object, voi
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -2360,7 +2325,7 @@ void UASFunction_QWordArg::RuntimeCallFunction(UObject* Object, FFrame& Stack, R
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -2394,7 +2359,7 @@ void UASFunction_QWordArg::RuntimeCallEvent(UObject* Object, void* Parms)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -2431,7 +2396,7 @@ void UASFunction_ByteArg::RuntimeCallFunction(UObject* Object, FFrame& Stack, RE
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -2464,7 +2429,7 @@ void UASFunction_ByteArg::RuntimeCallEvent(UObject* Object, void* Parms)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Context->m_returnValueSize == 0);
@@ -2501,7 +2466,7 @@ void UASFunction_ReferenceArg::RuntimeCallEvent(UObject* Object, void* Parms)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_RETURN(Context, RealFunction);
 		Context->SetObject(Object);
 
 		checkSlow(Arguments[0].PosInParmStruct == 0);
@@ -2536,7 +2501,7 @@ void UASFunction_ObjectReturn::RuntimeCallFunction(UObject* Object, FFrame& Stac
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_SET_RESULT(Context, RealFunction, (UObject**)RESULT_PARAM, nullptr);
 		Context->SetObject(Object);
 
 		P_FINISH;
@@ -2574,7 +2539,7 @@ void UASFunction_ObjectReturn::RuntimeCallEvent(UObject* Object, void* Parms)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_SET_RESULT(Context, RealFunction, (UObject**)Parms, nullptr);
 		Context->SetObject(Object);
 		Context->Execute();
 
@@ -2618,7 +2583,7 @@ void UASFunction_DWordReturn::RuntimeCallFunction(UObject* Object, FFrame& Stack
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_SET_RESULT(Context, RealFunction, (asDWORD*)RESULT_PARAM, 0);
 		Context->SetObject(Object);
 
 		P_FINISH;
@@ -2657,7 +2622,7 @@ void UASFunction_DWordReturn::RuntimeCallEvent(UObject* Object, void* Parms)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_SET_RESULT(Context, RealFunction, (asDWORD*)Parms, 0);
 		Context->SetObject(Object);
 		Context->Execute();
 
@@ -2698,7 +2663,7 @@ void UASFunction_FloatExtendedToDoubleReturn::RuntimeCallFunction(UObject* Objec
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_SET_RESULT(Context, RealFunction, (float*)RESULT_PARAM, 0.f);
 		Context->SetObject(Object);
 
 		P_FINISH;
@@ -2737,7 +2702,7 @@ void UASFunction_FloatExtendedToDoubleReturn::RuntimeCallEvent(UObject* Object, 
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_SET_RESULT(Context, RealFunction, (float*)Parms, 0.f);
 		Context->SetObject(Object);
 		Context->Execute();
 
@@ -2775,7 +2740,7 @@ void UASFunction_FloatReturn::RuntimeCallFunction(UObject* Object, FFrame& Stack
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_SET_RESULT(Context, RealFunction, (float*)RESULT_PARAM, 0.f);
 		Context->SetObject(Object);
 
 		P_FINISH;
@@ -2813,7 +2778,7 @@ void UASFunction_FloatReturn::RuntimeCallEvent(UObject* Object, void* Parms)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_SET_RESULT(Context, RealFunction, (float*)Parms, 0.f);
 		Context->SetObject(Object);
 		Context->Execute();
 
@@ -2851,7 +2816,7 @@ void UASFunction_DoubleReturn::RuntimeCallFunction(UObject* Object, FFrame& Stac
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_SET_RESULT(Context, RealFunction, (double*)RESULT_PARAM, 0.0);
 		Context->SetObject(Object);
 
 		P_FINISH;
@@ -2889,7 +2854,7 @@ void UASFunction_DoubleReturn::RuntimeCallEvent(UObject* Object, void* Parms)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_SET_RESULT(Context, RealFunction, (double*)Parms, 0.0);
 		Context->SetObject(Object);
 		Context->Execute();
 
@@ -2927,7 +2892,7 @@ void UASFunction_ByteReturn::RuntimeCallFunction(UObject* Object, FFrame& Stack,
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_SET_RESULT(Context, RealFunction, (asBYTE*)RESULT_PARAM, 0);
 		Context->SetObject(Object);
 
 		P_FINISH;
@@ -2965,7 +2930,7 @@ void UASFunction_ByteReturn::RuntimeCallEvent(UObject* Object, void* Parms)
 	{
 		AS_LLM_SCOPE
 		FAngelscriptGameThreadContext Context(Object, RealFunction->GetEngine());
-		Context->Prepare(RealFunction);
+		AS_PREPARE_CONTEXT_OR_SET_RESULT(Context, RealFunction, (asBYTE*)Parms, 0);
 		Context->SetObject(Object);
 		Context->Execute();
 

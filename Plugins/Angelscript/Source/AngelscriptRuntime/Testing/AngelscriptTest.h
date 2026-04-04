@@ -31,7 +31,12 @@ public:
 	 * @param AngelscriptContext	The AS context to execute within. This contains
 	 * 								the UWorld and AS environment.
 	 */
-    void StartTest(FAngelscriptContext& AngelscriptContext);
+	void StartTest(FAngelscriptContext& AngelscriptContext);
+
+	asIScriptFunction* GetTestFunction() const
+	{
+		return TestFunction;
+	}
 
 	/**
 	 * @return ModuleName.Testname.

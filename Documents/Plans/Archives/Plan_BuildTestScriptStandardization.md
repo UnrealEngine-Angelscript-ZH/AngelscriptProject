@@ -1,5 +1,10 @@
 # 构建与测试脚本标准化计划
 
+归档状态：已归档（已完成）
+归档日期：2026-04-04
+完成判断：共享执行层、构建/测试 runner、UBT 进程查询、tooling smoke tests 以及中英文执行文档切换均已落地，并在当前主干中成为默认脚本化入口。
+结果摘要：本计划完成了 `Tools/Shared/UnrealCommandUtils.ps1`、`Tools/RunBuild.ps1`、`Tools/RunTests.ps1`、`Tools/Get-UbtProcess.ps1` 和 `Tools/Tests/RunToolingSmokeTests.ps1`，把超时、single-flight、日志/报告落盘、流式输出与进程树清理统一收口到脚本层，为后续所有构建与回归提供了稳定基础设施。
+
 ## 背景与目标
 
 ### 背景
@@ -34,12 +39,11 @@
 
 ## 当前事实状态快照（2026-04-04）
 
-- `Tools/RunBuild.ps1`、`Tools/RunTests.ps1`、`Tools/Get-UbtProcess.ps1`、`Tools/Shared/UnrealCommandUtils.ps1` 目前都**还不存在**。
-- 已经补了 TDD 起点：
-  - `Tools/Tests/RunToolingSmokeTests.ps1`
-  - `Tools/Tests/Helpers/WriteLines.ps1`
-  - `Tools/Tests/Helpers/SpawnSleepTree.ps1`
-- 当前 smoke tests 预期是红的，因为它们依赖的共享执行层还没落地。
+- `Tools/Shared/UnrealCommandUtils.ps1` 已提供 `AgentConfig.ini` 解析、超时上限、single-flight mutex、流式子进程执行、日志/报告目录布局与 UBT 进程解析能力。
+- `Tools/RunBuild.ps1` 已切到 direct UBT 入口，默认使用 `-NoMutex -NoEngineChanges`，并支持按引擎串行模式显式切换。
+- `Tools/RunTests.ps1` 已成为标准自动化测试入口，统一了实时日志输出、`ABSLOG` / `ReportExportPath` 唯一路径、退出码提升与结构化摘要产出。
+- `Tools/Get-UbtProcess.ps1` 已能把正在运行的 UBT 相关进程映射回 worktree / branch / project。
+- `Tools/Tests/RunToolingSmokeTests.ps1` 与 `Tools/Tests/Helpers/*` 已变绿，用于覆盖 timeout、single-flight、流式输出、进程树清理与命令行解析。
 - 关于 `Build.bat`、UBT mutex、`-NoEngineChanges`、stdout 输出等源码事实，统一记录在 `Documents/Knowledges/UBT.md`。
 
 ## 分阶段执行计划
@@ -50,24 +54,24 @@
 
 > 目标：先把 timeout / tee / lock / process-tree kill 这些横切能力收口到 `Tools/Shared`，再让构建脚本改用 direct-Ubt 模式。
 
-- [ ] **P1.1** 实现 `Tools/Shared/UnrealCommandUtils.ps1`
+- [x] **P1.1** 实现 `Tools/Shared/UnrealCommandUtils.ps1`
   - 这是后续所有脚本的公共依赖，负责统一解析 `AgentConfig.ini`、解析 `EngineRoot` / `ProjectFile` / 默认超时、生成唯一日志目录、构建 worktree / engine 级锁名、流式运行子进程并逐行输出到控制台和日志文件。
   - 需要把 `300000ms` 硬上限写死在共享层里，避免每个脚本各自实现一套 timeout 校验逻辑；任何超过上限的配置或参数都应直接失败，而不是悄悄放宽。
   - 进程运行器需要处理 stdout/stderr 双流、超时、显式 tree kill、退出码回传，以及后续 `RunTests.ps1` 需要的日志 tee 能力。
-- [ ] **P1.1** 📦 Git 提交：`[Tools] Feat: add shared Unreal command utilities`
+- [x] **P1.1** 📦 Git 提交：`[Tools] Feat: add shared Unreal command utilities`
 
-- [ ] **P1.2** 实现 `Tools/RunBuild.ps1`
+- [x] **P1.2** 实现 `Tools/RunBuild.ps1`
   - 默认构建入口直接调用 `dotnet` + `UnrealBuildTool.dll`，不再走 `Build.bat` 主路径。
   - 默认参数要包含 `-NoMutex -NoEngineChanges`，让共享引擎目录上的不同 worktree 能并发构建，同时在需要改写引擎输出时快速失败。
   - 同一 worktree 要用 single-flight 锁防止重复触发；当用户显式进入串行模式时，再额外获取引擎级锁，保证“需要引擎改动的构建”可以安全排队。
   - 退出码需要明确区分成功、一般失败、timeout、same-worktree 冲突、配置/启动失败、以及命中 `FailedDueToEngineChange`。
-- [ ] **P1.2** 📦 Git 提交：`[Tools] Feat: add direct-Ubt build runner`
+- [x] **P1.2** 📦 Git 提交：`[Tools] Feat: add direct-Ubt build runner`
 
-- [ ] **P1.3** 接通命令模板与本地配置模板
+- [x] **P1.3** 接通命令模板与本地配置模板
   - `Tools/ResolveAgentCommandTemplates.ps1` 要改为输出基于 `RunBuild.ps1` / `RunTests.ps1` / `Get-UbtProcess.ps1` 的标准命令模板，不再输出裸 `Build.bat` 或裸 `Start-Process UnrealEditor-Cmd.exe`。
   - `Tools/GenerateAgentConfigTemplate.bat` 要增加 `Build.DefaultTimeoutMs=180000` 与 `Test.DefaultTimeoutMs=300000`，并在注释里明确“脚本硬上限仍为 300000ms”。
   - 这一阶段只改模板脚本，不修改用户指引文档中的强制入口描述；待实际脚本验证完成后再切文档。
-- [ ] **P1.3** 📦 Git 提交：`[Tools] Refactor: point command templates to script runners`
+- [x] **P1.3** 📦 Git 提交：`[Tools] Refactor: point command templates to script runners`
 
 ---
 
@@ -75,24 +79,24 @@
 
 > 目标：把自动化测试入口和 UBT 进程查询补齐，解决“实时输出、唯一化报告、进程归属可观测”三个问题。
 
-- [ ] **P2.1** 实现 `Tools/RunTests.ps1`
+- [x] **P2.1** 实现 `Tools/RunTests.ps1`
   - 保留现有常用参数表面：`-TestPrefix`、`-Label`、`-OutputRoot`、`-NoReport`，并新增 `-TimeoutMs` 与 `-Render`。
   - 默认走 headless 路径，即 `-NullRHI`；只有显式 `-Render` 才切换到图形模式。
   - 每次运行都要唯一化 `-ABSLOG` 和 `-ReportExportPath`，保证多轮执行互不覆盖；同时必须带 `-stdout -FullStdOutLogOutput -UTF8Output`，让终端与日志都能逐行看到实时结果。
   - 测试结果优先从 `index.json` 汇总，必要时再回退到日志解析，避免单看进程退出码导致“测试失败但脚本仍返回成功”。
-- [ ] **P2.1** 📦 Git 提交：`[Tools] Feat: add streamed automation test runner`
+- [x] **P2.1** 📦 Git 提交：`[Tools] Feat: add streamed automation test runner`
 
-- [ ] **P2.2** 实现 `Tools/Get-UbtProcess.ps1`
+- [x] **P2.2** 实现 `Tools/Get-UbtProcess.ps1`
   - 该脚本要把运行中的 UBT 相关进程映射回 worktree / branch / project 文件路径，便于回答“当前哪个 worktree 在占用共享引擎”。
   - 最小输出字段应包含：`ProcessId`、`ParentProcessId`、`Name`、`StartTime`、`EngineRoot`、`ProjectFile`、`WorktreeRoot`、`Branch`、`Kind`、`CommandLine`。
   - 进程识别上至少要覆盖 direct `dotnet ... UnrealBuildTool.dll` 和 `Build.bat` 包装场景；允许把这部分逻辑做成 `Tools/Shared` 内的纯解析函数，便于 smoke tests 直接覆盖。
-- [ ] **P2.2** 📦 Git 提交：`[Tools] Feat: add UBT process query by worktree`
+- [x] **P2.2** 📦 Git 提交：`[Tools] Feat: add UBT process query by worktree`
 
-- [ ] **P2.3** 让现有 `Tools/Tests/RunToolingSmokeTests.ps1` 变绿
+- [x] **P2.3** 让现有 `Tools/Tests/RunToolingSmokeTests.ps1` 变绿
   - 当前已经存在的 smoke test 脚手架，需要覆盖 timeout 上限、same-worktree lock、逐行流式输出、timeout 后进程树清理，以及命令行到 worktree 的解析。
   - 先以脚本级快速验证为主，不引入长时间的真实 UE build/test；所有验证命令都必须显式带 timeout，且不超过 `300000ms`。
   - 这一步完成后，才说明脚本层基础设施真正可用。
-- [ ] **P2.3** 📦 Git 提交：`[Tools] Test: validate shared runner smoke cases`
+- [x] **P2.3** 📦 Git 提交：`[Tools] Test: validate shared runner smoke cases`
 
 ---
 
@@ -100,17 +104,17 @@
 
 > 目标：在脚本真正稳定可用之后，再把用户指引文档切换到“必须通过脚本执行”的新规范。
 
-- [ ] **P3.1** 同步中文优先文档
+- [x] **P3.1** 同步中文优先文档
   - 先更新中文文档：`AGENTS_ZH.md`、`Documents/Guides/Build.md`、`Documents/Guides/Test.md`、`Documents/Tools/Tool.md`。
   - 这一步需要把“构建/测试必须通过脚本执行”“build 默认 180000ms，test 默认 300000ms，硬上限 300000ms”“超时后清理进程树”“默认 direct-Ubt 并发模式与显式串行模式”写成明确规则。
   - 还要把 `Documents/Knowledges/UBT.md` 作为知识说明入口链接进去，避免执行规则和源码原因分散在不同文档里。
-- [ ] **P3.1** 📦 Git 提交：`[Docs] Docs: standardize Chinese build and test script entrypoints`
+- [x] **P3.1** 📦 Git 提交：`[Docs] Docs: standardize Chinese build and test script entrypoints`
 
-- [ ] **P3.2** 再同步英文总纲与主计划状态
+- [x] **P3.2** 再同步英文总纲与主计划状态
   - 中文文档完成后，再同步 `AGENTS.md`。
   - 同时在 `Documents/Plans/Plan_TestEngineIsolation.md` 中补一条状态更新，说明脚本标准化已落地，可作为后续 runtime 去全局化验证入口。
   - 只有在这一阶段完成后，仓库才真正进入“所有构建与测试都必须通过脚本执行”的状态。
-- [ ] **P3.2** 📦 Git 提交：`[Docs] Docs: sync English agent rules with script-based execution`
+- [x] **P3.2** 📦 Git 提交：`[Docs] Docs: sync English agent rules with script-based execution`
 
 ## 验收标准
 

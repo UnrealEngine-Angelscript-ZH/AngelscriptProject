@@ -3,7 +3,6 @@
 #include "Shared/AngelscriptNativeInterfaceTestTypes.h"
 #include "Shared/AngelscriptScenarioTestUtils.h"
 
-#include "Core/AngelscriptActor.h"
 #include "Components/ActorTestSpawner.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
@@ -142,7 +141,7 @@ bool FAngelscriptScenarioInterfaceNativeImplementTest::RunTest(const FString& Pa
 		TEXT("ScenarioInterfaceNativeImplement.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioInterfaceNativeImplement : AAngelscriptActor, UAngelscriptNativeParentInterface
+class AScenarioInterfaceNativeImplement : AActor, UAngelscriptNativeParentInterface
 {
 	UPROPERTY()
 	int NativeValue = 123;
@@ -250,7 +249,7 @@ bool FAngelscriptScenarioInterfaceNativeInheritedImplementTest::RunTest(const FS
 		TEXT("ScenarioInterfaceNativeInheritedImplement.as"),
 		TEXT(R"AS(
 UCLASS()
-class AScenarioInterfaceNativeInheritedImplement : AAngelscriptActor, UAngelscriptNativeChildInterface
+class AScenarioInterfaceNativeInheritedImplement : AActor, UAngelscriptNativeChildInterface
 {
 	UPROPERTY()
 	int ParentCastWorked = 0;

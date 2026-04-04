@@ -134,8 +134,12 @@ struct FASStructOps : UASStruct::ICppStructOps
 
 		if (Ops->ConstructFunction != nullptr)
 		{
-			FAngelscriptContext Context;
-			Context->Prepare(Ops->ConstructFunction);
+			FAngelscriptContext Context(Ops->ConstructFunction->GetEngine());
+			if (!PrepareAngelscriptContextWithLog(Context, Ops->ConstructFunction, TEXT("FASStructOps::Construct")))
+			{
+				FMemory::Memzero(Dest, Ops->GetSize());
+				return;
+			}
 			Context->SetObject((asIScriptObject*)Dest);
 			Context->Execute();
 		}
@@ -175,8 +179,12 @@ struct FASStructOps : UASStruct::ICppStructOps
 		if (Ops->EqualsFunction == nullptr)
 			return false;
 
-		FAngelscriptContext Context;
-		Context->Prepare(Ops->EqualsFunction);
+		FAngelscriptContext Context(Ops->EqualsFunction->GetEngine());
+		if (!PrepareAngelscriptContextWithLog(Context, Ops->EqualsFunction, TEXT("FASStructOps::Identical")))
+		{
+			bOutResult = false;
+			return false;
+		}
 		Context->SetObject((asIScriptObject*)A);
 		Context->SetArgAddress(0, (void*)B);
 		Context->Execute();
@@ -189,8 +197,11 @@ struct FASStructOps : UASStruct::ICppStructOps
 		if (Ops->HashFunction == nullptr)
 			return 0;
 
-		FAngelscriptContext Context;
-		Context->Prepare(Ops->HashFunction);
+		FAngelscriptContext Context(Ops->HashFunction->GetEngine());
+		if (!PrepareAngelscriptContextWithLog(Context, Ops->HashFunction, TEXT("FASStructOps::GetStructTypeHash")))
+		{
+			return 0;
+		}
 		Context->SetObject(const_cast<void*>(Src));
 		Context->Execute();
 		return Context->GetReturnDWord();

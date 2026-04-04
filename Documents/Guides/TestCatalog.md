@@ -6,6 +6,8 @@
 >
 > 启动 bind / watcher / 性能分层矩阵：`Documents/Guides/AngelscriptValidationMatrix.md`
 >
+> 测试分层、命名规则与典型场景：`Documents/Guides/TestConventions.md`
+>
 > 说明：这里的 `275/275 PASS` 表示**已编目基线**，不是当前源码实时扫描到的全部测试数量。实时扫描规模与新增覆盖请以 `Documents/Guides/TechnicalDebtInventory.md` 的 live inventory / verification snapshot 为准。
 >
 > 最终 closeout 口径：`P6.3` 在独立 worktree 上重新执行 `Automation RunTests Angelscript.TestModule` 后，full-suite 仍只保留 `TechnicalDebtInventory.md` 中记录的 4 个已知失败项，没有新增技术债收口相关回归。
@@ -15,6 +17,7 @@
 ## 目录
 
 - [1. Shared — 测试基础设施](#1-shared--测试基础设施)
+- [Native — 原生 AngelScript / ASSDK](#native--原生-angelscript--assdk)
 - [2. Core — 引擎核心](#2-core--引擎核心)
 - [3. Angelscript — 脚本引擎行为](#3-angelscript--脚本引擎行为)
   - [3.1 Core — 创建/编译/执行](#31-core--创建编译执行)
@@ -79,6 +82,26 @@
 | Shared.EngineHelper.ExecutingOneTestEngineDoesNotLeakContextIntoNextTest | 两个 clone 引擎分别编译执行不同模块，结果互不串线 |
 | Shared.EngineHelper.SubsystemAttachedProductionEngineDoesNotHijackIsolatedTestEngine | 隔离引擎编译的模块不出现在共享测试引擎中 |
 | Shared.NativeScriptTestObject.Instantiate | 原生测试用 `UAngelscriptNativeScriptTestObject` 可实例化 |
+
+---
+
+## Native — 原生 AngelScript / ASSDK
+
+> 源文件：`Native/AngelscriptNativeSmokeTest.cpp`、`Native/AngelscriptNativeCompileTests.cpp`、`Native/AngelscriptNativeExecutionTests.cpp`、`Native/AngelscriptNativeExecutionAdvancedTests.cpp`、`Native/AngelscriptNativeRegistrationTests.cpp`、`Native/AngelscriptASSDKSmokeTest.cpp`、`Native/AngelscriptASSDKEngineTests.cpp`、`Native/AngelscriptASSDKExecuteTests.cpp`、`Native/AngelscriptASSDKGlobalVarTests.cpp` 以及其余 `Native/AngelscriptASSDK*Tests.cpp`
+
+| 测试前缀 | 代表源文件 | 验证内容 |
+|--------|----------|----------|
+| `Angelscript.TestModule.Native.Smoke` | `Native/AngelscriptNativeSmokeTest.cpp` | 最小原生 AngelScript 引擎创建、编译与执行烟雾 |
+| `Angelscript.TestModule.Native.Compile.*` | `Native/AngelscriptNativeCompileTests.cpp` | 纯公共 API 路径下的编译、错误消息与模块构建 |
+| `Angelscript.TestModule.Native.Execute.*` | `Native/AngelscriptNativeExecutionTests.cpp`、`Native/AngelscriptNativeExecutionAdvancedTests.cpp` | 原生上下文 Prepare / Execute、参数传递、返回值、执行状态 |
+| `Angelscript.TestModule.Native.Register.*` | `Native/AngelscriptNativeRegistrationTests.cpp` | 原生全局函数/属性/值类型注册 |
+| `Angelscript.TestModule.Native.ASSDK.Smoke` | `Native/AngelscriptASSDKSmokeTest.cpp` | ASSDK 适配层最小引擎创建、消息回调与脚本执行 |
+| `Angelscript.TestModule.Native.ASSDK.Engine.*` | `Native/AngelscriptASSDKEngineTests.cpp` | ASSDK 引擎生命周期、回调复用与基础引擎语义 |
+| `Angelscript.TestModule.Native.ASSDK.Execute.*` | `Native/AngelscriptASSDKExecuteTests.cpp` | ASSDK 回调注册、参数调用约定、cleanup 与 portability 分支 |
+| `Angelscript.TestModule.Native.ASSDK.GlobalVar.*` / `Stack.*` | `Native/AngelscriptASSDKGlobalVarTests.cpp` | 全局变量枚举/重置/删除、栈深限制与异常位置信息 |
+| `Angelscript.TestModule.Native.ASSDK.*` | 其余 `Native/AngelscriptASSDK*Tests.cpp` | 类型、对象、OOP、模块、函数、调用约定、运行时与编译器邻近回归 |
+
+> 放置规则：`Native/` 只验证 `AngelscriptInclude.h` / `angelscript.h` 暴露的公共 API，不把 `FAngelscriptEngine` 或运行时私有实现带进这一层。
 
 ---
 
@@ -589,7 +612,7 @@
 
 ## 8. Preprocessor — 预处理器
 
-> 源文件：`Preprocessor/PreprocessorTests.cpp`
+> 源文件：`Preprocessor/AngelscriptPreprocessorTests.cpp`
 
 | 测试名 | 验证内容 |
 |--------|----------|
@@ -691,7 +714,7 @@
 
 | 测试名 | 验证内容 |
 |--------|----------|
-| ScriptClass.CompilesToUClass | 脚本类生成 `UClass` 且派生自 `AAngelscriptActor`，`SpawnMarker` 默认为 7 |
+| ScriptClass.CompilesToUClass | 脚本类生成 `UClass` 且派生自 `AActor`，`SpawnMarker` 默认为 7 |
 | ScriptClass.CanSpawnInTestWorld | 在测试世界中生成脚本 Actor，`BeginPlay` 后 `BeginPlayObserved` 为 1 |
 | ScriptClass.MultiSpawnKeepsStateIsolation | 同一类多实例：改其一 `LocalState` 不影响另一实例 |
 | ScriptClass.BlueprintChildCompiles | 以脚本类为父的蓝图可编译、继承关系正确 |
@@ -928,7 +951,7 @@
 | `Angelscript.CppTests.MultiEngine` | 创建模式与 startup owner 基础烟雾 |
 | `Angelscript.TestModule.Engine.BindConfig` | 启动 bind 配置与顺序烟雾 |
 | `Angelscript.TestModule.Shared.EngineHelper` | 引擎隔离与 scope 恢复烟雾 |
-| `Angelscript.TestModule.Core.Parity` | 生产引擎 bind 可见性 smoke |
+| `Angelscript.TestModule.Parity` | 生产引擎 bind 可见性 smoke |
 
 ### 15.2 功能正确性层
 

@@ -1,5 +1,10 @@
 # Angelscript 测试执行基础设施补强计划
 
+归档状态：已归档（已完成）
+归档日期：2026-04-04
+完成判断：测试分组、标准 runner、结果摘要、最小 CI / Gauntlet 边界说明均已落地，并已被后续 `Tools/RunTests.ps1` / `Tools/RunTestSuite.ps1` 体系吸收为主干标准入口。
+结果摘要：本计划完成了测试 group taxonomy、统一测试执行脚本、结构化报告输出与文档约束，为后续引擎隔离、批量回归和 AI Agent 执行提供了稳定入口；当前主干继续以 `Documents/Guides/Test.md`、`Documents/Guides/TestConventions.md`、`Tools/RunTests.ps1` 与 `Tools/RunTestSuite.ps1` 作为正式执行面。
+
 ## 背景与目标
 
 当前仓库的测试文档已经比较完整，`Documents/Guides/Test.md` 和 `Documents/Guides/Build.md` 也把 `NullRHI`、`Gauntlet`、`-ReportExportPath`、`-ABSLOG`、`AgentConfig.ini` 的使用方式写得很清楚；但真正支撑稳定回归的“执行基础设施”仍然不够成型。

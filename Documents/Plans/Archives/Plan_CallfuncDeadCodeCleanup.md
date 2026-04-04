@@ -1,5 +1,13 @@
 # 清理 as_callfunc_x64_msvc_asm 死代码
 
+> **归档状态**：已完成，已于 2026-04-04 归档到 `Documents/Plans/Archives/`
+> **归档日期**：2026-04-04
+> **完成判断**：Phase 1-3 全部完成；验收阶段保留的整仓构建失败项已明确为与本计划无关的仓库既有问题，不阻塞归档。
+> **结果摘要**：
+> - 已移除 `AngelscriptRuntime.Build.cs` 对 `as_callfunc_x64_msvc_asm.lib` 的无效引用。
+> - 已为 `as_callfunc_x64_msvc_asm.asm` 与 `as_callfunc_x64_msvc.cpp` 补充文件级废弃说明，明确 `FunctionCallers.h` 为当前有效调用路径。
+> - 已在计划内保留 `ASAutoCaller` 替代链路与未来合入 AS 2.38 时需要复查的兼容注意点。
+
 ## 背景与目标
 
 当前 `AngelscriptRuntime.Build.cs` 显式链接了一个不存在的静态库：
@@ -76,7 +84,7 @@ if (Target.Platform == UnrealTargetPlatform.Win64)
 ## 验收标准
 
 - [x] 已执行 `AngelscriptProjectEditor Win64 Development` 构建验证；构建过程中未出现新的 `callfunc` / `asm` 链接错误
-- [ ] 当前整仓构建仍未全绿：`Plugins/Angelscript/Source/AngelscriptTest/ClassGenerator/AngelscriptScriptClassCreationTests.cpp` 存在与本任务无关的缺失标识符错误（`GetResetSharedTestEngine`、`ResetSharedInitializedTestEngine`）
+- [x] 当前整仓构建仍未全绿：`Plugins/Angelscript/Source/AngelscriptTest/ClassGenerator/AngelscriptScriptClassCreationTests.cpp` 存在与本任务无关的缺失标识符错误（`GetResetSharedTestEngine`、`ResetSharedInitializedTestEngine`）；该问题已作为仓库既有问题记录，不阻塞本计划归档
 - [x] `AngelscriptRuntime.Build.cs` 不再包含对 `as_callfunc_x64_msvc_asm.lib` 的任何引用
 - [x] `as_callfunc_x64_msvc_asm.asm` 和 `as_callfunc_x64_msvc.cpp` 文件头有明确的废弃说明
 - [x] 本计划文档记录了此次 calling convention 替代的全貌与本次处理结果
