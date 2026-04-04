@@ -12,6 +12,7 @@
 ## Angelscript 插件专项文档
 
 - 启动 bind / watcher 验证矩阵与分层执行模板：`Documents/Guides/AngelscriptValidationMatrix.md`
+- 测试分层、命名规范与典型场景：`Documents/Guides/TestConventions.md`
 
 - 性能采样与产物规范：`Documents/Guides/TestPerformance.md`
 - 测试目录总览：`Documents/Guides/TestCatalog.md`
@@ -43,6 +44,57 @@ powershell.exe -ExecutionPolicy Bypass -File "Tools\RunTests.ps1" -TestPrefix "A
 
 详细参数说明见 `Documents/Tools/Tool.md`。
 
+## 测试分层与命名规范（推荐入口）
+
+- **Runtime 内部 C++ 测试**：`Plugins/Angelscript/Source/AngelscriptRuntime/Tests/`，统一前缀 `Angelscript.CppTests.*`
+- **Editor 内部测试**：`Plugins/Angelscript/Source/AngelscriptEditor/Private/Tests/`，统一前缀 `Angelscript.Editor.*`
+- **插件测试模块**：`Plugins/Angelscript/Source/AngelscriptTest/`，统一前缀 `Angelscript.TestModule.*`
+- **Native / Learning** 用层级优先命名：如 `Angelscript.TestModule.Native.Execute.*`、`Angelscript.TestModule.Native.ASSDK.Execute.*`
+- **Actor / Component / Delegate / Interface / HotReload** 等主题目录，用主题优先命名；目录已经表达“场景层”时，不再在 Automation 路径里重复追加 `Scenario`
+
+更完整的目录矩阵、命名规则和典型测试场景见 `Documents/Guides/TestConventions.md`。
+
+## 新增测试的标准流程
+
+1. **先定层级**：先判断它属于 `CppTests`、`Editor`、`Native`、运行时集成、还是 UE 场景测试。
+2. **再定目录**：按主题目录放置，不要为了单个 case 新造模糊目录。
+3. **统一文件名**：测试源文件统一以 `Angelscript` 开头；ASSDK 适配层文件显式带 `ASSDK`；避免 `PreprocessorTests.cpp` 这类无项目前缀名称。
+4. **统一 Automation 前缀**：`Angelscript.CppTests.*` / `Angelscript.Editor.*` / `Angelscript.TestModule.*` 三层分开，不混用。
+5. **优先复用 helper**：Native 复用 `AngelscriptNativeTestSupport.h`，运行时集成复用 `Shared/AngelscriptTestEngineHelper.*`，UE 场景复用 `Shared/AngelscriptScenarioTestUtils.h`。
+6. **同步文档**：新增或重命名测试后，至少同步 `Documents/Guides/TestCatalog.md`；如果引入新的层级约定或流程入口，也要同步 `Documents/Guides/TestConventions.md` 和 `Documents/Tools/Tool.md`。
+
+## 分层套件脚本（推荐）
+
+项目新增 `Tools\RunTestSuite.ps1`，把常用核查波次收敛成具名 suite，适合“先 smoke、再 native、再场景”这类标准流程。
+
+### 快速使用
+
+```powershell
+# 查看内置 suite
+.\Tools\RunTestSuite.ps1 -ListSuites
+
+# 运行标准 smoke 波次
+.\Tools\RunTestSuite.ps1 -Suite Smoke
+
+# 查看几个典型场景的 dry-run 命令
+.\Tools\RunTestSuite.ps1 -Suite ScenarioSamples -DryRun
+```
+
+### 当前内置 suite
+
+- `Smoke`
+- `NativeCore`
+- `RuntimeCpp`
+- `Bindings`
+- `Internals`
+- `LearningNative`
+- `LearningRuntime`
+- `HotReload`
+- `ScenarioSamples`
+- `All`
+
+> `RunTestSuite.ps1` 仍然通过 `RunTests.ps1` 执行单波次，因此它不会替代 `RunTests.ps1`，而是把“推荐流程”固化成标准入口。
+
 ### Angelscript 性能采样快捷前缀
 
 - 启动基线：`Automation RunTests Angelscript.TestModule.Core.Performance.Startup`
@@ -53,7 +105,7 @@ powershell.exe -ExecutionPolicy Bypass -File "Tools\RunTests.ps1" -TestPrefix "A
 
 - 启动模式与 owner 烟雾：`Automation RunTests Angelscript.CppTests.MultiEngine`
 - 启动 bind 配置：`Automation RunTests Angelscript.TestModule.Engine.BindConfig`
-- 生产引擎 parity 烟雾：`Automation RunTests Angelscript.TestModule.Core.Parity`
+- 生产引擎 parity 烟雾：`Automation RunTests Angelscript.TestModule.Parity`
 - editor callback 队列语义：`Automation RunTests Angelscript.Editor.DirectoryWatcher`
 - 热重载正确性：`Automation RunTests Angelscript.TestModule.HotReload`
 - generated class rename/切换：`Automation RunTests Angelscript.TestModule.ScriptClass`
@@ -63,7 +115,7 @@ powershell.exe -ExecutionPolicy Bypass -File "Tools\RunTests.ps1" -TestPrefix "A
 
 1. 构建 Editor 目标并确认 `AngelscriptEditor/Private/Tests` 已编译进入测试模块。
 2. 运行启动链路与引擎基线：`Angelscript.CppTests.MultiEngine`、`Angelscript.CppTests.Engine.DependencyInjection`、`Angelscript.CppTests.Subsystem`。
-3. 运行 bind 与 parity：`Angelscript.TestModule.Engine.BindConfig`、`Angelscript.TestModule.Core.Parity`。
+3. 运行 bind 与 parity：`Angelscript.TestModule.Engine.BindConfig`、`Angelscript.TestModule.Parity`。
 4. 运行 watcher + reload 功能层：`Angelscript.Editor.DirectoryWatcher`、`Angelscript.TestModule.HotReload`、`Angelscript.TestModule.ScriptClass`。
 5. 运行真实语料层：`Angelscript.TestModule.Angelscript.NativeScriptHotReload`。
 6. 最后运行性能与产物层：`Angelscript.TestModule.Core.Performance.Startup`、`Angelscript.TestModule.HotReload.Performance`、`Angelscript.TestModule.Core.Performance.ArtifactGeneration`。
