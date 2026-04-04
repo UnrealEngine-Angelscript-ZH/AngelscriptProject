@@ -5,13 +5,13 @@ param(
 )
 
 Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
 
 $powerShell = (Get-Command powershell.exe -ErrorAction Stop).Source
 $childCommand = "Write-Output '$Marker child-start'; Start-Sleep -Seconds $Seconds"
 $child = Start-Process -FilePath $powerShell -ArgumentList @(
-    "-NoProfile"
-    "-Command"
+    '-NoProfile'
+    '-Command'
     $childCommand
 ) -PassThru -WindowStyle Hidden
 

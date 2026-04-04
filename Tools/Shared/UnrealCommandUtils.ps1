@@ -1,0 +1,1063 @@
+Set-StrictMode -Version Latest
+
+$script:UnrealCommandUtilsMaxTimeoutMs = 300000
+$script:UnrealBundledDotNetVersion = '8.0.412'
+$script:HeldMutexNames = New-Object 'System.Collections.Generic.HashSet[string]'
+$script:HeldMutexSyncRoot = New-Object object
+
+function Normalize-PathValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    $trimmedPath = $Path.Trim().Trim('"')
+    if ([string]::IsNullOrWhiteSpace($trimmedPath)) {
+        throw 'Path cannot be empty.'
+    }
+
+    $fullPath = [System.IO.Path]::GetFullPath($trimmedPath)
+    $normalizedPath = $fullPath.Replace('/', '\')
+    if ($normalizedPath.Length -gt 3) {
+        $normalizedPath = $normalizedPath.TrimEnd('\')
+    }
+
+    return $normalizedPath
+}
+
+function Read-IniFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        throw "AgentConfig.ini was not found: $Path"
+    }
+
+    $result = @{}
+    $section = ''
+
+    foreach ($line in Get-Content -LiteralPath $Path -Encoding UTF8) {
+        $trimmedLine = $line.Trim()
+        if ([string]::IsNullOrWhiteSpace($trimmedLine) -or $trimmedLine.StartsWith(';') -or $trimmedLine.StartsWith('#')) {
+            continue
+        }
+
+        if ($trimmedLine.StartsWith('[') -and $trimmedLine.EndsWith(']')) {
+            $section = $trimmedLine.Substring(1, $trimmedLine.Length - 2)
+            if (-not $result.ContainsKey($section)) {
+                $result[$section] = @{}
+            }
+            continue
+        }
+
+        $separatorIndex = $trimmedLine.IndexOf('=')
+        if ($separatorIndex -lt 0) {
+            continue
+        }
+
+        if (-not $result.ContainsKey($section)) {
+            $result[$section] = @{}
+        }
+
+        $key = $trimmedLine.Substring(0, $separatorIndex).Trim()
+        $value = $trimmedLine.Substring($separatorIndex + 1).Trim()
+        $result[$section][$key] = $value
+    }
+
+    return $result
+}
+
+function Get-IniValue {
+    param(
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Config,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Section,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Key,
+
+        [string]$DefaultValue = '',
+
+        [switch]$Required
+    )
+
+    if ($Config.ContainsKey($Section) -and $Config[$Section].ContainsKey($Key)) {
+        $value = [string]$Config[$Section][$Key]
+        if (-not [string]::IsNullOrWhiteSpace($value)) {
+            return $value
+        }
+    }
+
+    if ($Required) {
+        throw "Missing required AgentConfig.ini value [$Section] $Key"
+    }
+
+    return $DefaultValue
+}
+
+function Resolve-TimeoutMs {
+    param(
+        [int]$RequestedTimeoutMs,
+        [int]$DefaultTimeoutMs,
+        [string]$ParameterName = 'TimeoutMs'
+    )
+
+    $resolvedTimeoutMs = if ($RequestedTimeoutMs -gt 0) { $RequestedTimeoutMs } else { $DefaultTimeoutMs }
+    if ($resolvedTimeoutMs -le 0) {
+        throw "$ParameterName must be greater than zero."
+    }
+
+    if ($resolvedTimeoutMs -gt $script:UnrealCommandUtilsMaxTimeoutMs) {
+        throw "$ParameterName cannot exceed $script:UnrealCommandUtilsMaxTimeoutMs milliseconds."
+    }
+
+    return $resolvedTimeoutMs
+}
+
+function ConvertTo-SafeLabel {
+    param(
+        [string]$Value,
+        [string]$Fallback = 'Run'
+    )
+
+    $candidate = [string]$Value
+    if ([string]::IsNullOrWhiteSpace($candidate)) {
+        $candidate = $Fallback
+    }
+
+    $candidate = $candidate -replace '[^A-Za-z0-9._-]', '-'
+    $candidate = $candidate.Trim('-')
+    if ([string]::IsNullOrWhiteSpace($candidate)) {
+        return $Fallback
+    }
+
+    return $candidate
+}
+
+function Write-Utf8JsonFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [object]$Value,
+
+        [int]$Depth = 8
+    )
+
+    $directory = Split-Path -Parent $Path
+    if (-not [string]::IsNullOrWhiteSpace($directory)) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+
+    $utf8Encoding = New-Object System.Text.UTF8Encoding($false)
+    $json = $Value | ConvertTo-Json -Depth $Depth
+    [System.IO.File]::WriteAllText($Path, $json, $utf8Encoding)
+}
+
+function New-CommandOutputLayout {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectRoot,
+
+        [Parameter(Mandatory = $true)]
+        [string]$Category,
+
+        [string]$Label = '',
+
+        [string]$RequestedOutputRoot = '',
+
+        [string]$LogFileName = 'Command.log',
+
+        [string]$ReportFolderName = 'Report'
+    )
+
+    $resolvedProjectRoot = Normalize-PathValue -Path $ProjectRoot
+    $safeCategory = ConvertTo-SafeLabel -Value $Category -Fallback 'Command'
+    $safeLabel = ConvertTo-SafeLabel -Value $Label -Fallback $safeCategory
+    $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
+
+    if ([string]::IsNullOrWhiteSpace($RequestedOutputRoot)) {
+        $outputRoot = Join-Path $resolvedProjectRoot (Join-Path "Saved\$safeCategory\$safeLabel" $timestamp)
+        $logPath = Join-Path $outputRoot $LogFileName
+        $reportPath = Join-Path $outputRoot $ReportFolderName
+    }
+    else {
+        $outputRoot = Normalize-PathValue -Path $RequestedOutputRoot
+        $logStem = [System.IO.Path]::GetFileNameWithoutExtension($LogFileName)
+        $logExtension = [System.IO.Path]::GetExtension($LogFileName)
+        $logPath = Join-Path $outputRoot ("{0}_{1}{2}" -f $logStem, $timestamp, $logExtension)
+        $reportPath = Join-Path $outputRoot ("{0}_{1}" -f $ReportFolderName, $timestamp)
+    }
+
+    New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
+    New-Item -ItemType Directory -Path (Split-Path -Parent $logPath) -Force | Out-Null
+    New-Item -ItemType Directory -Path $reportPath -Force | Out-Null
+
+    return [PSCustomObject]@{
+        Category   = $safeCategory
+        Label      = $safeLabel
+        Timestamp  = $timestamp
+        OutputRoot = $outputRoot
+        LogPath    = $logPath
+        ReportPath = $reportPath
+    }
+}
+
+function Get-NamedMutexName {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Scope,
+
+        [Parameter(Mandatory = $true)]
+        [string]$KeyPath
+    )
+
+    $normalizedScope = ConvertTo-SafeLabel -Value $Scope -Fallback 'scope'
+    $normalizedKeyPath = Normalize-PathValue -Path $KeyPath
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($normalizedKeyPath.ToUpperInvariant())
+        $hashBytes = $sha256.ComputeHash($bytes)
+        $hashText = ([System.BitConverter]::ToString($hashBytes)).Replace('-', '').Substring(0, 24)
+        return "Global\AngelscriptProject_{0}_{1}" -f $normalizedScope, $hashText
+    }
+    finally {
+        $sha256.Dispose()
+    }
+}
+
+function Acquire-NamedMutex {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name,
+
+        [int]$TimeoutMs = 0,
+
+        [int]$PollIntervalMs = 5000,
+
+        [scriptblock]$OnWait
+    )
+
+    [System.Threading.Monitor]::Enter($script:HeldMutexSyncRoot)
+    try {
+        if ($script:HeldMutexNames.Contains($Name)) {
+            return $null
+        }
+    }
+    finally {
+        [System.Threading.Monitor]::Exit($script:HeldMutexSyncRoot)
+    }
+
+    $mutex = New-Object System.Threading.Mutex($false, $Name)
+    try {
+        if ($TimeoutMs -le 0) {
+            try {
+                $acquired = $mutex.WaitOne(0)
+            }
+            catch [System.Threading.AbandonedMutexException] {
+                $acquired = $true
+            }
+
+            if ($acquired) {
+                [System.Threading.Monitor]::Enter($script:HeldMutexSyncRoot)
+                try {
+                    if ($script:HeldMutexNames.Contains($Name)) {
+                        $mutex.Dispose()
+                        return $null
+                    }
+
+                    [void]$script:HeldMutexNames.Add($Name)
+                }
+                finally {
+                    [System.Threading.Monitor]::Exit($script:HeldMutexSyncRoot)
+                }
+
+                $mutex | Add-Member -NotePropertyName MutexName -NotePropertyValue $Name -Force
+                return $mutex
+            }
+
+            $mutex.Dispose()
+            return $null
+        }
+
+        $deadlineUtc = [DateTime]::UtcNow.AddMilliseconds($TimeoutMs)
+        while ($true) {
+            $remainingMs = [int][Math]::Max(0, ($deadlineUtc - [DateTime]::UtcNow).TotalMilliseconds)
+            if ($remainingMs -le 0) {
+                $mutex.Dispose()
+                return $null
+            }
+
+            $waitChunkMs = [int][Math]::Min([Math]::Max($PollIntervalMs, 1), $remainingMs)
+            try {
+                $acquired = $mutex.WaitOne($waitChunkMs)
+            }
+            catch [System.Threading.AbandonedMutexException] {
+                $acquired = $true
+            }
+
+            if ($acquired) {
+                [System.Threading.Monitor]::Enter($script:HeldMutexSyncRoot)
+                try {
+                    if ($script:HeldMutexNames.Contains($Name)) {
+                        $mutex.Dispose()
+                        return $null
+                    }
+
+                    [void]$script:HeldMutexNames.Add($Name)
+                }
+                finally {
+                    [System.Threading.Monitor]::Exit($script:HeldMutexSyncRoot)
+                }
+
+                $mutex | Add-Member -NotePropertyName MutexName -NotePropertyValue $Name -Force
+                return $mutex
+            }
+
+            if ($null -ne $OnWait) {
+                $currentRemainingMs = [int][Math]::Max(0, ($deadlineUtc - [DateTime]::UtcNow).TotalMilliseconds)
+                $elapsedMs = [int]($TimeoutMs - $currentRemainingMs)
+                & $OnWait $elapsedMs $currentRemainingMs
+            }
+        }
+    }
+    catch {
+        try {
+            $mutex.Dispose()
+        }
+        catch {
+        }
+        throw
+    }
+}
+
+function Release-NamedMutex {
+    param(
+        [Parameter(Mandatory = $true)]
+        [System.Threading.Mutex]$Mutex
+    )
+
+    $mutexNameProperty = $Mutex.PSObject.Properties['MutexName']
+    if ($null -ne $mutexNameProperty -and -not [string]::IsNullOrWhiteSpace([string]$mutexNameProperty.Value)) {
+        [System.Threading.Monitor]::Enter($script:HeldMutexSyncRoot)
+        try {
+            [void]$script:HeldMutexNames.Remove([string]$mutexNameProperty.Value)
+        }
+        finally {
+            [System.Threading.Monitor]::Exit($script:HeldMutexSyncRoot)
+        }
+    }
+
+    try {
+        $Mutex.ReleaseMutex()
+    }
+    catch {
+    }
+    finally {
+        $Mutex.Dispose()
+    }
+}
+
+function Get-ConsolePowerShellPath {
+    $candidateNames = @('powershell.exe', 'pwsh.exe')
+    foreach ($candidateName in $candidateNames) {
+        $command = Get-Command $candidateName -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($null -ne $command -and -not [string]::IsNullOrWhiteSpace($command.Source)) {
+            return $command.Source
+        }
+    }
+
+    throw 'Could not resolve a console PowerShell executable.'
+}
+
+function ConvertTo-QuotedProcessArgument {
+    param(
+        [AllowNull()]
+        [string]$Argument
+    )
+
+    if ($null -eq $Argument -or $Argument.Length -eq 0) {
+        return '""'
+    }
+
+    $requiresQuotes = $Argument -match '[\s"]'
+    if (-not $requiresQuotes) {
+        return $Argument
+    }
+
+    $builder = New-Object System.Text.StringBuilder
+    [void]$builder.Append('"')
+    $backslashCount = 0
+    foreach ($character in $Argument.ToCharArray()) {
+        if ($character -eq '\') {
+            $backslashCount++
+            continue
+        }
+
+        if ($character -eq '"') {
+            [void]$builder.Append('\', ($backslashCount * 2) + 1)
+            [void]$builder.Append('"')
+            $backslashCount = 0
+            continue
+        }
+
+        if ($backslashCount -gt 0) {
+            [void]$builder.Append('\', $backslashCount)
+            $backslashCount = 0
+        }
+
+        [void]$builder.Append($character)
+    }
+
+    if ($backslashCount -gt 0) {
+        [void]$builder.Append('\', $backslashCount * 2)
+    }
+
+    [void]$builder.Append('"')
+    return $builder.ToString()
+}
+
+function ConvertTo-ProcessArgumentString {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string[]]$ArgumentList
+    )
+
+    return (($ArgumentList | ForEach-Object { ConvertTo-QuotedProcessArgument -Argument $_ }) -join ' ')
+}
+
+function Get-DescendantProcessIds {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$RootProcessId
+    )
+
+    $descendantIds = New-Object System.Collections.Generic.List[int]
+    $queue = New-Object System.Collections.Generic.Queue[int]
+    $queue.Enqueue($RootProcessId)
+
+    while ($queue.Count -gt 0) {
+        $currentProcessId = $queue.Dequeue()
+        foreach ($childProcess in @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $currentProcessId" -ErrorAction SilentlyContinue)) {
+            $childProcessId = [int]$childProcess.ProcessId
+            $descendantIds.Add($childProcessId) | Out-Null
+            $queue.Enqueue($childProcessId)
+        }
+    }
+
+    return $descendantIds
+}
+
+function Stop-ProcessTree {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$ProcessId
+    )
+
+    try {
+        & taskkill /PID $ProcessId /T /F 2>$null | Out-Null
+    }
+    catch {
+    }
+
+    foreach ($descendantId in @(Get-DescendantProcessIds -RootProcessId $ProcessId)) {
+        try {
+            Stop-Process -Id $descendantId -Force -ErrorAction SilentlyContinue
+        }
+        catch {
+        }
+    }
+
+    try {
+        Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
+    }
+    catch {
+    }
+}
+
+function Invoke-StreamingProcess {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$FilePath,
+
+        [Parameter(Mandatory = $true)]
+        [string[]]$ArgumentList,
+
+        [Parameter(Mandatory = $true)]
+        [string]$WorkingDirectory,
+
+        [Parameter(Mandatory = $true)]
+        [int]$TimeoutMs,
+
+        [Parameter(Mandatory = $true)]
+        [string]$LogPath,
+
+        [string]$Label = 'process',
+
+        [scriptblock]$OnLine,
+
+        [hashtable]$Environment = @{}
+    )
+
+    $resolvedTimeoutMs = Resolve-TimeoutMs -RequestedTimeoutMs $TimeoutMs -DefaultTimeoutMs $TimeoutMs -ParameterName 'TimeoutMs'
+    $resolvedWorkingDirectory = Normalize-PathValue -Path $WorkingDirectory
+    $resolvedLogPath = Normalize-PathValue -Path $LogPath
+
+    $logDirectory = Split-Path -Parent $resolvedLogPath
+    if (-not [string]::IsNullOrWhiteSpace($logDirectory)) {
+        New-Item -ItemType Directory -Path $logDirectory -Force | Out-Null
+    }
+
+    $state = [ordered]@{
+        TimedOut      = $false
+        CallbackError = $null
+        StartedAtUtc  = [DateTime]::UtcNow
+    }
+
+    $stdoutPath = Join-Path $logDirectory ("{0}.stdout.tmp" -f [Guid]::NewGuid().ToString('N'))
+    $stderrPath = Join-Path $logDirectory ("{0}.stderr.tmp" -f [Guid]::NewGuid().ToString('N'))
+    New-Item -ItemType File -Path $stdoutPath -Force | Out-Null
+    New-Item -ItemType File -Path $stderrPath -Force | Out-Null
+
+    $logWriter = New-Object System.IO.StreamWriter($resolvedLogPath, $false, (New-Object System.Text.UTF8Encoding($false)))
+    $logWriter.AutoFlush = $true
+
+    $emitLine = {
+        param(
+            [string]$StreamName,
+            [string]$LineText
+        )
+
+        if ([string]::IsNullOrWhiteSpace($LineText)) {
+            return
+        }
+
+        $logLine = if ($StreamName -eq 'stderr') { "[stderr] $LineText" } else { $LineText }
+        if ($StreamName -eq 'stderr') {
+            [System.Console]::Error.WriteLine($LineText)
+        }
+        else {
+            [System.Console]::Out.WriteLine($LineText)
+        }
+
+        $logWriter.WriteLine($logLine)
+
+        if ($null -ne $OnLine) {
+            try {
+                & $OnLine $StreamName $LineText
+            }
+            catch {
+                if ($null -eq $state.CallbackError) {
+                    $state.CallbackError = $_.Exception
+                }
+            }
+        }
+    }
+
+    $syncOutputFile = {
+        param(
+            [string]$Path,
+            [int]$KnownLineCount,
+            [string]$StreamName
+        )
+
+        if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+            return $KnownLineCount
+        }
+
+        try {
+            $lines = @(Get-Content -LiteralPath $Path -Encoding UTF8)
+        }
+        catch {
+            return $KnownLineCount
+        }
+
+        if ($lines.Count -le $KnownLineCount) {
+            return $KnownLineCount
+        }
+
+        for ($lineIndex = $KnownLineCount; $lineIndex -lt $lines.Count; $lineIndex++) {
+            & $emitLine $StreamName ([string]$lines[$lineIndex])
+        }
+
+        return $lines.Count
+    }
+
+    $previousEnvironment = @{}
+    foreach ($environmentEntry in $Environment.GetEnumerator()) {
+        $environmentKey = [string]$environmentEntry.Key
+        $existingEnvironmentVariable = [System.Environment]::GetEnvironmentVariable($environmentKey, 'Process')
+        $previousEnvironment[$environmentKey] = if ($null -eq $existingEnvironmentVariable) { [string]::Empty } else { $existingEnvironmentVariable }
+        [System.Environment]::SetEnvironmentVariable($environmentKey, [string]$environmentEntry.Value, 'Process')
+    }
+
+    $stdoutLineCount = 0
+    $stderrLineCount = 0
+    $process = $null
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    try {
+        $process = Start-Process -FilePath $FilePath -ArgumentList $ArgumentList -WorkingDirectory $resolvedWorkingDirectory -PassThru -NoNewWindow -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+
+        while ($true) {
+            $stdoutLineCount = & $syncOutputFile $stdoutPath $stdoutLineCount 'stdout'
+            $stderrLineCount = & $syncOutputFile $stderrPath $stderrLineCount 'stderr'
+
+            if ($process.HasExited) {
+                break
+            }
+
+            if ($stopwatch.ElapsedMilliseconds -gt $resolvedTimeoutMs) {
+                $state.TimedOut = $true
+                & $emitLine 'stderr' ("[{0}] timed out after {1} ms. Terminating process tree rooted at PID {2}." -f $Label, $resolvedTimeoutMs, $process.Id)
+                Stop-ProcessTree -ProcessId $process.Id
+                break
+            }
+
+            Start-Sleep -Milliseconds 100
+            $process.Refresh()
+        }
+
+        if ($null -ne $process) {
+            $process.WaitForExit()
+            $process.Refresh()
+        }
+
+        for ($drainAttempt = 0; $drainAttempt -lt 20; $drainAttempt++) {
+            $previousStdOutLineCount = $stdoutLineCount
+            $previousStdErrLineCount = $stderrLineCount
+            $stdoutLineCount = & $syncOutputFile $stdoutPath $stdoutLineCount 'stdout'
+            $stderrLineCount = & $syncOutputFile $stderrPath $stderrLineCount 'stderr'
+            if ($previousStdOutLineCount -eq $stdoutLineCount -and $previousStdErrLineCount -eq $stderrLineCount) {
+                break
+            }
+
+            Start-Sleep -Milliseconds 50
+        }
+    }
+    finally {
+        $stopwatch.Stop()
+        foreach ($environmentKey in $previousEnvironment.Keys) {
+            $previousValue = [string]$previousEnvironment[$environmentKey]
+            if ($previousValue.Length -eq 0) {
+                [System.Environment]::SetEnvironmentVariable($environmentKey, $null, 'Process')
+            }
+            else {
+                [System.Environment]::SetEnvironmentVariable($environmentKey, $previousValue, 'Process')
+            }
+        }
+
+        $logWriter.Dispose()
+        Remove-Item -LiteralPath $stdoutPath -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath $stderrPath -Force -ErrorAction SilentlyContinue
+    }
+
+    if ($null -ne $state.CallbackError) {
+        throw $state.CallbackError
+    }
+
+    $resolvedExitCode = if ($state.TimedOut) {
+        124
+    }
+    elseif ($null -ne $process -and $null -ne $process.ExitCode) {
+        [int]$process.ExitCode
+    }
+    else {
+        0
+    }
+
+    return [PSCustomObject]@{
+        FilePath         = $FilePath
+        ArgumentList     = @($ArgumentList)
+        WorkingDirectory = $resolvedWorkingDirectory
+        LogPath          = $resolvedLogPath
+        ExitCode         = $resolvedExitCode
+        TimedOut         = [bool]$state.TimedOut
+        ProcessId        = if ($null -ne $process) { $process.Id } else { 0 }
+        DurationMs       = [int][Math]::Round($stopwatch.Elapsed.TotalMilliseconds)
+        StartedAtUtc     = $state.StartedAtUtc
+    }
+}
+
+function Get-PreferredDotNetArchitecture {
+    $processorArchitecture = [string]$env:PROCESSOR_ARCHITECTURE
+    if ($processorArchitecture -eq 'ARM64') {
+        return 'win-arm64'
+    }
+
+    if ($processorArchitecture -eq 'AMD64' -and -not [string]::IsNullOrWhiteSpace(${env:ProgramFiles(Arm)})) {
+        return 'win-arm64'
+    }
+
+    return 'win-x64'
+}
+
+function Resolve-DotNetExecutablePath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$EngineRoot
+    )
+
+    if ($env:UE_USE_SYSTEM_DOTNET -eq '1') {
+        $systemDotNet = Get-Command dotnet.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($null -eq $systemDotNet) {
+            throw 'UE_USE_SYSTEM_DOTNET=1 is set, but dotnet.exe could not be resolved from PATH.'
+        }
+
+        return [PSCustomObject]@{
+            DotNetExecutablePath = $systemDotNet.Source
+            Environment          = @{}
+            Source               = 'System'
+        }
+    }
+
+    $architecture = Get-PreferredDotNetArchitecture
+    $bundledDotNetDirectory = Join-Path (Normalize-PathValue -Path $EngineRoot) ("Engine\Binaries\ThirdParty\DotNet\{0}\{1}" -f $script:UnrealBundledDotNetVersion, $architecture)
+    $bundledDotNetExecutable = Join-Path $bundledDotNetDirectory 'dotnet.exe'
+    if (-not (Test-Path -LiteralPath $bundledDotNetExecutable -PathType Leaf)) {
+        $systemDotNet = Get-Command dotnet.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($null -eq $systemDotNet) {
+            throw "Bundled dotnet.exe was not found at '$bundledDotNetExecutable', and dotnet.exe was not found on PATH."
+        }
+
+        return [PSCustomObject]@{
+            DotNetExecutablePath = $systemDotNet.Source
+            Environment          = @{}
+            Source               = 'SystemFallback'
+        }
+    }
+
+    return [PSCustomObject]@{
+        DotNetExecutablePath = $bundledDotNetExecutable
+        Environment          = @{
+            UE_DOTNET_VERSION        = $script:UnrealBundledDotNetVersion
+            UE_DOTNET_ARCH           = $architecture
+            UE_DOTNET_DIR            = $bundledDotNetDirectory
+            DOTNET_ROOT              = $bundledDotNetDirectory
+            DOTNET_MULTILEVEL_LOOKUP = '0'
+            DOTNET_ROLL_FORWARD      = 'LatestMajor'
+            PATH                     = "{0};{1}" -f $bundledDotNetDirectory, $env:PATH
+        }
+        Source               = 'Bundled'
+    }
+}
+
+function Resolve-UbtPaths {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$EngineRoot
+    )
+
+    $resolvedEngineRoot = Normalize-PathValue -Path $EngineRoot
+    $dotNet = Resolve-DotNetExecutablePath -EngineRoot $resolvedEngineRoot
+    $ubtDllPath = Join-Path $resolvedEngineRoot 'Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.dll'
+    if (-not (Test-Path -LiteralPath $ubtDllPath -PathType Leaf)) {
+        throw "UnrealBuildTool.dll was not found: $ubtDllPath"
+    }
+
+    return [PSCustomObject]@{
+        EngineRoot           = $resolvedEngineRoot
+        DotNetExecutablePath = $dotNet.DotNetExecutablePath
+        DotNetSource         = $dotNet.Source
+        Environment          = $dotNet.Environment
+        UbtDllPath           = $ubtDllPath
+        WorkingDirectory     = Join-Path $resolvedEngineRoot 'Engine\Source'
+    }
+}
+
+function Resolve-AgentConfiguration {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectRoot,
+
+        [string]$ConfigPath = ''
+    )
+
+    $resolvedProjectRoot = Normalize-PathValue -Path $ProjectRoot
+    $resolvedConfigPath = if ([string]::IsNullOrWhiteSpace($ConfigPath)) {
+        Join-Path $resolvedProjectRoot 'AgentConfig.ini'
+    }
+    else {
+        Normalize-PathValue -Path $ConfigPath
+    }
+
+    $config = Read-IniFile -Path $resolvedConfigPath
+    $engineRoot = Normalize-PathValue -Path (Get-IniValue -Config $config -Section 'Paths' -Key 'EngineRoot' -Required)
+
+    $projectFile = Get-IniValue -Config $config -Section 'Paths' -Key 'ProjectFile'
+    if ([string]::IsNullOrWhiteSpace($projectFile)) {
+        $uproject = Get-ChildItem -LiteralPath $resolvedProjectRoot -Filter *.uproject -File | Select-Object -First 1
+        if ($null -eq $uproject) {
+            throw "Could not resolve a .uproject file from '$resolvedProjectRoot'."
+        }
+
+        $projectFile = $uproject.FullName
+    }
+
+    $resolvedProjectFile = Normalize-PathValue -Path $projectFile
+
+    return [PSCustomObject]@{
+        ProjectRoot           = $resolvedProjectRoot
+        ConfigPath            = $resolvedConfigPath
+        Config                = $config
+        EngineRoot            = $engineRoot
+        ProjectFile           = $resolvedProjectFile
+        EditorTarget          = Get-IniValue -Config $config -Section 'Build' -Key 'EditorTarget' -DefaultValue 'AngelscriptProjectEditor'
+        Platform              = Get-IniValue -Config $config -Section 'Build' -Key 'Platform' -DefaultValue 'Win64'
+        Configuration         = Get-IniValue -Config $config -Section 'Build' -Key 'Configuration' -DefaultValue 'Development'
+        Architecture          = Get-IniValue -Config $config -Section 'Build' -Key 'Architecture' -DefaultValue 'x64'
+        BuildDefaultTimeoutMs = [int](Get-IniValue -Config $config -Section 'Build' -Key 'DefaultTimeoutMs' -DefaultValue (Get-IniValue -Config $config -Section 'Test' -Key 'DefaultTimeoutMs' -DefaultValue '180000'))
+        TestDefaultTimeoutMs  = [int](Get-IniValue -Config $config -Section 'Test' -Key 'DefaultTimeoutMs' -DefaultValue '300000')
+    }
+}
+
+function Get-DefinedAutomationGroups {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectRoot
+    )
+
+    $configPath = Join-Path (Normalize-PathValue -Path $ProjectRoot) 'Config\DefaultEngine.ini'
+    if (-not (Test-Path -LiteralPath $configPath -PathType Leaf)) {
+        return @()
+    }
+
+    $groups = New-Object System.Collections.Generic.List[string]
+    foreach ($line in Get-Content -LiteralPath $configPath -Encoding UTF8) {
+        if ($line -match '\+Groups=\(Name="([^"]+)"') {
+            $groups.Add($matches[1]) | Out-Null
+        }
+    }
+
+    return @($groups | Select-Object -Unique)
+}
+
+function Get-GitWorktreeMap {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepositoryRoot
+    )
+
+    $resolvedRepositoryRoot = Normalize-PathValue -Path $RepositoryRoot
+    $gitOutput = & git -C $resolvedRepositoryRoot worktree list --porcelain 2>$null
+    if ($LASTEXITCODE -ne 0 -or $null -eq $gitOutput) {
+        return @()
+    }
+
+    $entries = New-Object System.Collections.Generic.List[object]
+    $currentEntry = $null
+
+    foreach ($line in $gitOutput) {
+        if ([string]::IsNullOrWhiteSpace($line)) {
+            if ($null -ne $currentEntry) {
+                $entries.Add([PSCustomObject]$currentEntry) | Out-Null
+                $currentEntry = $null
+            }
+            continue
+        }
+
+        if ($line.StartsWith('worktree ')) {
+            if ($null -ne $currentEntry) {
+                $entries.Add([PSCustomObject]$currentEntry) | Out-Null
+            }
+
+            $currentEntry = [ordered]@{
+                WorktreeRoot = Normalize-PathValue -Path ($line.Substring(9))
+                Head         = ''
+                Branch       = ''
+            }
+            continue
+        }
+
+        if ($null -eq $currentEntry) {
+            continue
+        }
+
+        if ($line.StartsWith('HEAD ')) {
+            $currentEntry.Head = $line.Substring(5)
+            continue
+        }
+
+        if ($line.StartsWith('branch ')) {
+            $branchName = $line.Substring(7)
+            if ($branchName.StartsWith('refs/heads/')) {
+                $branchName = $branchName.Substring(11)
+            }
+            $currentEntry.Branch = $branchName
+            continue
+        }
+
+        if ($line -eq 'detached') {
+            $currentEntry.Branch = 'detached'
+        }
+    }
+
+    if ($null -ne $currentEntry) {
+        $entries.Add([PSCustomObject]$currentEntry) | Out-Null
+    }
+
+    return @($entries.ToArray())
+}
+
+function Resolve-UbtCommandDescriptor {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProcessName,
+
+        [Parameter(Mandatory = $true)]
+        [string]$CommandLine,
+
+        [object[]]$WorktreeMap = @()
+    )
+
+    $normalizedCommandLine = ([string]$CommandLine).Replace('/', '\')
+    $normalizedProcessName = [System.IO.Path]::GetFileName([string]$ProcessName)
+
+    $kind = 'Unknown'
+    if ($normalizedProcessName -ieq 'dotnet.exe' -and $normalizedCommandLine -match 'UnrealBuildTool\.dll') {
+        $kind = 'DotNetUbt'
+    }
+    elseif ($normalizedProcessName -ieq 'UnrealBuildTool.exe') {
+        $kind = 'NativeUbt'
+    }
+    elseif ($normalizedProcessName -ieq 'cmd.exe' -and $normalizedCommandLine -match 'Build\.bat') {
+        $kind = 'BuildBat'
+    }
+    elseif ($normalizedProcessName -ieq 'cmd.exe' -and $normalizedCommandLine -match 'RunUBT\.bat') {
+        $kind = 'RunUbtBat'
+    }
+
+    $projectFile = $null
+    $projectMatch = [regex]::Match($normalizedCommandLine, '(?i)-Project=(?:"(?<path>[^"]+?\.uproject)"|(?<path>[^\s"]+?\.uproject))')
+    if ($projectMatch.Success) {
+        $projectFile = Normalize-PathValue -Path $projectMatch.Groups['path'].Value
+    }
+    else {
+        $uprojectMatch = [regex]::Match($normalizedCommandLine, '(?i)(?<path>[A-Za-z]:\\[^"]+?\.uproject)')
+        if ($uprojectMatch.Success) {
+            $projectFile = Normalize-PathValue -Path $uprojectMatch.Groups['path'].Value
+        }
+    }
+
+    $target = $null
+    $platform = $null
+    $configuration = $null
+    $targetMatch = [regex]::Match($normalizedCommandLine, 'UnrealBuildTool(?:\.dll|\.exe)"?\s+(?<target>\S+)\s+(?<platform>\S+)\s+(?<configuration>\S+)')
+    if ($targetMatch.Success) {
+        $target = $targetMatch.Groups['target'].Value
+        $platform = $targetMatch.Groups['platform'].Value
+        $configuration = $targetMatch.Groups['configuration'].Value
+    }
+
+    $worktreeRoot = $null
+    if (-not [string]::IsNullOrWhiteSpace([string]$projectFile)) {
+        $worktreeRoot = Normalize-PathValue -Path (Split-Path -Parent $projectFile)
+    }
+
+    $matchedWorktree = @()
+    if ($null -ne $worktreeRoot) {
+        $matchedWorktree = @($WorktreeMap | Where-Object { $_.WorktreeRoot -eq $worktreeRoot } | Select-Object -First 1)
+    }
+
+    if ($matchedWorktree.Count -eq 0) {
+        $matchedWorktree = @(
+            $WorktreeMap |
+                Sort-Object { $_.WorktreeRoot.Length } -Descending |
+                Where-Object { $normalizedCommandLine.IndexOf($_.WorktreeRoot, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 } |
+                Select-Object -First 1
+        )
+    }
+
+    $selectedWorktree = if ($matchedWorktree.Count -gt 0) { $matchedWorktree[0] } else { $null }
+
+    return [PSCustomObject]@{
+        Kind                = $kind
+        ProcessName         = $normalizedProcessName
+        CommandLine         = $normalizedCommandLine
+        ProjectFile         = $projectFile
+        WorktreeRoot        = if ($null -ne $selectedWorktree) { $selectedWorktree.WorktreeRoot } else { $worktreeRoot }
+        Branch              = if ($null -ne $selectedWorktree) { $selectedWorktree.Branch } else { $null }
+        Head                = if ($null -ne $selectedWorktree) { $selectedWorktree.Head } else { $null }
+        Target              = $target
+        Platform            = $platform
+        Configuration       = $configuration
+        UsesNoMutex         = $normalizedCommandLine -match '(^|\s)-NoMutex(\s|$)'
+        UsesWaitMutex       = $normalizedCommandLine -match '(^|\s)-WaitMutex(\s|$)'
+        UsesNoEngineChanges = $normalizedCommandLine -match '(^|\s)-NoEngineChanges(\s|$)'
+    }
+}
+
+function Get-UbtProcessInfo {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$RepositoryRoot,
+
+        [string]$WorktreeRoot = ''
+    )
+
+    $resolvedWorktreeFilter = if ([string]::IsNullOrWhiteSpace($WorktreeRoot)) { '' } else { Normalize-PathValue -Path $WorktreeRoot }
+    $worktreeMap = @(Get-GitWorktreeMap -RepositoryRoot $RepositoryRoot)
+    $processes = @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)
+
+    $results = New-Object System.Collections.Generic.List[object]
+    foreach ($process in $processes) {
+        $processName = [string]$process.Name
+        if ($processName -notin @('dotnet.exe', 'UnrealBuildTool.exe', 'cmd.exe')) {
+            continue
+        }
+
+        $commandLine = [string]$process.CommandLine
+        if ([string]::IsNullOrWhiteSpace($commandLine)) {
+            continue
+        }
+
+        if ($commandLine -notmatch 'UnrealBuildTool|Build\.bat|RunUBT\.bat') {
+            continue
+        }
+
+        $descriptor = Resolve-UbtCommandDescriptor -ProcessName $processName -CommandLine $commandLine -WorktreeMap $worktreeMap
+        if ($descriptor.Kind -eq 'Unknown') {
+            continue
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($resolvedWorktreeFilter) -and $descriptor.WorktreeRoot -ne $resolvedWorktreeFilter) {
+            continue
+        }
+
+        $startedAt = $null
+        if (-not [string]::IsNullOrWhiteSpace([string]$process.CreationDate)) {
+            try {
+                $startedAt = [System.Management.ManagementDateTimeConverter]::ToDateTime($process.CreationDate)
+            }
+            catch {
+                $startedAt = $null
+            }
+        }
+
+        $results.Add([PSCustomObject]@{
+                ProcessId           = [int]$process.ProcessId
+                ParentProcessId     = [int]$process.ParentProcessId
+                ProcessName         = $processName
+                Kind                = $descriptor.Kind
+                StartedAt           = $startedAt
+                Branch              = $descriptor.Branch
+                Head                = $descriptor.Head
+                WorktreeRoot        = $descriptor.WorktreeRoot
+                ProjectFile         = $descriptor.ProjectFile
+                Target              = $descriptor.Target
+                Platform            = $descriptor.Platform
+                Configuration       = $descriptor.Configuration
+                UsesNoMutex         = $descriptor.UsesNoMutex
+                UsesWaitMutex       = $descriptor.UsesWaitMutex
+                UsesNoEngineChanges = $descriptor.UsesNoEngineChanges
+                CommandLine         = $descriptor.CommandLine
+            }) | Out-Null
+    }
+
+    $sortedResults = @($results.ToArray() | Sort-Object StartedAt, ProcessId)
+    return $sortedResults
+}

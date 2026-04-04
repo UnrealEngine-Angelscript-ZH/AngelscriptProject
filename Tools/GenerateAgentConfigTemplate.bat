@@ -29,10 +29,12 @@ if /I not "%~1"=="--force" if exist "%TARGET_FILE%" (
     echo Platform=Win64
     echo Configuration=Development
     echo Architecture=x64
+    echo ; Default timeout in milliseconds for UBT builds. Hard-capped at 300000.
+    echo DefaultTimeoutMs=180000
     echo.
     echo [Test]
-    echo ; Default timeout in milliseconds for long-running commands.
-    echo DefaultTimeoutMs=600000
+    echo ; Default timeout in milliseconds for automation tests. Hard-capped at 300000.
+    echo DefaultTimeoutMs=300000
     echo.
     echo [References]
     echo ; Optional. Manually set this to your local HazelightAngelscriptEngine reference path.

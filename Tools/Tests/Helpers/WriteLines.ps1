@@ -4,7 +4,7 @@ param(
 )
 
 Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
 
 for ($index = 1; $index -le $Count; $index++) {
     Write-Output ("tick:{0}" -f $index)

@@ -10,6 +10,10 @@
 | PullReference `angelscript` | `Tools\PullReference.bat` | 通过对应 SSH 克隆或同步 AngelScript 上游参考仓库。 | `Tools\PullReference.bat angelscript` | 在 `Reference\angelscript-v2.38.0` 拉取或更新仓库 | 默认同步到当前项目的 `Reference\angelscript-v2.38.0`。 |
 | PullReference `unrealcsharp` | `Tools\PullReference.bat` | 通过对应 SSH 克隆或同步 `UnrealCSharp` 参考仓库。 | `Tools\PullReference.bat unrealcsharp` | 在 `Reference\UnrealCSharp` 拉取或更新仓库 | 默认同步到当前项目的 `Reference\UnrealCSharp`。 |
 | PullReference `<key> <TargetDir>` | `Tools\PullReference.bat` | 将指定参考仓库同步到自定义目录。 | `Tools\PullReference.bat angelscript "J:\UnrealEngine\AngelscriptProject\Reference\angelscript-v2.38.0"` | 在指定目录拉取或更新仓库 | 目标目录已存在但不是 Git 仓库时会直接失败。 |
+| RunAutomationTests (PowerShell) | `Tools\RunAutomationTests.ps1` | 统一运行 Angelscript 自动化测试，按 group 或前缀启动编辑器回归。 | `Tools\RunAutomationTests.ps1 -Group AngelscriptSmoke` | `Saved\Automation\<Bucket>\<Timestamp>\` 下的日志、报告和 JSON 摘要 | 优先读取 `AgentConfig.ini`，缺配置会直接失败。 |
+| RunAutomationTests (Batch) | `Tools\RunAutomationTests.bat` | 为 Windows 本地或 CI 提供简短入口，参数原样转发到 PowerShell runner。 | `Tools\RunAutomationTests.bat -Group AngelscriptFast` | 与 PowerShell runner 相同 | 只做参数转发，不重复配置解析逻辑。 |
+| GetAutomationReportSummary | `Tools\GetAutomationReportSummary.ps1` | 从日志和 `ReportExportPath` 产物生成可机器消费的结果摘要。 | `Tools\GetAutomationReportSummary.ps1 -ReportPath <dir> -LogPath <log>` | `Summary.json` 或 stdout 摘要对象 | 当编辑器退出码为 0 但日志存在阻断错误时，可辅助识别假绿。 |
+| AutomationToolSelfTests | `Tools\Tests\AutomationToolSelfTests.ps1` | 对 automation runner 与 summary 脚本执行轻量自测。 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Tests\AutomationToolSelfTests.ps1` | 控制台 PASS/FAIL | 使用 fixture 校验 summary，使用未知 group 校验 runner 与 `.bat` wrapper 的失败路径。 |
 
 ## GenerateAgentConfigTemplate.bat
 
@@ -89,3 +93,50 @@ Tools\PullReference.bat angelscript
 Tools\PullReference.bat unrealcsharp
 Tools\PullReference.bat angelscript "J:\UnrealEngine\AngelscriptProject\Reference\angelscript-v2.38.0"
 ```
+
+## RunAutomationTests.ps1
+
+| 项目 | 说明 |
+| --- | --- |
+| 工具路径 | `Tools\RunAutomationTests.ps1` |
+| 主要用途 | 以统一入口运行 Angelscript 自动化测试，按 group 或测试前缀组织 bucket，并固定日志/报告输出目录。 |
+| 配置来源 | 读取项目根目录 `AgentConfig.ini` 中的 `Paths.EngineRoot`、`Paths.ProjectFile` 与 `Test.DefaultTimeoutMs`。 |
+| 默认输出 | `Saved\Automation\<Bucket>\<Timestamp>\Automation.log`、`Report\`、`RunMetadata.json`、`Summary.json` |
+| 常用参数 | `-Group`、`-Prefix`、`-AbsLog`、`-ReportExportPath`、`-TimeoutMs`、`-ExtraArgs` |
+| 错误策略 | 缺少 `AgentConfig.ini` / `EngineRoot` / `ProjectFile` 会直接失败；若日志存在阻断错误，runner 会把最终退出码提升为失败。 |
+
+### 示例
+
+```powershell
+Tools\RunAutomationTests.ps1 -Group AngelscriptSmoke
+Tools\RunAutomationTests.ps1 -Prefix Angelscript.TestModule.Bindings.
+Tools\RunAutomationTests.ps1 -Group AngelscriptFast -ExtraArgs '-log'
+```
+
+## RunAutomationTests.bat
+
+| 项目 | 说明 |
+| --- | --- |
+| 工具路径 | `Tools\RunAutomationTests.bat` |
+| 主要用途 | 为 Windows 本地使用和简单 CI 提供短命令入口。 |
+| 行为边界 | 只负责把参数转发给 `RunAutomationTests.ps1`，不复制配置解析、日志策略或摘要逻辑。 |
+
+## GetAutomationReportSummary.ps1
+
+| 项目 | 说明 |
+| --- | --- |
+| 工具路径 | `Tools\GetAutomationReportSummary.ps1` |
+| 主要用途 | 聚合 `-ReportExportPath` 产物与日志，生成轻量 JSON 摘要。 |
+| 输入 | `-ReportPath`、`-LogPath`、可选 `-SummaryPath` |
+| 输出 | `BucketName`、退出码、报告路径、失败测试列表、阻断日志提示 |
+| 设计约束 | 优先消费结构化报告；当报告缺失时，用日志补足“是否是假绿”的判断。 |
+
+## AutomationToolSelfTests.ps1
+
+| 项目 | 说明 |
+| --- | --- |
+| 工具路径 | `Tools\Tests\AutomationToolSelfTests.ps1` |
+| 主要用途 | 对 `RunAutomationTests.ps1`、`RunAutomationTests.bat` 和 `GetAutomationReportSummary.ps1` 做轻量自测。 |
+| 覆盖点 | fixture 报告解析、未知 group 预检失败、`.bat` wrapper 参数转发失败路径 |
+| 运行方式 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Tests\AutomationToolSelfTests.ps1` |
+| 依赖 | 不要求 Pester；直接使用 PowerShell 进程捕获和断言。 |
