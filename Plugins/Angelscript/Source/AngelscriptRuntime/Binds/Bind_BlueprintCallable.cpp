@@ -9,12 +9,59 @@
 
 #include "Helper_FunctionSignature.h"
 
+#include "StartAngelscriptHeaders.h"
+#include "source/as_objecttype.h"
+#include "source/as_scriptengine.h"
+#include "EndAngelscriptHeaders.h"
+
 extern void RegisterBlueprintEventByScriptName(UClass* Class, const FString& ScriptName, UFunction* Function);
+
+namespace
+{
+	bool IsGlobalFunctionAlreadyBound(const FString& NamespaceName, const FString& Declaration)
+	{
+		auto* ScriptEngine = FAngelscriptEngine::Get().GetScriptEngine();
+		if (ScriptEngine == nullptr)
+		{
+			return false;
+		}
+
+		if (NamespaceName.IsEmpty())
+		{
+			return ScriptEngine->GetGlobalFunctionByDecl(TCHAR_TO_ANSI(*Declaration)) != nullptr;
+		}
+
+		FAngelscriptBinds::FNamespace Namespace(NamespaceName);
+		return ScriptEngine->GetGlobalFunctionByDecl(TCHAR_TO_ANSI(*Declaration)) != nullptr;
+	}
+
+	bool IsMethodAlreadyBound(const FString& ClassName, const FString& Declaration)
+	{
+		auto* ScriptEngine = FAngelscriptEngine::Get().GetScriptEngine();
+		if (ScriptEngine == nullptr)
+		{
+			return false;
+		}
+
+		asITypeInfo* TypeInfo = ScriptEngine->GetTypeInfoByName(TCHAR_TO_ANSI(*ClassName));
+		return TypeInfo != nullptr && TypeInfo->GetMethodByDecl(TCHAR_TO_ANSI(*Declaration)) != nullptr;
+	}
+
+	bool IsMethodNameAlreadyBound(const FString& ClassName, const FString& MethodName)
+	{
+		auto* ScriptEngine = FAngelscriptEngine::Get().GetScriptEngine();
+		if (ScriptEngine == nullptr)
+		{
+			return false;
+		}
+
+		asITypeInfo* TypeInfo = ScriptEngine->GetTypeInfoByName(TCHAR_TO_ANSI(*ClassName));
+		return TypeInfo != nullptr && TypeInfo->GetMethodByName(TCHAR_TO_ANSI(*MethodName)) != nullptr;
+	}
+}
 
 // Bind a native function to angelscript, provided all
 // argument and return types are known as FAngelscriptTypes.
-static const FName NAME_Function_NotInAngelscript("NotInAngelscript");
-static const FName NAME_Function_BlueprintInternalUseOnly("BlueprintInternalUseOnly");
 void BindBlueprintCallable(
 	TSharedRef<FAngelscriptType> InType,
 	UFunction* Function,
@@ -29,12 +76,7 @@ void BindBlueprintCallable(
 	if (!Function->HasAnyFunctionFlags(FUNC_Native))
 		return;
 
-	// Specifically excluded functions are not bound
-	if (Function->HasMetaData(NAME_Function_NotInAngelscript))
-		return;
-
-	// BlueprintInternalUseOnly functions are not bound
-	if (Function->HasMetaData(NAME_Function_BlueprintInternalUseOnly))
+	if (FAngelscriptBinds::ShouldSkipBlueprintCallableFunction(Function))
 		return;
 #endif
 
@@ -82,8 +124,11 @@ void BindBlueprintCallable(
 	// Actually bind into angelscript engine
 	if (Signature.bStaticInScript)
 	{
+		const bool bAlreadyBoundInGlobalScope = Signature.bGlobalScope && IsGlobalFunctionAlreadyBound(FString(), Signature.Declaration);
+		const bool bAlreadyBoundInNamespace = IsGlobalFunctionAlreadyBound(Signature.ClassName, Signature.Declaration);
+
 		// Some functions have a meta tag to put them in global scope
-		if (Signature.bGlobalScope)
+		if (Signature.bGlobalScope && !bAlreadyBoundInGlobalScope)
 		{
 			//int GlobalFunctionId = FAngelscriptBinds::BindGlobalFunction(Signature.Declaration, ASFuncPtr, FuncInMap->Value);			
 			int GlobalFunctionId = FAngelscriptBinds::BindGlobalFunction(Signature.Declaration, ASFuncPtr, Entry->Caller);
@@ -91,13 +136,21 @@ void BindBlueprintCallable(
 		}
 
 		// Static functions should be bound as a global function in a namespace
-		FAngelscriptBinds::FNamespace ns(Signature.ClassName);
-		//int FunctionId = FAngelscriptBinds::BindGlobalFunction(Signature.Declaration, ASFuncPtr, FuncInMap->Value);
-		int FunctionId = FAngelscriptBinds::BindGlobalFunction(Signature.Declaration, ASFuncPtr, Entry->Caller);
-		Signature.ModifyScriptFunction(FunctionId);
+		if (!bAlreadyBoundInNamespace)
+		{
+			FAngelscriptBinds::FNamespace ns(Signature.ClassName);
+			//int FunctionId = FAngelscriptBinds::BindGlobalFunction(Signature.Declaration, ASFuncPtr, FuncInMap->Value);
+			int FunctionId = FAngelscriptBinds::BindGlobalFunction(Signature.Declaration, ASFuncPtr, Entry->Caller);
+			Signature.ModifyScriptFunction(FunctionId);
+		}
 	}
 	else if (Signature.bStaticInUnreal)
 	{
+		if (IsMethodAlreadyBound(Signature.ClassName, Signature.Declaration) || IsMethodNameAlreadyBound(Signature.ClassName, Signature.ScriptName))
+		{
+			return;
+		}
+
 		// This is a static function converted through mixin to a script member function
 		int FunctionId = FAngelscriptBinds::BindMethodDirect
 		(
@@ -109,6 +162,11 @@ void BindBlueprintCallable(
 	}
 	else
 	{
+		if (IsMethodAlreadyBound(InType->GetAngelscriptTypeName(), Signature.Declaration) || IsMethodNameAlreadyBound(InType->GetAngelscriptTypeName(), Signature.ScriptName))
+		{
+			return;
+		}
+
 		//auto caller = ASAutoCaller::FunctionCaller::Make();
 		//caller.MethodPtr = DirectNativePointer;
 		// Member methods should be bound as THISCALL		

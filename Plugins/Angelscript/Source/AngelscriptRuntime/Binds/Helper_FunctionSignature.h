@@ -20,6 +20,7 @@ static const FName NAME_Signature_ScriptGlobalScope("ScriptGlobalScope");
 static const FName NAME_Signature_ToolTip("ToolTip");
 static const FName NAME_Signature_Category("Category");
 static const FName NAME_Signature_ScriptMixin("ScriptMixin");
+static const FName NAME_Signature_ScriptMethod("ScriptMethod");
 static const FName NAME_Signature_ScriptTrivial("ScriptTrivial");
 static const FName NAME_Signature_NotAngelscriptProperty("NotAngelscriptProperty");
 static const FName NAME_AS_Tooltip("ScriptTooltip");
@@ -27,6 +28,7 @@ static const FName NAME_AS_BlueprintProtected("BlueprintProtected");
 static const FName NAME_Function_DeprecatedFunction("DeprecatedFunction");
 static const FName NAME_Function_DeprecationMessage("DeprecationMessage");
 static const FName NAME_OptionalWorldContext("OptionalWorldContext");
+static const FName NAME_CallableWithoutWorldContext("CallableWithoutWorldContext");
 static const FName NAME_ScriptNoDiscard("ScriptNoDiscard");
 static const FName NAME_ScriptAllowDiscard("ScriptAllowDiscard");
 
@@ -275,34 +277,55 @@ struct FAngelscriptFunctionSignature
 
 			// If our class is marked as a 'script mixin', and our argument matches, bind it as a member
 			bool bFoundMixin = false;
+			const bool bFunctionScriptMethod = Function->HasMetaData(NAME_Signature_ScriptMethod);
 			const FString& MixinClasses = Function->GetOuterUClass()->GetMetaData(NAME_Signature_ScriptMixin);
-			if (MixinClasses.Len() != 0 && ArgumentTypes.Num() > 0
-				&& (ArgumentTypes[0].IsObjectPointer() || ArgumentTypes[0].bIsReference))
+			if (ArgumentTypes.Num() > 0)
 			{
-				TArray<FString> MixinList;
-				MixinClasses.ParseIntoArray(MixinList, TEXT(" "));
-
 				FString FirstParamType = ArgumentTypes[0].Type->GetAngelscriptTypeName();
-				for (const FString& Mixin : MixinList)
+				if (bFunctionScriptMethod)
 				{
-					if (FirstParamType == Mixin)
+					if (ArgumentTypes[0].bIsConst)
+						bForceConst = true;
+
+					ArgumentTypes.RemoveAt(0);
+					ArgumentNames.RemoveAt(0);
+					ArgumentDefaults.RemoveAt(0);
+					ClassName = FirstParamType;
+
+					bStaticInScript = false;
+					bFoundMixin = true;
+
+					if (WorldContextArgument >= 0)
+						WorldContextArgument -= 1;
+					if (DeterminesOutputTypeArgument >= 0)
+						DeterminesOutputTypeArgument -= 1;
+				}
+				else if (MixinClasses.Len() != 0 && (ArgumentTypes[0].IsObjectPointer() || ArgumentTypes[0].bIsReference))
+				{
+					TArray<FString> MixinList;
+					MixinClasses.ParseIntoArray(MixinList, TEXT(" "));
+
+					for (const FString& Mixin : MixinList)
 					{
-						if (ArgumentTypes[0].bIsConst)
-							bForceConst = true;
+						if (FirstParamType == Mixin)
+						{
+							if (ArgumentTypes[0].bIsConst)
+								bForceConst = true;
 
-						ArgumentTypes.RemoveAt(0);
-						ArgumentNames.RemoveAt(0);
-						ArgumentDefaults.RemoveAt(0);
-						ClassName = Mixin;
+							ArgumentTypes.RemoveAt(0);
+							ArgumentNames.RemoveAt(0);
+							ArgumentDefaults.RemoveAt(0);
+							ClassName = Mixin;
 
-						bStaticInScript = false;
-						bFoundMixin = true;
+							bStaticInScript = false;
+							bFoundMixin = true;
 
-						if (WorldContextArgument >= 0)
-							WorldContextArgument -= 1;
-						if (DeterminesOutputTypeArgument >= 0)
-							DeterminesOutputTypeArgument -= 1;
-						break;
+							if (WorldContextArgument >= 0)
+								WorldContextArgument -= 1;
+							if (DeterminesOutputTypeArgument >= 0)
+								DeterminesOutputTypeArgument -= 1;
+							break;
+						}
 					}
 				}
 			}
@@ -425,7 +448,7 @@ struct FAngelscriptFunctionSignature
 					ScriptFunction->hiddenArgumentIndex = WorldContextArgument;
 					ScriptFunction->hiddenArgumentDefault = "__WorldContext()";
 #if WITH_EDITOR
-					if (!Function->HasMetaData(NAME_OptionalWorldContext))
+					if (!Function->HasMetaData(NAME_OptionalWorldContext) && !Function->HasMetaData(NAME_CallableWithoutWorldContext))
 						ScriptFunction->traits.SetTrait(asTRAIT_USES_WORLDCONTEXT, true);
 #endif
 				}

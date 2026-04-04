@@ -67,6 +67,39 @@ internal static class AngelscriptHeaderSignatureResolver
 			return true;
 		}
 
+		List<string> expectedParameterTypes = BuildExpectedParameterTypes(function);
+		string expectedReturnType = function.ReturnProperty is UhtProperty returnProperty
+			? BuildExpectedReturnType(returnProperty)
+			: "void";
+
+		List<AngelscriptFunctionSignature> exactMatches = new();
+		foreach (CandidateDeclaration candidate in publicCandidates)
+		{
+			if (!IsLinkVisible(classDeclaration, candidate.Declaration))
+			{
+				continue;
+			}
+
+			if (!TryParseDeclaration(classObj, function, candidate.Declaration, true, out AngelscriptFunctionSignature? parsedSignature, out _))
+			{
+				continue;
+			}
+
+			if (parsedSignature!.ParameterTypes.Count == expectedParameterTypes.Count &&
+				AreTypesEquivalent(expectedParameterTypes, parsedSignature.ParameterTypes) &&
+				NormalizeTypeText(expectedReturnType) == NormalizeTypeText(parsedSignature.ReturnType))
+			{
+				exactMatches.Add(parsedSignature);
+			}
+		}
+
+		if (exactMatches.Count == 1)
+		{
+			signature = exactMatches[0];
+			failureReason = null;
+			return true;
+		}
+
 		failureReason = "overloaded-unresolved";
 		return false;
 	}

@@ -23,6 +23,14 @@ internal sealed record AngelscriptSupportedModules(
 	HashSet<string> All,
 	HashSet<string> EditorOnly);
 
+internal sealed record AngelscriptModuleGenerationSummary(
+	string ModuleName,
+	bool EditorOnly,
+	int TotalEntries,
+	int DirectBindEntries,
+	int StubEntries,
+	int ShardCount);
+
 internal static class AngelscriptFunctionTableCodeGenerator
 {
 	private static readonly Regex QuotedStringPattern = new("\"([^\"]+)\"", RegexOptions.Compiled);
@@ -33,6 +41,7 @@ internal static class AngelscriptFunctionTableCodeGenerator
 		AngelscriptSupportedModules supportedModules = LoadSupportedModules(factory);
 		int generatedFileCount = 0;
 		HashSet<string> generatedPaths = new(StringComparer.OrdinalIgnoreCase);
+		List<AngelscriptModuleGenerationSummary> moduleSummaries = new();
 
 		foreach (UhtModule module in factory.Session.Modules)
 		{
@@ -41,15 +50,21 @@ internal static class AngelscriptFunctionTableCodeGenerator
 				continue;
 			}
 
-			generatedFileCount += GenerateModule(factory, module, supportedModules.EditorOnly.Contains(module.ShortName), generatedPaths);
+			AngelscriptModuleGenerationSummary? moduleSummary = GenerateModule(factory, module, supportedModules.EditorOnly.Contains(module.ShortName), generatedPaths);
+			if (moduleSummary != null)
+			{
+				generatedFileCount += moduleSummary.ShardCount;
+				moduleSummaries.Add(moduleSummary);
+			}
 		}
 
 		DeleteStaleOutputs(factory, generatedPaths);
+		WriteCoverageDiagnostics(moduleSummaries);
 
 		return generatedFileCount;
 	}
 
-	private static int GenerateModule(IUhtExportFactory factory, UhtModule module, bool editorOnly, HashSet<string> generatedPaths)
+	private static AngelscriptModuleGenerationSummary? GenerateModule(IUhtExportFactory factory, UhtModule module, bool editorOnly, HashSet<string> generatedPaths)
 	{
 		SortedSet<string> includes = new(StringComparer.Ordinal);
 		List<AngelscriptGeneratedFunctionEntry> entries = new();
@@ -57,7 +72,7 @@ internal static class AngelscriptFunctionTableCodeGenerator
 		CollectEntries(factory, module.ScriptPackage, includes, entries);
 		if (entries.Count == 0)
 		{
-			return 0;
+			return null;
 		}
 
 		entries.Sort(static (left, right) =>
@@ -69,6 +84,20 @@ internal static class AngelscriptFunctionTableCodeGenerator
 		});
 
 		int generatedShardCount = 0;
+		int directBindEntries = 0;
+		int stubEntries = 0;
+		foreach (AngelscriptGeneratedFunctionEntry entry in entries)
+		{
+			if (entry.EraseMacro == "ERASE_NO_FUNCTION()")
+			{
+				stubEntries++;
+			}
+			else
+			{
+				directBindEntries++;
+			}
+		}
+
 		int shardCount = (entries.Count + MaxEntriesPerShard - 1) / MaxEntriesPerShard;
 		for (int shardIndex = 0; shardIndex < shardCount; shardIndex++)
 		{
@@ -80,7 +109,31 @@ internal static class AngelscriptFunctionTableCodeGenerator
 			generatedShardCount++;
 		}
 
-		return generatedShardCount;
+		return new AngelscriptModuleGenerationSummary(module.ShortName, editorOnly, entries.Count, directBindEntries, stubEntries, generatedShardCount);
+	}
+
+	private static void WriteCoverageDiagnostics(List<AngelscriptModuleGenerationSummary> moduleSummaries)
+	{
+		moduleSummaries.Sort(static (left, right) =>
+		{
+			int stubComparison = right.StubEntries.CompareTo(left.StubEntries);
+			return stubComparison != 0
+				? stubComparison
+				: StringComparer.Ordinal.Compare(left.ModuleName, right.ModuleName);
+		});
+
+		Console.WriteLine("AngelscriptUhtPlugin per-module coverage diagnostics:");
+		foreach (AngelscriptModuleGenerationSummary summary in moduleSummaries)
+		{
+			Console.WriteLine(
+				"  - {0}{1}: total={2}, direct={3}, stubs={4}, shards={5}",
+				summary.ModuleName,
+				summary.EditorOnly ? " [EditorOnly]" : string.Empty,
+				summary.TotalEntries,
+				summary.DirectBindEntries,
+				summary.StubEntries,
+				summary.ShardCount);
+		}
 	}
 
 	private static StringBuilder BuildShard(string moduleShortName, bool editorOnly, SortedSet<string> includes, List<AngelscriptGeneratedFunctionEntry> entries, int startIndex, int entryCount, int shardIndex, int shardCount)
@@ -303,7 +356,8 @@ internal static class AngelscriptFunctionTableCodeGenerator
 			return false;
 		}
 
-		if (function.MetaData.ContainsKey("NotInAngelscript") || function.MetaData.ContainsKey("BlueprintInternalUseOnly"))
+		if (function.MetaData.ContainsKey("NotInAngelscript") ||
+			(function.MetaData.ContainsKey("BlueprintInternalUseOnly") && !function.MetaData.ContainsKey("UsableInAngelscript")))
 		{
 			return false;
 		}
