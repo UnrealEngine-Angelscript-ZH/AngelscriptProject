@@ -25,6 +25,7 @@ struct FScriptConsoleVariable
 					[this, NameCopy, DefaultValue, HelpCopy]()
 					{
 						Variable = IConsoleManager::Get().RegisterConsoleVariable(*NameCopy, DefaultValue, *HelpCopy);
+						FAngelscriptRuntimeModule::GetOnInitialCompileFinished().Remove(LateInitializeDelegateHandle);
 						LateInitializeDelegateHandle.Reset();
 					}
 				);
@@ -59,6 +60,13 @@ struct FScriptConsoleVariable
 		return Variable->GetFloat();
 	}
 
+	FString GetString() const
+	{
+		if (Variable == nullptr)
+			return TEXT("");
+		return Variable->GetString();
+	}
+
 	int GetInt() const
 	{
 		if (Variable == nullptr)
@@ -78,6 +86,13 @@ struct FScriptConsoleVariable
 		if(Variable == nullptr)
 			return;
 		Variable->Set(InValue);
+	}
+
+	void SetString(const FString& InValue) const
+	{
+		if (Variable == nullptr)
+			return;
+		Variable->Set(*InValue);
 	}
 	
 	void SetInt(const int InValue) const
