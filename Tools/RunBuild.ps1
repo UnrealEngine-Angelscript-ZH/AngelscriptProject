@@ -39,6 +39,14 @@ $scriptExitCode = $exitCodes.ConfigError
 try {
     $agentConfig = Resolve-AgentConfiguration -ProjectRoot $projectRoot
 
+    if ($UniqueBuildEnvironment) {
+        throw 'Using -UniqueBuildEnvironment is prohibited in this repository. It triggers a worktree-private engine rebuild. Use -SerializeByEngine or a dedicated EngineRoot instead.'
+    }
+
+    if ($ExtraArgs -contains '-UniqueBuildEnvironment') {
+        throw 'Using -UniqueBuildEnvironment via ExtraArgs is prohibited in this repository. It triggers a worktree-private engine rebuild. Use -SerializeByEngine or a dedicated EngineRoot instead.'
+    }
+
     $defaultTimeoutMs = $agentConfig.BuildDefaultTimeoutMs
     $resolvedTimeoutMs = Resolve-TimeoutMs -RequestedTimeoutMs $TimeoutMs -DefaultTimeoutMs $defaultTimeoutMs -ParameterName 'TimeoutMs'
     $deadlineUtc = New-ExecutionDeadline -TimeoutMs $resolvedTimeoutMs
@@ -87,9 +95,6 @@ try {
     if ($NoXGE) {
         $buildModeParts.Add('NoXGE') | Out-Null
     }
-    if ($UniqueBuildEnvironment) {
-        $buildModeParts.Add('UniqueBuildEnvironment') | Out-Null
-    }
     $buildMode = [string]::Join('+', $buildModeParts)
     $ubtLogPath = Join-Path $outputLayout.OutputRoot 'UBT.log'
     $argumentList = @(
@@ -111,10 +116,6 @@ try {
         $argumentList += '-NoXGE'
     }
 
-    if ($UniqueBuildEnvironment) {
-        $argumentList += '-UniqueBuildEnvironment'
-    }
-
     if ($ExtraArgs.Count -gt 0) {
         $argumentList += $ExtraArgs
     }
@@ -133,7 +134,6 @@ try {
             LogPath           = $outputLayout.LogPath
             EngineWaitDurationMs = $engineWaitDurationMs
             NoXGE             = [bool]$NoXGE
-            UniqueBuildEnvironment = [bool]$UniqueBuildEnvironment
             SharedEngineUhtTimestampConflict = $sharedEngineTimestampConflict
             TimedOutPhase     = $timedOutPhase
             Arguments         = $argumentList
@@ -156,7 +156,6 @@ try {
     Write-Host ('LogPath         : {0}' -f $outputLayout.LogPath)
     Write-Host ('UBT LogPath     : {0}' -f $ubtLogPath)
     Write-Host ('NoXGE          : {0}' -f ([bool]$NoXGE))
-    Write-Host ('UniqueBuildEnv : {0}' -f ([bool]$UniqueBuildEnvironment))
     if (-not $SerializeByEngine) {
         Write-Host 'Guard           : -NoMutex -NoEngineChanges'
         Write-Host 'Hint            : rerun with -SerializeByEngine if engine outputs must change.'
@@ -208,8 +207,8 @@ try {
             $scriptExitCode = $exitCodes.BuildFailed
         }
 
-        if (-not $SerializeByEngine -and -not $UniqueBuildEnvironment) {
-            Write-Host '[warn] Rerun with -SerializeByEngine to serialize shared engine writes, or with -UniqueBuildEnvironment to move engine intermediates into the current worktree.' -ForegroundColor Yellow
+        if (-not $SerializeByEngine) {
+            Write-Host '[warn] Rerun with -SerializeByEngine to serialize shared engine writes, or switch to a dedicated EngineRoot for this worktree.' -ForegroundColor Yellow
         }
     }
 
@@ -227,7 +226,6 @@ try {
             LogPath           = $outputLayout.LogPath
             EngineWaitDurationMs = $engineWaitDurationMs
             NoXGE             = [bool]$NoXGE
-            UniqueBuildEnvironment = [bool]$UniqueBuildEnvironment
             SharedEngineUhtTimestampConflict = $sharedEngineTimestampConflict
             TimedOutPhase     = $timedOutPhase
             Arguments         = $argumentList
@@ -242,11 +240,8 @@ try {
     Write-Host ('FinalExitCode   : {0}' -f $scriptExitCode)
     Write-Host ('DurationMs      : {0}' -f $result.DurationMs)
     Write-Host ('MetadataPath    : {0}' -f $metadataPath)
-    if ($UniqueBuildEnvironment -and $scriptExitCode -eq $exitCodes.TimedOut) {
-        Write-Host 'Unique build environment redirects engine intermediates into the current worktree and can trigger a large one-time rebuild. Increase -TimeoutMs if needed.'
-    }
     if ($scriptExitCode -eq $exitCodes.BuildFailed -and -not $SerializeByEngine) {
-        Write-Host 'If the failure is due to shared engine outputs, rerun with -SerializeByEngine. If you need per-worktree engine intermediates, rerun with -UniqueBuildEnvironment.'
+        Write-Host 'If the failure is due to shared engine outputs, rerun with -SerializeByEngine or switch to a dedicated EngineRoot.'
     }
 }
 catch {

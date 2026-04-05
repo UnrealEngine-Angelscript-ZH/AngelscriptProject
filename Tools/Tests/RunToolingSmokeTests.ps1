@@ -406,8 +406,32 @@ Invoke-TestCase -Name "ResolveAgentCommandTemplatesEmitsFirstClassBuildVariants"
     Assert-Equal -Actual $result.ExitCode -Expected 0 -Message "ResolveAgentCommandTemplates should succeed for the current worktree."
     $joinedOutput = $observedLines -join "`n"
     Assert-True -Condition ($joinedOutput -match 'NoXgeBuildCommand=.*-NoXGE') -Message "ResolveAgentCommandTemplates should emit a first-class noxge build command."
-    Assert-True -Condition ($joinedOutput -match 'UniqueBuildCommand=.*-UniqueBuildEnvironment') -Message "ResolveAgentCommandTemplates should emit a unique build environment command."
-    Assert-True -Condition ($joinedOutput -match 'IsolatedBuildCommand=.*-NoXGE -UniqueBuildEnvironment') -Message "ResolveAgentCommandTemplates should emit a fully isolated build command."
+    Assert-True -Condition ($joinedOutput -match 'SerializedBuildCommand=.*-SerializeByEngine') -Message "ResolveAgentCommandTemplates should emit a serialized build command."
+    Assert-True -Condition (-not ($joinedOutput -match 'UniqueBuildCommand=')) -Message "ResolveAgentCommandTemplates should not emit prohibited unique build environment commands."
+    Assert-True -Condition (-not ($joinedOutput -match 'IsolatedBuildCommand=')) -Message "ResolveAgentCommandTemplates should not emit prohibited isolated build commands."
+}
+
+Invoke-TestCase -Name "RunBuildRejectsUniqueBuildEnvironment" -Body {
+    $buildScript = Join-Path $ProjectRoot 'Tools\RunBuild.ps1'
+    $powerShell = Get-ConsolePowerShellPath
+    $observedLines = New-Object System.Collections.Generic.List[string]
+    $logPath = Join-Path $tempRoot 'runbuild-unique-prohibited.log'
+
+    $result = Invoke-StreamingProcess `
+        -FilePath $powerShell `
+        -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $buildScript, '-TimeoutMs', '1000', '-UniqueBuildEnvironment') `
+        -WorkingDirectory $ProjectRoot `
+        -TimeoutMs 5000 `
+        -LogPath $logPath `
+        -Label 'runbuild-unique-prohibited' `
+        -OnLine {
+            param($StreamName, $Line)
+            $observedLines.Add([string]$Line) | Out-Null
+        }
+
+    Assert-Equal -Actual $result.ExitCode -Expected 3 -Message "RunBuild should reject prohibited unique build environment requests."
+    $joinedOutput = $observedLines -join "`n"
+    Assert-True -Condition ($joinedOutput -match 'prohibited') -Message "RunBuild should explain that unique build environment is prohibited."
 }
 
 Write-Host ""

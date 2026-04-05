@@ -102,16 +102,12 @@
   - 不在默认模式里偷偷等待或放开。
   - 应由脚本提供明确的“串行模式”开关，由引擎级锁串行执行。
 - **需要隔离共享 `UHT\Timestamp` / engine intermediates**：
-  - 唯一官方路径是 target 级 `-UniqueBuildEnvironment`
-  - 这会把 engine-side generated code / timestamp 从共享 `Engine\Intermediate\Build\Win64\UnrealEditor\Inc\...` 改到当前 worktree 私有 `Intermediate\Build\Win64\AngelscriptProjectEditor\Inc\...`
-  - `2026-04-05` 的双 worktree 并发实测里，`-NoXGE -UniqueBuildEnvironment` 确实把 `Engine\UHT\Timestamp`、`PacketHandler\UHT\Timestamp` 等文件落到了各自 worktree 私有目录，且未再出现共享引擎 timestamp 占用冲突
-  - 代价是首次构建会触发极大的 worktree 私有全量编译；两次实测都在 `180000ms` 超时前仍停留在约 `3571` actions 的首次编译阶段，因此必须给更高超时预算
-
-### 2.1 `-UniqueBuildEnvironment` 与安装版引擎限制
-
-- source engine：可用
-- installed build：UBT 会直接拒绝 `TargetBuildEnvironment.Unique`
-- 因此本仓只把它作为共享 source engine 下的“强隔离模式”，不作为所有环境的默认方案
+  - 官方上唯一能改路径的是 target 级 `-UniqueBuildEnvironment`
+  - 但本仓已明确**禁止使用**：它会把 engine-side generated code / timestamp 改到当前 worktree 私有目录，并触发 worktree 私有的引擎级重编
+  - `2026-04-05` 的专用 worktree 实测里，这条路径直接进入约 `3571` actions 的大型构建，因此不符合当前仓库对构建成本的约束
+  - 本仓允许的替代方案只保留：
+    - `-SerializeByEngine`
+    - 独立 `EngineRoot`
 
 ### 3. 日志与产物策略
 
@@ -225,4 +221,4 @@ Copy-Item $src $dst
 - `Tools/Tests/RunToolingSmokeTests.ps1` 与 `Tools/Tests/Helpers/*` 已用于验证 timeout、single-flight、流式输出、进程树清理与命令行解析。
 - 当前构建/测试脚本标准化已归档为已完成工作，后续如需调整执行约束，应直接更新脚本与 `Documents/Guides/Build.md` / `Documents/Guides/Test.md`，并视情况补新的 sibling plan。
 - `AGENTS_ZH.md`、`Documents/Guides/Build.md`、`Documents/Guides/Test.md` 这类“强制执行入口”文档暂未切换到新脚本，避免在脚本真正落地前把不存在的命令写成硬规则。
-- `RunBuild.ps1` 已将 `-NoXGE`、`-UniqueBuildEnvironment` 提升为一等脚本参数，避免 `powershell.exe -File ... -- -NoXGE` 这种多层转发写法再次被误解析。
+- `RunBuild.ps1` 已将 `-NoXGE` 提升为一等脚本参数，并显式禁止 `-UniqueBuildEnvironment`，避免再次误走 worktree 私有引擎重编路径。

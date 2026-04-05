@@ -718,6 +718,7 @@ function Invoke-StreamingProcess {
     $argumentString = ConvertTo-ProcessArgumentString -ArgumentList $ArgumentList
     try {
         $process = Start-Process -FilePath $FilePath -ArgumentList $argumentString -WorkingDirectory $resolvedWorkingDirectory -PassThru -NoNewWindow -RedirectStandardOutput $stdoutPath -RedirectStandardError $stderrPath
+        $null = $process.Handle
 
         while ($true) {
             $stdoutLineCount = & $syncOutputFile $stdoutPath $stdoutLineCount 'stdout'
