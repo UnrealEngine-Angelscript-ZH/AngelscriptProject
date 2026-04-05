@@ -62,7 +62,10 @@ try {
     $resolved.BuildDefaultTimeoutMs = $buildTimeoutMs
     $resolved.TestDefaultTimeoutMs = $testTimeoutMs
     $resolved.BuildCommand = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -Label "{2}" -TimeoutMs {3}' -f $powerShell, $buildScript, $BuildLabel, $buildTimeoutMs)
+    $resolved.NoXgeBuildCommand = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -Label "{2}" -TimeoutMs {3} -NoXGE' -f $powerShell, $buildScript, $BuildLabel, $buildTimeoutMs)
     $resolved.SerializedBuildCommand = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -Label "{2}" -TimeoutMs {3} -SerializeByEngine' -f $powerShell, $buildScript, $BuildLabel, $buildTimeoutMs)
+    $resolved.UniqueBuildCommand = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -Label "{2}" -TimeoutMs {3} -UniqueBuildEnvironment' -f $powerShell, $buildScript, $BuildLabel, $buildTimeoutMs)
+    $resolved.IsolatedBuildCommand = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -Label "{2}" -TimeoutMs {3} -NoXGE -UniqueBuildEnvironment' -f $powerShell, $buildScript, $BuildLabel, $buildTimeoutMs)
     $resolved.TestCommand = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -TestPrefix "{2}" -Label "{3}" -TimeoutMs {4}' -f $powerShell, $testScript, $TestName, $TestLabel, $testTimeoutMs)
     $resolved.TestSuiteSmokeCommand = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -Suite Smoke -LabelPrefix "{2}" -TimeoutMs {3}' -f $powerShell, $testSuiteScript, $TestLabel, $testTimeoutMs)
     $resolved.UbtProcessCommand = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -CurrentWorktreeOnly' -f $powerShell, $ubtProcessScript)

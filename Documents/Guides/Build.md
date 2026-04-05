@@ -84,6 +84,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Labe
 - 通过 `-Log=` 把 UBT 日志重定向到当前 run 的私有目录，避免写入共享 `Log.txt`
 - 不依赖 `Build.bat` 的全局脚本锁，因此允许不同 worktree 并发构建
 
+常用命令模板也可以通过 `Tools\ResolveAgentCommandTemplates.ps1` 直接获取；当前会同时返回：
+
+- `BuildCommand`
+- `NoXgeBuildCommand`
+- `SerializedBuildCommand`
+- `UniqueBuildCommand`
+- `IsolatedBuildCommand`
+
 ### 需要改动引擎输出时
 
 如果本次构建会改写共享引擎产物，必须显式切换到串行模式：
@@ -98,8 +106,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Labe
 
 ```powershell
 Tools\RunBuild.ps1 -Label compile-bindings -TimeoutMs 120000
+Tools\RunBuild.ps1 -Label compile-bindings -TimeoutMs 180000 -NoXGE
 Tools\RunBuild.ps1 -Label compile-bindings -TimeoutMs 180000 -- -Verbose
 Tools\RunBuild.ps1 -Label engine-write -TimeoutMs 180000 -SerializeByEngine
+Tools\RunBuild.ps1 -Label isolated-build -TimeoutMs 900000 -NoXGE -UniqueBuildEnvironment
 Tools\RunBuild.ps1 -Label local-log-root -TimeoutMs 180000 -LogRoot "D:\Tmp\AngelscriptLogs"
 ```
 
@@ -108,8 +118,10 @@ Tools\RunBuild.ps1 -Label local-log-root -TimeoutMs 180000 -LogRoot "D:\Tmp\Ange
 - `-TimeoutMs`：本次构建超时，必须大于 `0` 且不超过 `900000`
 - `-Label`：输出目录标签
 - `-LogRoot`：自定义输出根目录；脚本会把它当成父目录，再创建独立的 `Build/<Label>/<RunId>/`
+- `-NoXGE`：禁用 XGE / Incredibuild 入口，避免外部分布式执行器容量影响验证结果
 - `-SerializeByEngine`：启用引擎级串行锁
-- `-- <ExtraArgs>`：透传额外 UBT 参数，例如 `-NoXGE`
+- `-UniqueBuildEnvironment`：把当前 target 的 engine intermediates / UHT Timestamp 改写到当前 worktree 私有 `Intermediate\Build\...` 下；只建议在 source engine 上使用，并预留更长超时
+- `-- <ExtraArgs>`：透传少量非常用 UBT 参数；常用的 `-NoXGE` / `-UniqueBuildEnvironment` 不再推荐通过 `ExtraArgs` 传递
 
 ## 输出与产物
 
@@ -157,12 +169,20 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Get-UbtProcess.ps1
 - 构建启动后长时间没有 `[N/M] Compile`
 - 日志出现 `Using XGE executor` 后停住
 - 当前 worktree 没有残留 UBT，但其他 worktree 正在活跃构建
+- 或者直接在日志里看到 `Maximum number of concurrent builds reached.`
 
 处理方式：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Label noxge -TimeoutMs 180000 -- -NoXGE
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Label noxge -TimeoutMs 180000 -NoXGE
 ```
+
+补充说明：
+
+- `2026-04-05` 的专用 `main` worktree 并发构建验证表明，`RunBuild.ps1` 已经能把每次构建的 `UBT.log` 隔离到各自的 run 目录，但 **XGE executor 仍然可能因为机器上的并发容量限制拒绝第二个构建**。
+- 这类失败不是 `Build.bat` 锁，也不是共享 `UBT.log` 路径冲突，而是 XGE / Incredibuild 侧的资源上限问题。
+- `PowerShell.exe -File ... -- -NoXGE` 容易在多层转发时被误解析；标准 runner 现在提供一等参数 `-NoXGE`，不要再手写 `-- -NoXGE`。
+- 对“两个 worktree 同时构建是否互不干扰”的验证，建议优先使用 `-NoXGE` 复现脚本层并发能力，先把分布式执行器容量这个外部变量排掉。
 
 ### 旧 `Build.bat` 锁争用
 
@@ -178,6 +198,38 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Labe
 
 UBT 默认会写共享 `Log.txt`。`RunBuild.ps1` 已通过 `-Log=` 把它重定向到当前 run 的 `UBT.log`；如果仍看到共享日志冲突，说明调用方绕过了 `Tools\RunBuild.ps1`。
 
+### UHT Timestamp 共享写冲突
+
+症状：
+
+- 构建日志里出现 `Couldn't write Timestamp file: ...\UHT\Timestamp ... being used by another process`
+- 或在 header 阶段直接出现 `IOException: ...\UHT\Timestamp ... being used by another process`
+- 进程退出码有时仍然是 `0`，但日志已经说明本次共享引擎 intermediate 发生了竞争
+
+根因：
+
+- `-NoEngineChanges` 只覆盖 action graph 里“已存在的引擎产物改写”
+- UBT 的 `ExternalExecution.UpdateTimestamps()` 会在 header 阶段后额外读写 `...\UHT\Timestamp`
+- 当 editor target 仍使用 shared build environment 时，这批 timestamp 默认落在共享 `Engine\Intermediate\Build\...\UHT\Timestamp`
+
+处理方式：
+
+```powershell
+# 低成本兜底：共享引擎继续共用，但在引擎级串行
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Label engine-write -TimeoutMs 180000 -SerializeByEngine
+
+# 真正隔离：把 engine intermediates 转到当前 worktree 私有目录
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Label isolated-build -TimeoutMs 900000 -NoXGE -UniqueBuildEnvironment
+```
+
+实测记录（`2026-04-05`）：
+
+- 两个专用 worktree 在共享 `J:\UnrealEngine\UERelease` 下并发使用 `-NoXGE -UniqueBuildEnvironment` 时，`UHT\Timestamp` 已落到各自的
+  - `<Worktree>\Intermediate\Build\Win64\AngelscriptProjectEditor\Inc\Engine\UHT\Timestamp`
+  - `<Worktree>\Intermediate\Build\Win64\AngelscriptProjectEditor\Inc\PacketHandler\UHT\Timestamp`
+- 在这组并发日志中，没有再出现共享 `Engine\Intermediate\Build\...\UHT\Timestamp` 的占用冲突
+- 但 `-UniqueBuildEnvironment` 会触发一轮 worktree 私有的巨型首次编译；本次实测两个 build 都在 `180000ms` 超时前仍处于约 `3571` actions 的全量编译阶段，因此真实使用时要预留更长超时
+
 ## 对 AI Agent 的要求
 
 1. 先读取根目录 `AgentConfig.ini`
@@ -185,10 +237,11 @@ UBT 默认会写共享 `Log.txt`。`RunBuild.ps1` 已通过 `-Log=` 把它重定
 3. 仅通过 `Tools\RunBuild.ps1` 执行构建
 4. 显式传入或继承一个不超过 `900000ms` 的超时
 5. 默认使用并发模式；只有确认会写引擎共享输出时才加 `-SerializeByEngine`
-6. 不要手写 `Build.bat` / `RunUBT.bat` / `dotnet UnrealBuildTool.dll`
+6. 需要隔离共享 `UHT\Timestamp` / engine intermediates 时，优先使用 `-UniqueBuildEnvironment`
+7. 不要手写 `Build.bat` / `RunUBT.bat` / `dotnet UnrealBuildTool.dll`
 
 ## 推荐提示词
 
 ```text
-请先读取项目根目录的 AgentConfig.ini；如果缺失或 ProjectFile 不属于当前 worktree，先执行 Tools\BootstrapWorktree.ps1。构建只能通过 Tools\RunBuild.ps1 进行，并显式带一个不超过 900000ms 的超时。默认保持并发模式；只有确认要写共享引擎输出时才追加 -SerializeByEngine。日志必须实时输出，并写入当前 run 的独立目录；不要手写 Build.bat、RunUBT.bat 或 dotnet UnrealBuildTool.dll 命令。
+请先读取项目根目录的 AgentConfig.ini；如果缺失或 ProjectFile 不属于当前 worktree，先执行 Tools\BootstrapWorktree.ps1。构建只能通过 Tools\RunBuild.ps1 进行，并显式带一个不超过 900000ms 的超时。默认保持并发模式；只有确认要写共享引擎输出时才追加 -SerializeByEngine；如果要隔离共享 UHT Timestamp / engine intermediates，则使用 -UniqueBuildEnvironment。常用的 -NoXGE 不要再通过 ExtraArgs 透传，直接使用一等参数。日志必须实时输出，并写入当前 run 的独立目录；不要手写 Build.bat、RunUBT.bat 或 dotnet UnrealBuildTool.dll 命令。
 ```

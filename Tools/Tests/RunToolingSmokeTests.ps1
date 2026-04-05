@@ -140,6 +140,20 @@ Invoke-TestCase -Name "BuildDefaultTimeoutFallsBackTo180000" -Body {
     Assert-Equal -Actual $resolved.BuildDefaultTimeoutMs -Expected 180000 -Message "Build default timeout should fall back to 180000ms when Build.DefaultTimeoutMs is missing."
 }
 
+Invoke-TestCase -Name "UhtTimestampConflictSummaryDetectsSharedEnginePaths" -Body {
+    $fixtureLog = Join-Path $tempRoot 'uht-timestamp-conflict.log'
+    @(
+        "[stderr] Couldn't write Timestamp file: The process cannot access the file 'J:\UnrealEngine\UERelease\Engine\Intermediate\Build\Win64\UnrealEditor\Inc\Chaos\UHT\Timestamp' because it is being used by another process."
+        "[stderr] IOException: The process cannot access the file 'J:\UnrealEngine\AngelscriptProject\Intermediate\Build\Win64\AngelscriptProjectEditor\Inc\AngelscriptRuntime\UHT\Timestamp' because it is being used by another process."
+    ) | Set-Content -LiteralPath $fixtureLog -Encoding UTF8
+
+    $summary = Get-UhtTimestampConflictSummary -LogPaths @($fixtureLog) -EngineRoot 'J:\UnrealEngine\UERelease'
+    Assert-True -Condition $summary.Detected -Message "UHT timestamp conflict summary should detect timestamp contention in logs."
+    Assert-True -Condition $summary.SharedEngineDetected -Message "UHT timestamp conflict summary should detect shared engine timestamp contention."
+    Assert-Equal -Actual $summary.Paths.Count -Expected 2 -Message "UHT timestamp conflict summary should return all distinct timestamp paths."
+    Assert-Equal -Actual $summary.SharedEnginePaths.Count -Expected 1 -Message "UHT timestamp conflict summary should isolate only engine-root timestamp paths as shared."
+}
+
 Invoke-TestCase -Name "ExecutionDeadlineTracksRemainingBudget" -Body {
     $deadline = New-ExecutionDeadline -TimeoutMs 200
     Start-Sleep -Milliseconds 80
@@ -369,6 +383,31 @@ Invoke-TestCase -Name "ResolveAgentCommandTemplatesFallsBackToBootstrapGuidance"
     $joinedOutput = $observedLines -join "`n"
     Assert-True -Condition ($observedLines.Contains('Status=BootstrapRequired')) -Message "ResolveAgentCommandTemplates should report BootstrapRequired status."
     Assert-True -Condition ($joinedOutput -match 'BootstrapCommand=.*BootstrapWorktree\.ps1') -Message "ResolveAgentCommandTemplates should emit a BootstrapCommand."
+}
+
+Invoke-TestCase -Name "ResolveAgentCommandTemplatesEmitsFirstClassBuildVariants" -Body {
+    $templatesScript = Join-Path $ProjectRoot 'Tools\ResolveAgentCommandTemplates.ps1'
+    $powerShell = Get-ConsolePowerShellPath
+    $observedLines = New-Object System.Collections.Generic.List[string]
+    $logPath = Join-Path $tempRoot 'command-templates-ready.log'
+
+    $result = Invoke-StreamingProcess `
+        -FilePath $powerShell `
+        -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $templatesScript) `
+        -WorkingDirectory $ProjectRoot `
+        -TimeoutMs 5000 `
+        -LogPath $logPath `
+        -Label 'command-templates-ready' `
+        -OnLine {
+            param($StreamName, $Line)
+            $observedLines.Add([string]$Line) | Out-Null
+        }
+
+    Assert-Equal -Actual $result.ExitCode -Expected 0 -Message "ResolveAgentCommandTemplates should succeed for the current worktree."
+    $joinedOutput = $observedLines -join "`n"
+    Assert-True -Condition ($joinedOutput -match 'NoXgeBuildCommand=.*-NoXGE') -Message "ResolveAgentCommandTemplates should emit a first-class noxge build command."
+    Assert-True -Condition ($joinedOutput -match 'UniqueBuildCommand=.*-UniqueBuildEnvironment') -Message "ResolveAgentCommandTemplates should emit a unique build environment command."
+    Assert-True -Condition ($joinedOutput -match 'IsolatedBuildCommand=.*-NoXGE -UniqueBuildEnvironment') -Message "ResolveAgentCommandTemplates should emit a fully isolated build command."
 }
 
 Write-Host ""

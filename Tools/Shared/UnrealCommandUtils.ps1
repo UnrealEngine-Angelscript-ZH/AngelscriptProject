@@ -217,6 +217,66 @@ function Write-Utf8JsonFile {
     [System.IO.File]::WriteAllText($Path, $json, $utf8Encoding)
 }
 
+function Get-UhtTimestampConflictSummary {
+    param(
+        [string[]]$LogPaths = @(),
+
+        [string]$EngineRoot = ''
+    )
+
+    $logContents = New-Object System.Collections.Generic.List[string]
+    foreach ($logPath in $LogPaths) {
+        if ([string]::IsNullOrWhiteSpace($logPath)) {
+            continue
+        }
+
+        if (-not (Test-Path -LiteralPath $logPath -PathType Leaf)) {
+            continue
+        }
+
+        $logContents.Add((Get-Content -LiteralPath $logPath -Raw -Encoding UTF8)) | Out-Null
+    }
+
+    $allPaths = New-Object System.Collections.Generic.List[string]
+    $pattern = [regex]'(?im)(?<Path>[A-Z]:\\[^''"\r\n]*\\UHT\\Timestamp)(?:''|")?[^\r\n]*being used by another process'
+    foreach ($logText in $logContents) {
+        foreach ($match in $pattern.Matches([string]$logText)) {
+            $matchedPath = [string]$match.Groups['Path'].Value
+            if ([string]::IsNullOrWhiteSpace($matchedPath)) {
+                continue
+            }
+
+            $normalizedMatchedPath = Normalize-PathValue -Path $matchedPath
+            if (-not $allPaths.Contains($normalizedMatchedPath)) {
+                $allPaths.Add($normalizedMatchedPath) | Out-Null
+            }
+        }
+    }
+
+    $sharedEnginePaths = New-Object System.Collections.Generic.List[string]
+    $normalizedEngineRoot = if ([string]::IsNullOrWhiteSpace($EngineRoot)) {
+        ''
+    }
+    else {
+        Normalize-PathValue -Path $EngineRoot
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace($normalizedEngineRoot)) {
+        foreach ($matchedPath in $allPaths) {
+            if ($matchedPath.StartsWith($normalizedEngineRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                $sharedEnginePaths.Add($matchedPath) | Out-Null
+            }
+        }
+    }
+
+    return [PSCustomObject]@{
+        Detected             = ($allPaths.Count -gt 0)
+        SharedEngineDetected = ($sharedEnginePaths.Count -gt 0)
+        Paths                = @($allPaths)
+        SharedEnginePaths    = @($sharedEnginePaths)
+    }
+}
+
 function New-CommandOutputLayout {
     param(
         [Parameter(Mandatory = $true)]

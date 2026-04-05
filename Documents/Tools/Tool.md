@@ -16,8 +16,8 @@
 | 工具 | 路径 | 用途 | 常用命令 | 主要输出 | 备注 |
 | --- | --- | --- | --- | --- | --- |
 | BootstrapWorktree | `Tools\BootstrapWorktree.ps1` | 初始化当前 worktree，规范化 `AgentConfig.ini`，并按需预热 `TargetInfo.json` | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1` | `AgentConfig.ini`、`Intermediate\TargetInfo.json` | 新 worktree 优先使用 |
-| ResolveAgentCommandTemplates | `Tools\ResolveAgentCommandTemplates.ps1` | 输出官方 build/test/bootstrap 命令模板 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\ResolveAgentCommandTemplates.ps1` | `Status=...` + 一组命令模板 | 配置缺失时先返回 `BootstrapCommand` |
-| RunBuild | `Tools\RunBuild.ps1` | 标准 UBT 构建入口，支持多 worktree 并发与引擎级串行锁 | `Tools\RunBuild.ps1 -Label agent-build -TimeoutMs 180000` | `Saved/Build/<Label>/<RunId>/` | 自动写 `Build.log`、`UBT.log` 与 `RunMetadata.json` |
+| ResolveAgentCommandTemplates | `Tools\ResolveAgentCommandTemplates.ps1` | 输出官方 build/test/bootstrap 命令模板 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\ResolveAgentCommandTemplates.ps1` | `Status=...` + 一组命令模板 | 配置缺失时先返回 `BootstrapCommand`；配置就绪时还会返回 `NoXgeBuildCommand`、`UniqueBuildCommand`、`IsolatedBuildCommand` |
+| RunBuild | `Tools\RunBuild.ps1` | 标准 UBT 构建入口，支持多 worktree 并发、引擎级串行锁与 worktree 私有 engine intermediates | `Tools\RunBuild.ps1 -Label agent-build -TimeoutMs 180000` | `Saved/Build/<Label>/<RunId>/` | 自动写 `Build.log`、`UBT.log` 与 `RunMetadata.json`；内建 `-NoXGE`、`-UniqueBuildEnvironment` |
 | RunTests | `Tools\RunTests.ps1` | 标准自动化测试入口，负责日志、报告、摘要与超时清理 | `Tools\RunTests.ps1 -Group AngelscriptSmoke -Label smoke -TimeoutMs 600000` | `Saved/Tests/<Label>/<RunId>/` | 自动写 `Automation.log`、`Report/`、`Summary.json` |
 | RunTestSuite | `Tools\RunTestSuite.ps1` | 按具名 suite 顺序执行一组标准测试前缀 | `Tools\RunTestSuite.ps1 -Suite Smoke -LabelPrefix smoke -TimeoutMs 600000` | 多个 `Saved/Tests/<Label>/<RunId>/` 子目录 | 只做调度，底层仍调用 `RunTests.ps1` |
 | Get-UbtProcess | `Tools\Get-UbtProcess.ps1` | 枚举本机 UBT / `Build.bat` / `RunUBT.bat` 相关进程，帮助排查争用 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Get-UbtProcess.ps1 -CurrentWorktreeOnly` | 控制台列表 | 用于定位旧流程或残留进程 |
@@ -53,7 +53,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.
 | 工具路径 | `Tools\ResolveAgentCommandTemplates.ps1` |
 | 主要用途 | 输出当前 worktree 的 bootstrap/build/test 官方命令模板 |
 | 输出模式 | `Status=BootstrapRequired` 或 `Status=Ready` |
-| 关键字段 | `BootstrapCommand`、`BuildCommand`、`SerializedBuildCommand`、`TestCommand`、`TestSuiteSmokeCommand` |
+| 关键字段 | `BootstrapCommand`、`BuildCommand`、`NoXgeBuildCommand`、`SerializedBuildCommand`、`UniqueBuildCommand`、`IsolatedBuildCommand`、`TestCommand`、`TestSuiteSmokeCommand` |
 
 说明：
 
@@ -66,7 +66,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.
 | --- | --- |
 | 工具路径 | `Tools\RunBuild.ps1` |
 | 主要用途 | 通过 `dotnet + UnrealBuildTool.dll` 执行标准构建 |
-| 关键参数 | `-TimeoutMs`、`-Label`、`-LogRoot`、`-SerializeByEngine` |
+| 关键参数 | `-TimeoutMs`、`-Label`、`-LogRoot`、`-SerializeByEngine`、`-NoXGE`、`-UniqueBuildEnvironment` |
 | 默认输出 | `Saved/Build/<Label>/<RunId>/Build.log`、`UBT.log`、`RunMetadata.json` |
 | 关键保护 | worktree 单飞锁、引擎级串行锁、实时日志、超时后清理进程树 |
 
@@ -75,7 +75,8 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.
 ```powershell
 Tools\RunBuild.ps1 -Label agent-build -TimeoutMs 180000
 Tools\RunBuild.ps1 -Label engine-write -TimeoutMs 180000 -SerializeByEngine
-Tools\RunBuild.ps1 -Label noxge -TimeoutMs 180000 -- -NoXGE
+Tools\RunBuild.ps1 -Label noxge -TimeoutMs 180000 -NoXGE
+Tools\RunBuild.ps1 -Label isolated-build -TimeoutMs 900000 -NoXGE -UniqueBuildEnvironment
 ```
 
 ## RunTests.ps1

@@ -45,6 +45,12 @@
 - 本仓默认并发构建模式应使用 `-NoMutex -NoEngineChanges`。
 - 如果命中退出码 `5`，说明这次构建需要改写共享引擎产物，必须切换到“显式串行模式”后重试，而不是继续放开并发。
 
+补充限制：
+
+- `-NoEngineChanges` **不能**覆盖 UBT header 阶段最后的 `ExternalExecution.UpdateTimestamps()`。
+- 这一步仍会读写 `...\UHT\Timestamp`；对于 shared build environment 的 editor target，它会命中共享 `Engine\Intermediate\Build\...\UHT\Timestamp`。
+- 因此，“默认并发模式 + `-NoEngineChanges`”并不等于“绝不会写共享引擎 intermediate”。
+
 ### 4. `uebp_UATMutexNoWait=1` 不是本问题的默认解法
 
 `Engine/Source/Programs/Shared/EpicGames.Build/Automation/ProcessSingleton.cs` 中的 `uebp_UATMutexNoWait=1` 只影响 AutomationTool / UAT 的单实例逻辑。
@@ -88,9 +94,24 @@
 - **不同 worktree + 共享引擎**：
   - 默认允许并发构建，但仅限“不改写引擎输出”的路径。
   - 默认模式应为：直接调用 UBT + `-NoMutex -NoEngineChanges`
+- **不同 worktree + XGE executor**：
+  - 即使脚本层已经绕开 `Build.bat`、为每次构建指定独立 `UBT.log`，仍可能被 XGE / Incredibuild 的并发槽位限制拦住。
+  - `2026-04-05` 的专用 `main` worktree 双并发验证中，第二个 build 明确报出 `Maximum number of concurrent builds reached.`，说明这类失败属于执行器容量问题，而不是 runner 自身互相踩日志或锁。
+  - 结论：当目标是验证 worktree 级并发能力，或当日志明确指向 XGE 容量耗尽时，优先使用 runner 的一等参数 `-NoXGE`，先把外部分布式执行器变量排除。
 - **需要引擎改动**：
   - 不在默认模式里偷偷等待或放开。
   - 应由脚本提供明确的“串行模式”开关，由引擎级锁串行执行。
+- **需要隔离共享 `UHT\Timestamp` / engine intermediates**：
+  - 唯一官方路径是 target 级 `-UniqueBuildEnvironment`
+  - 这会把 engine-side generated code / timestamp 从共享 `Engine\Intermediate\Build\Win64\UnrealEditor\Inc\...` 改到当前 worktree 私有 `Intermediate\Build\Win64\AngelscriptProjectEditor\Inc\...`
+  - `2026-04-05` 的双 worktree 并发实测里，`-NoXGE -UniqueBuildEnvironment` 确实把 `Engine\UHT\Timestamp`、`PacketHandler\UHT\Timestamp` 等文件落到了各自 worktree 私有目录，且未再出现共享引擎 timestamp 占用冲突
+  - 代价是首次构建会触发极大的 worktree 私有全量编译；两次实测都在 `180000ms` 超时前仍停留在约 `3571` actions 的首次编译阶段，因此必须给更高超时预算
+
+### 2.1 `-UniqueBuildEnvironment` 与安装版引擎限制
+
+- source engine：可用
+- installed build：UBT 会直接拒绝 `TargetBuildEnvironment.Unique`
+- 因此本仓只把它作为共享 source engine 下的“强隔离模式”，不作为所有环境的默认方案
 
 ### 3. 日志与产物策略
 
@@ -135,9 +156,73 @@
 
 - `Documents/Plans/Archives/Plan_BuildTestScriptStandardization.md`
 
+## 已确认问题：Worktree 下 TargetInfo.json 缺失导致 QueryTargets 超时
+
+### 现象
+
+新建 git worktree 后首次用 `UnrealEditor-Cmd.exe` 跑自动化测试时，编辑器启动后卡在 `Launching UnrealBuildTool... Build.bat -Mode=QueryTargets`，测试根本没开始就超时退出。
+
+### 根因链
+
+1. `Intermediate/` 目录在 `.gitignore` 中被排除，`git worktree add` 不会复制它。
+2. 编辑器启动时调用 `FDesktopPlatformBase::GetTargetsForProject`，先检查 `Intermediate/TargetInfo.json` 是否存在且有效。
+3. 文件不存在 → 走 `InvokeUnrealBuildToolSync`，经 `Build.bat -Mode=QueryTargets` 调用 UBT。
+4. UBT `QueryTargets` 需要用 Roslyn 编译所有 `.Build.cs` / `.Target.cs` 成 `RulesAssembly`，加上 `Build.bat` 自身的锁检测、`DotnetDepends` 检查、`.NET` 环境初始化等开销，整个过程在首次运行时需要 90-120+ 秒。
+5. 如果测试超时窗口（之前硬帽 300s，编辑器启动本身已消耗约 28s）不够覆盖 QueryTargets，编辑器被 kill 掉。
+6. QueryTargets 被中断 → `TargetInfo.json` 永远不会生成 → 下次启动还会触发 → **恶性循环**。
+
+### 已确认的 worktree TargetInfo.json 状态（2026-04-05）
+
+| 状态 | Worktree 数量 | 说明 |
+|------|-------------|------|
+| TargetInfo.json 存在 | 19/23 | 全部能正常跑测试 |
+| TargetInfo.json 缺失 | 4/23 | 见下表 |
+
+缺失的 worktree：
+
+| Worktree | 原因分析 |
+|----------|---------|
+| `as238-bool-conversion-port` | 首次启动时超时中断，QueryTargets 未完成 |
+| `ue-bind-gap-roadmap` | 从未启动过编辑器 |
+| `enable-python-plugin` | `Intermediate/` 目录本身不存在 |
+| `enable-python-plugin-mainline` | 从未成功完成 QueryTargets |
+
+### 为什么其他 worktree 能正常跑
+
+**核心结论：TargetInfo.json 是一次性生成的缓存文件，只要历史上有过一次成功的编辑器启动（QueryTargets 完成），后续所有启动都会跳过这一步。**
+
+- 大部分 worktree 在创建后的首次编辑器启动时，给了足够长的超时（或手动启动过编辑器），让 QueryTargets 有时间完成。
+- `as238-jitv2-port` 也遇到了同样的问题，但通过手动预热解决：TargetInfo.json 创建于 2026-04-05 11:21:15，随后 `AfterPrewarm` 测试于 11:22:45 成功执行。
+- TargetInfo.json 只有 264-276 字节，内容固定（记录项目的 Target 名称和路径），不随代码变更而失效，一旦生成几乎永久有效。
+
+### 已实现的自动修复（2026-04-05）
+
+`Tools/Shared/UnrealCommandUtils.ps1` 提供 `Ensure-TargetInfoJson` 函数，`Tools/RunTests.ps1` 在启动编辑器之前自动调用。
+
+工作流程：
+
+1. 检测 `<ProjectRoot>/Intermediate/TargetInfo.json` 是否存在
+2. 若已存在 → 跳过（`Status = Skipped`）
+3. 若不存在 → 直接调用 `dotnet UnrealBuildTool.dll -Mode=QueryTargets -Project=... -Output=...`（绕过 `Build.bat`），超时 120 秒
+4. 结果记录到 `RunMetadata.json` 的 `Prewarm` 字段和终端输出
+
+绕过 `Build.bat` 的好处：跳过脚本级 `.lock`、`DotnetDepends` 检查、`.NET` 环境自举等开销，只执行实际的 QueryTargets 逻辑。
+
+### 手动解决（备用）
+
+从有 TargetInfo.json 的 worktree（如 main）复制文件：
+
+```powershell
+$src = "J:\UnrealEngine\AngelscriptProject\Intermediate\TargetInfo.json"
+$dst = "<worktree-path>\Intermediate\TargetInfo.json"
+if (!(Test-Path (Split-Path $dst))) { New-Item -ItemType Directory -Path (Split-Path $dst) -Force }
+Copy-Item $src $dst
+```
+
 ## 当前仓库状态（2026-04-04）
 
 - `Tools/Shared/UnrealCommandUtils.ps1`、`Tools/RunBuild.ps1`、`Tools/RunTests.ps1` 与 `Tools/Get-UbtProcess.ps1` 已落地。
 - `Tools/Tests/RunToolingSmokeTests.ps1` 与 `Tools/Tests/Helpers/*` 已用于验证 timeout、single-flight、流式输出、进程树清理与命令行解析。
 - 当前构建/测试脚本标准化已归档为已完成工作，后续如需调整执行约束，应直接更新脚本与 `Documents/Guides/Build.md` / `Documents/Guides/Test.md`，并视情况补新的 sibling plan。
 - `AGENTS_ZH.md`、`Documents/Guides/Build.md`、`Documents/Guides/Test.md` 这类“强制执行入口”文档暂未切换到新脚本，避免在脚本真正落地前把不存在的命令写成硬规则。
+- `RunBuild.ps1` 已将 `-NoXGE`、`-UniqueBuildEnvironment` 提升为一等脚本参数，避免 `powershell.exe -File ... -- -NoXGE` 这种多层转发写法再次被误解析。

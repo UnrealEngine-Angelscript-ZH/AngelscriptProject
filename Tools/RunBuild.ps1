@@ -8,6 +8,10 @@ param(
 
     [switch]$SerializeByEngine,
 
+    [switch]$NoXGE,
+
+    [switch]$UniqueBuildEnvironment,
+
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$ExtraArgs = @()
 )
@@ -43,6 +47,12 @@ try {
     $metadataPath = Join-Path $outputLayout.OutputRoot 'RunMetadata.json'
     $engineWaitDurationMs = 0
     $timedOutPhase = $null
+    $sharedEngineTimestampConflict = [PSCustomObject]@{
+        Detected             = $false
+        SharedEngineDetected = $false
+        Paths                = @()
+        SharedEnginePaths    = @()
+    }
 
     $worktreeMutexName = Get-NamedMutexName -Scope 'ue-command-worktree' -KeyPath $projectRoot
     $worktreeMutex = Acquire-NamedMutex -Name $worktreeMutexName -TimeoutMs 0
@@ -71,7 +81,16 @@ try {
         }
     }
 
-    $buildMode = if ($SerializeByEngine) { 'SerializedEngine' } else { 'ConcurrentNoEngineChanges' }
+    $buildModeParts = New-Object System.Collections.Generic.List[string]
+    $baseBuildMode = if ($SerializeByEngine) { 'SerializedEngine' } else { 'ConcurrentNoEngineChanges' }
+    $buildModeParts.Add($baseBuildMode) | Out-Null
+    if ($NoXGE) {
+        $buildModeParts.Add('NoXGE') | Out-Null
+    }
+    if ($UniqueBuildEnvironment) {
+        $buildModeParts.Add('UniqueBuildEnvironment') | Out-Null
+    }
+    $buildMode = [string]::Join('+', $buildModeParts)
     $ubtLogPath = Join-Path $outputLayout.OutputRoot 'UBT.log'
     $argumentList = @(
         $ubtPaths.UbtDllPath
@@ -86,6 +105,14 @@ try {
 
     if (-not $SerializeByEngine) {
         $argumentList += '-NoEngineChanges'
+    }
+
+    if ($NoXGE) {
+        $argumentList += '-NoXGE'
+    }
+
+    if ($UniqueBuildEnvironment) {
+        $argumentList += '-UniqueBuildEnvironment'
     }
 
     if ($ExtraArgs.Count -gt 0) {
@@ -105,6 +132,9 @@ try {
             OutputRoot        = $outputLayout.OutputRoot
             LogPath           = $outputLayout.LogPath
             EngineWaitDurationMs = $engineWaitDurationMs
+            NoXGE             = [bool]$NoXGE
+            UniqueBuildEnvironment = [bool]$UniqueBuildEnvironment
+            SharedEngineUhtTimestampConflict = $sharedEngineTimestampConflict
             TimedOutPhase     = $timedOutPhase
             Arguments         = $argumentList
             TimedOut          = $false
@@ -125,6 +155,8 @@ try {
     Write-Host ('TimeoutMs       : {0}' -f $resolvedTimeoutMs)
     Write-Host ('LogPath         : {0}' -f $outputLayout.LogPath)
     Write-Host ('UBT LogPath     : {0}' -f $ubtLogPath)
+    Write-Host ('NoXGE          : {0}' -f ([bool]$NoXGE))
+    Write-Host ('UniqueBuildEnv : {0}' -f ([bool]$UniqueBuildEnvironment))
     if (-not $SerializeByEngine) {
         Write-Host 'Guard           : -NoMutex -NoEngineChanges'
         Write-Host 'Hint            : rerun with -SerializeByEngine if engine outputs must change.'
@@ -160,6 +192,27 @@ try {
         }
     }
 
+    $sharedEngineTimestampConflict = Get-UhtTimestampConflictSummary -LogPaths @($outputLayout.LogPath, $ubtLogPath) -EngineRoot $agentConfig.EngineRoot
+    if ($sharedEngineTimestampConflict.SharedEngineDetected) {
+        $previewConflictPaths = @($sharedEngineTimestampConflict.SharedEnginePaths | Select-Object -First 3)
+        Write-Host ("[warn] Detected shared-engine UHT Timestamp contention across {0} path(s)." -f $sharedEngineTimestampConflict.SharedEnginePaths.Count) -ForegroundColor Yellow
+        foreach ($conflictPath in $previewConflictPaths) {
+            Write-Host ("       {0}" -f $conflictPath) -ForegroundColor Yellow
+        }
+        if ($sharedEngineTimestampConflict.SharedEnginePaths.Count -gt $previewConflictPaths.Count) {
+            Write-Host ("       ... ({0} more)" -f ($sharedEngineTimestampConflict.SharedEnginePaths.Count - $previewConflictPaths.Count)) -ForegroundColor Yellow
+        }
+
+        if ($scriptExitCode -eq $exitCodes.Success) {
+            Write-Host '[warn] Shared-engine UHT timestamp contention occurred despite a zero process exit code. Promoting final exit code to 1.' -ForegroundColor Yellow
+            $scriptExitCode = $exitCodes.BuildFailed
+        }
+
+        if (-not $SerializeByEngine -and -not $UniqueBuildEnvironment) {
+            Write-Host '[warn] Rerun with -SerializeByEngine to serialize shared engine writes, or with -UniqueBuildEnvironment to move engine intermediates into the current worktree.' -ForegroundColor Yellow
+        }
+    }
+
     Write-Utf8JsonFile -Path $metadataPath -Value ([PSCustomObject]@{
             Label             = $Label
             Mode              = $buildMode
@@ -173,6 +226,9 @@ try {
             OutputRoot        = $outputLayout.OutputRoot
             LogPath           = $outputLayout.LogPath
             EngineWaitDurationMs = $engineWaitDurationMs
+            NoXGE             = [bool]$NoXGE
+            UniqueBuildEnvironment = [bool]$UniqueBuildEnvironment
+            SharedEngineUhtTimestampConflict = $sharedEngineTimestampConflict
             TimedOutPhase     = $timedOutPhase
             Arguments         = $argumentList
             TimedOut          = [bool]$result.TimedOut
@@ -186,8 +242,11 @@ try {
     Write-Host ('FinalExitCode   : {0}' -f $scriptExitCode)
     Write-Host ('DurationMs      : {0}' -f $result.DurationMs)
     Write-Host ('MetadataPath    : {0}' -f $metadataPath)
+    if ($UniqueBuildEnvironment -and $scriptExitCode -eq $exitCodes.TimedOut) {
+        Write-Host 'Unique build environment redirects engine intermediates into the current worktree and can trigger a large one-time rebuild. Increase -TimeoutMs if needed.'
+    }
     if ($scriptExitCode -eq $exitCodes.BuildFailed -and -not $SerializeByEngine) {
-        Write-Host 'If the failure is due to engine output changes, rerun with -SerializeByEngine.'
+        Write-Host 'If the failure is due to shared engine outputs, rerun with -SerializeByEngine. If you need per-worktree engine intermediates, rerun with -UniqueBuildEnvironment.'
     }
 }
 catch {
