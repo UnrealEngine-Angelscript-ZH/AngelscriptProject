@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using EpicGames.UHT.Types;
 
-namespace AngelscriptUhtPlugin;
+namespace AngelscriptUHTTool;
 
 internal sealed record AngelscriptFunctionSignature(
 	string OwningType,
@@ -49,7 +49,12 @@ internal static class AngelscriptFunctionSignatureBuilder
 			return true;
 		}
 
-		if (failureReason == "non-public" || failureReason == "overloaded-unresolved" || failureReason == "unexported-symbol")
+		if (failureReason == "non-public" || failureReason == "unexported-symbol")
+		{
+			return false;
+		}
+
+		if (failureReason == "overloaded-unresolved" && !IsWhitelistedDirectBindFallback(classObj, function))
 		{
 			return false;
 		}
@@ -93,6 +98,12 @@ internal static class AngelscriptFunctionSignatureBuilder
 
 		failureReason = null;
 		return true;
+	}
+
+	private static bool IsWhitelistedDirectBindFallback(UhtClass classObj, UhtFunction function)
+	{
+		return classObj.SourceName == "URuntimeFloatCurveMixinLibrary" &&
+			(function.SourceName == "GetNumKeys" || function.SourceName == "GetTimeRange");
 	}
 
 	private static string BuildParameterType(UhtProperty property)

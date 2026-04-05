@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using EpicGames.UHT.Types;
 
-namespace AngelscriptUhtPlugin;
+namespace AngelscriptUHTTool;
 
 internal static class AngelscriptHeaderSignatureResolver
 {
