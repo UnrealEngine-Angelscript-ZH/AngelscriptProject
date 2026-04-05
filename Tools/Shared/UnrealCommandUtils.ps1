@@ -928,6 +928,73 @@ function Ensure-TargetInfoJson {
     }
 }
 
+function Get-BuildBatLockPath {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$EngineRoot
+    )
+
+    $buildBatPath = Join-Path (Normalize-PathValue -Path $EngineRoot) 'Engine\Build\BatchFiles\Build.bat'
+    $lockFile = $buildBatPath.Replace('\', '-')
+    $lockFile = $lockFile.Replace(':', '')
+    return Join-Path $env:TEMP ($lockFile + '.lock')
+}
+
+function Wait-BuildBatLockRelease {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$EngineRoot,
+
+        [int]$TimeoutMs = 120000,
+
+        [int]$PollIntervalMs = 1000
+    )
+
+    $lockPath = Get-BuildBatLockPath -EngineRoot $EngineRoot
+    $stopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+    $announcedWait = $false
+
+    while ($true) {
+        $handle = $null
+        try {
+            $directory = Split-Path -Parent $lockPath
+            if (-not [string]::IsNullOrWhiteSpace($directory) -and -not (Test-Path -LiteralPath $directory -PathType Container)) {
+                New-Item -ItemType Directory -Path $directory -Force | Out-Null
+            }
+
+            $handle = [System.IO.File]::Open($lockPath, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::ReadWrite, [System.IO.FileShare]::None)
+            $stopwatch.Stop()
+            return [PSCustomObject]@{
+                Status     = if ($announcedWait) { 'Waited' } else { 'Ready' }
+                DurationMs = [int][Math]::Round($stopwatch.Elapsed.TotalMilliseconds)
+                LockPath    = $lockPath
+            }
+        }
+        catch [System.IO.IOException] {
+            if (-not $announcedWait) {
+                Write-Host ('[wait] Build.bat global lock is busy. Waiting for release: {0}' -f $lockPath) -ForegroundColor Yellow
+                $announcedWait = $true
+            }
+
+            if ($stopwatch.ElapsedMilliseconds -ge $TimeoutMs) {
+                $stopwatch.Stop()
+                return [PSCustomObject]@{
+                    Status     = 'TimedOut'
+                    DurationMs = [int][Math]::Round($stopwatch.Elapsed.TotalMilliseconds)
+                    LockPath    = $lockPath
+                }
+            }
+
+            Start-Sleep -Milliseconds $PollIntervalMs
+        }
+        finally {
+            if ($null -ne $handle) {
+                $handle.Dispose()
+            }
+        }
+    }
+}
+
 function Get-DefinedAutomationGroups {
     param(
         [Parameter(Mandatory = $true)]

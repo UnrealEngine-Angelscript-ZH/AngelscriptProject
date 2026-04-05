@@ -115,6 +115,17 @@ try {
         Write-Host ("[warn] TargetInfo.json prewarm failed: {0}" -f $prewarmResult.Message) -ForegroundColor Yellow
     }
 
+    $buildLockWaitBudgetMs = [Math]::Max(1000, [Math]::Min([int]($resolvedTimeoutMs / 3), 300000))
+    $buildLockResult = Wait-BuildBatLockRelease -EngineRoot $agentConfig.EngineRoot -TimeoutMs $buildLockWaitBudgetMs
+    if ($buildLockResult.Status -eq 'TimedOut') {
+        Write-Host ("[error] Build.bat global lock did not release within {0}ms: {1}" -f $buildLockResult.DurationMs, $buildLockResult.LockPath) -ForegroundColor Red
+        $scriptExitCode = $exitCodes.TimedOut
+        return
+    }
+    elseif ($buildLockResult.Status -eq 'Waited') {
+        Write-Host ("[info] Build.bat global lock released after {0}ms." -f $buildLockResult.DurationMs) -ForegroundColor DarkCyan
+    }
+
     Write-Utf8JsonFile -Path $metadataPath -Value ([PSCustomObject]@{
             Label             = $Label
             Target            = $target
@@ -135,6 +146,11 @@ try {
                 DurationMs = $prewarmResult.DurationMs
                 Message    = $prewarmResult.Message
             }
+            BuildBatLockWait  = [PSCustomObject]@{
+                Status     = $buildLockResult.Status
+                DurationMs = $buildLockResult.DurationMs
+                LockPath    = $buildLockResult.LockPath
+            }
             TimedOut          = $false
             ProcessExitCode   = $null
             ExitCode          = $null
@@ -153,6 +169,7 @@ try {
     Write-Host ('ReportPath      : {0}' -f $outputLayout.ReportPath)
     Write-Host ('Render          : {0}' -f ([bool]$Render))
     Write-Host ('Prewarm         : {0} ({1}ms)' -f $prewarmResult.Status, $prewarmResult.DurationMs)
+    Write-Host ('BuildBatLock    : {0} ({1}ms)' -f $buildLockResult.Status, $buildLockResult.DurationMs)
     Write-Host '----------------------------------------------------------------'
 
     $shutdownState = @{ TestCompleteAt = $null }
@@ -163,6 +180,7 @@ try {
             Write-Host '[info] Tests finished. Waiting for editor process to shut down...' -ForegroundColor DarkCyan
         }
     }
+    $remainingTimeoutMs = [Math]::Max(1000, $resolvedTimeoutMs - [int]$buildLockResult.DurationMs)
     $result = Invoke-StreamingProcess `
         -FilePath $editorCmd `
         -ArgumentList $argumentList `
@@ -229,8 +247,13 @@ try {
             SummaryPath       = if ($NoReport) { $null } else { $summaryPath }
             TargetInfoPath    = $targetInfoPath
             QueryTargetsLogPath = $queryTargetsLogPath
-            QueryTargetsExitCode = [int]$queryTargetsResult.ExitCode
-            QueryTargetsDurationMs = [int]$queryTargetsResult.DurationMs
+            QueryTargetsExitCode = $null
+            QueryTargetsDurationMs = $prewarmResult.DurationMs
+            BuildBatLockWait  = [PSCustomObject]@{
+                Status     = $buildLockResult.Status
+                DurationMs = $buildLockResult.DurationMs
+                LockPath    = $buildLockResult.LockPath
+            }
             Arguments         = $argumentList
             TimedOut          = [bool]$result.TimedOut
             ProcessExitCode   = $processExitCode
