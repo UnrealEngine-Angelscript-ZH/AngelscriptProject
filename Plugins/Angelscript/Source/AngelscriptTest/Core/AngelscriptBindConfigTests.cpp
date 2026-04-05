@@ -7,6 +7,7 @@
 #include "ClassGenerator/ASClass.h"
 #include "../Shared/AngelscriptTestUtilities.h"
 #include "Testing/AngelscriptBindExecutionObservation.h"
+#include "FunctionLibraries/RuntimeFloatCurveMixinLibrary.h"
 #include "GameFramework/Actor.h"
 #include "Kismet/GameplayStatics.h"
 #include "Misc/AutomationTest.h"
@@ -242,6 +243,16 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptOverloadResolutionCoverageTest,
 	"Angelscript.TestModule.Engine.BindConfig.OverloadedExportedFunctionsCanRecoverDirectBind",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptInlineDefinitionCoverageTest,
+	"Angelscript.TestModule.Engine.BindConfig.InlineDefinitionFunctionsCanRecoverDirectBind",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptInlineOutRefCoverageTest,
+	"Angelscript.TestModule.Engine.BindConfig.InlineOutRefFunctionsCanRecoverDirectBind",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FAngelscriptGlobalDisabledBindNamesTest::RunTest(const FString& Parameters)
@@ -738,6 +749,102 @@ bool FAngelscriptOverloadResolutionCoverageTest::RunTest(const FString& Paramete
 	}
 
 	return TestTrue(TEXT("OverloadedExportedFunctionsCanRecoverDirectBind should recover a direct bind instead of ERASE_NO_FUNCTION"), IsFunctionEntryBound(*OverloadEntry));
+}
+
+bool FAngelscriptInlineDefinitionCoverageTest::RunTest(const FString& Parameters)
+{
+	AngelscriptTestSupport::DestroySharedTestEngine();
+	if (FAngelscriptEngine::IsInitialized())
+	{
+		FAngelscriptBindConfigTestAccess::DestroyGlobalEngine();
+	}
+
+	FAngelscriptBinds::ResetBindState();
+	ON_SCOPE_EXIT
+	{
+		FAngelscriptBinds::ResetBindState();
+		AngelscriptTestSupport::DestroySharedTestEngine();
+		if (FAngelscriptEngine::IsInitialized())
+		{
+			FAngelscriptBindConfigTestAccess::DestroyGlobalEngine();
+		}
+	};
+
+	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
+	TUniquePtr<FAngelscriptEngine> Engine = FAngelscriptEngine::CreateTestingFullEngine(FAngelscriptEngineConfig(), Dependencies);
+	if (!TestTrue(TEXT("InlineDefinitionFunctionsCanRecoverDirectBind should create a testing engine"), Engine.IsValid()))
+	{
+		return false;
+	}
+	FAngelscriptEngineScope EngineScope(*Engine);
+
+	UFunction* InlineFunction = URuntimeFloatCurveMixinLibrary::StaticClass()->FindFunctionByName(TEXT("GetNumKeys"));
+	if (!TestNotNull(TEXT("InlineDefinitionFunctionsCanRecoverDirectBind should find the reflected inline function"), InlineFunction))
+	{
+		return false;
+	}
+
+	const TMap<FString, FFuncEntry>* InlineEntries = FAngelscriptBinds::GetClassFuncMaps().Find(URuntimeFloatCurveMixinLibrary::StaticClass());
+	if (!TestNotNull(TEXT("InlineDefinitionFunctionsCanRecoverDirectBind should populate entries for the inline function library"), InlineEntries))
+	{
+		return false;
+	}
+
+	const FFuncEntry* InlineEntry = InlineEntries->Find(InlineFunction->GetName());
+	if (!TestNotNull(TEXT("InlineDefinitionFunctionsCanRecoverDirectBind should register the reflected inline function"), InlineEntry))
+	{
+		return false;
+	}
+
+	return TestTrue(TEXT("InlineDefinitionFunctionsCanRecoverDirectBind should recover a direct bind instead of ERASE_NO_FUNCTION"), IsFunctionEntryBound(*InlineEntry));
+}
+
+bool FAngelscriptInlineOutRefCoverageTest::RunTest(const FString& Parameters)
+{
+	AngelscriptTestSupport::DestroySharedTestEngine();
+	if (FAngelscriptEngine::IsInitialized())
+	{
+		FAngelscriptBindConfigTestAccess::DestroyGlobalEngine();
+	}
+
+	FAngelscriptBinds::ResetBindState();
+	ON_SCOPE_EXIT
+	{
+		FAngelscriptBinds::ResetBindState();
+		AngelscriptTestSupport::DestroySharedTestEngine();
+		if (FAngelscriptEngine::IsInitialized())
+		{
+			FAngelscriptBindConfigTestAccess::DestroyGlobalEngine();
+		}
+	};
+
+	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
+	TUniquePtr<FAngelscriptEngine> Engine = FAngelscriptEngine::CreateTestingFullEngine(FAngelscriptEngineConfig(), Dependencies);
+	if (!TestTrue(TEXT("InlineOutRefFunctionsCanRecoverDirectBind should create a testing engine"), Engine.IsValid()))
+	{
+		return false;
+	}
+	FAngelscriptEngineScope EngineScope(*Engine);
+
+	UFunction* InlineFunction = URuntimeFloatCurveMixinLibrary::StaticClass()->FindFunctionByName(TEXT("GetTimeRange"));
+	if (!TestNotNull(TEXT("InlineOutRefFunctionsCanRecoverDirectBind should find the reflected out-ref function"), InlineFunction))
+	{
+		return false;
+	}
+
+	const TMap<FString, FFuncEntry>* InlineEntries = FAngelscriptBinds::GetClassFuncMaps().Find(URuntimeFloatCurveMixinLibrary::StaticClass());
+	if (!TestNotNull(TEXT("InlineOutRefFunctionsCanRecoverDirectBind should populate entries for the inline function library"), InlineEntries))
+	{
+		return false;
+	}
+
+	const FFuncEntry* InlineEntry = InlineEntries->Find(InlineFunction->GetName());
+	if (!TestNotNull(TEXT("InlineOutRefFunctionsCanRecoverDirectBind should register the reflected out-ref function"), InlineEntry))
+	{
+		return false;
+	}
+
+	return TestTrue(TEXT("InlineOutRefFunctionsCanRecoverDirectBind should recover a direct bind instead of ERASE_NO_FUNCTION"), IsFunctionEntryBound(*InlineEntry));
 }
 
 #endif
