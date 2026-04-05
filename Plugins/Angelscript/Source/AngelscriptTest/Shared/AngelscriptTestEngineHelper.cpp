@@ -366,14 +366,23 @@ namespace AngelscriptTestSupport
 
 	bool ExecuteIntFunction(FAngelscriptEngine* Engine, FName ModuleName, FString Decl, int32& OutResult)
 	{
+		return ExecuteIntFunction(Engine, FString(), ModuleName, MoveTemp(Decl), OutResult);
+	}
+
+	bool ExecuteIntFunction(FAngelscriptEngine* Engine, FString Filename, FName ModuleName, FString Decl, int32& OutResult)
+	{
 		if (Engine == nullptr)
 		{
+			UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction failed: engine was null for module=%s decl=%s"), *ModuleName.ToString(), *Decl);
 			return false;
 		}
 
-		TSharedPtr<FAngelscriptModuleDesc> ModuleDesc = Engine->GetModuleByModuleName(ModuleName.ToString());
+		TSharedPtr<FAngelscriptModuleDesc> ModuleDesc = Filename.IsEmpty()
+			? Engine->GetModuleByModuleName(ModuleName.ToString())
+			: Engine->GetModuleByFilenameOrModuleName(Filename, ModuleName.ToString());
 		if (!ModuleDesc.IsValid() || ModuleDesc->ScriptModule == nullptr)
 		{
+			UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction failed: module lookup failed for filename=%s module=%s decl=%s"), *Filename, *ModuleName.ToString(), *Decl);
 			return false;
 		}
 
@@ -382,6 +391,7 @@ namespace AngelscriptTestSupport
 		asIScriptFunction* Function = FindFunctionByDecl(*Module, Decl);
 		if (Function == nullptr)
 		{
+			UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction failed: function lookup failed for module=%s decl=%s"), *ModuleName.ToString(), *Decl);
 			return false;
 		}
 
@@ -390,6 +400,7 @@ namespace AngelscriptTestSupport
 		asIScriptContext* Context = Engine->CreateContext();
 		if (Context == nullptr)
 		{
+			UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction failed: context creation failed for module=%s decl=%s"), *ModuleName.ToString(), *Decl);
 			return false;
 		}
 
@@ -401,12 +412,18 @@ namespace AngelscriptTestSupport
 		const int PrepareResult = Context->Prepare(Function);
 		if (PrepareResult != asSUCCESS)
 		{
+			UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction failed: prepare returned %d for module=%s decl=%s"), PrepareResult, *ModuleName.ToString(), *Decl);
 			return false;
 		}
 
 		const int ExecuteResult = Context->Execute();
 		if (ExecuteResult != asEXECUTION_FINISHED)
 		{
+			UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction failed: execute returned %d for module=%s decl=%s"), ExecuteResult, *ModuleName.ToString(), *Decl);
+			if (Context->GetExceptionString() != nullptr)
+			{
+				UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction exception: %s"), UTF8_TO_TCHAR(Context->GetExceptionString()));
+			}
 			return false;
 		}
 

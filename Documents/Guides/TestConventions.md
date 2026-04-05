@@ -18,6 +18,7 @@
 | Editor 内部 | `Plugins/Angelscript/Source/AngelscriptEditor/Private/Tests/` | `Angelscript.Editor.*` | Editor 专有行为，例如 watcher / source navigation / debugger seam | Editor 私有实现 + editor-only helper |
 | Native Core | `Plugins/Angelscript/Source/AngelscriptTest/Native/` | `Angelscript.TestModule.Native.*` | 只验证公共 AngelScript API / ASSDK 桥接层，不引入 `FAngelscriptEngine` | `AngelscriptNativeTestSupport.h` / `AngelscriptTestAdapter.h` |
 | Runtime 集成 | `Plugins/Angelscript/Source/AngelscriptTest/Core/`、`Angelscript/`、`Bindings/`、`Internals/`、`Compiler/`、`Preprocessor/`、`FileSystem/`、`ClassGenerator/` | `Angelscript.TestModule.*` | 基于 `FAngelscriptEngine` 的编译、绑定、语言行为与内部机制验证 | `Shared/AngelscriptTestEngineHelper.*` |
+| Debugger 场景 | `Plugins/Angelscript/Source/AngelscriptTest/Debugger/` | `Angelscript.TestModule.Debugger.*` | 附着运行中的 production-like engine，验证握手、断点、步进等调试链路 | `Shared/AngelscriptDebuggerTestSession.*` / `Shared/AngelscriptDebuggerTestClient.*` / `Shared/AngelscriptDebuggerScriptFixture.*` |
 | UE 场景层 | `Plugins/Angelscript/Source/AngelscriptTest/Actor/`、`Blueprint/`、`Component/`、`Delegate/`、`GC/`、`HotReload/`、`Interface/`、`Subsystem/` 等 | `Angelscript.TestModule.<Theme>.*` | 在 UObject / World / Actor / Component / HotReload 语义中验证最终行为 | `Shared/AngelscriptScenarioTestUtils.h` |
 | Learning | `Plugins/Angelscript/Source/AngelscriptTest/Learning/Native/`、`Learning/Runtime/` | `Angelscript.TestModule.Learning.<Layer>.*` | 结构化 trace / 教学型可观测测试 | `Shared/AngelscriptLearningTrace.*` |
 | Examples | `Plugins/Angelscript/Source/AngelscriptTest/Examples/` | `Angelscript.TestModule.ScriptExamples.*` | 示例脚本的编译/行为验证 | 示例脚本夹具 |
@@ -121,6 +122,7 @@
 | --- | --- | --- | --- | --- |
 | Native Core smoke | `Source/AngelscriptTest/Native/` | `Angelscript.TestModule.Native.Smoke` | 创建独立 AngelScript 引擎 → 编译/执行最小脚本 → 验证返回值/消息回调 | `.\Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.Native"` |
 | Runtime 内部引擎隔离 | `Source/AngelscriptRuntime/Tests/` | `Angelscript.CppTests.MultiEngine.*` | 创建 full / clone 引擎 → 校验共享状态、模块隔离、依赖注入 | `.\Tools\RunTestSuite.ps1 -Suite Smoke` |
+| Debugger 协议与调试场景 | `Source/AngelscriptRuntime/Tests/`、`Source/AngelscriptTest/Debugger/` | `Angelscript.CppTests.Debug.*` / `Angelscript.TestModule.Debugger.*` | 连接调试客户端 → 启动调试会话 → 断言握手、断点、步进与停止状态 | `.\Tools\RunTestSuite.ps1 -Suite Debugger` |
 | UE 场景 Actor / Component | `Actor/`、`Component/` | `Angelscript.TestModule.Actor.*` / `Angelscript.TestModule.Component.*` | 编译脚本类 → Spawn / BeginPlay / Tick / 读回属性 → 验证 UE 侧结果 | `.\Tools\RunTestSuite.ps1 -Suite ScenarioSamples` |
 | HotReload 回归 | `HotReload/` | `Angelscript.TestModule.HotReload.*` | 编译 V1 → 生成对象/状态 → 编译 V2 → 断言 soft/full reload 结果与状态保持 | `.\Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.HotReload"` |
 

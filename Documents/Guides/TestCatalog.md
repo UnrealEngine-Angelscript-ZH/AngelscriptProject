@@ -42,6 +42,7 @@
 - [9. ClassGenerator — 类生成器](#9-classgenerator--类生成器)
 - [10. FileSystem — 文件系统](#10-filesystem--文件系统)
 - [11. Editor — 编辑器](#11-editor--编辑器)
+- [11.5 Debugger — 调试器](#115-debugger--调试器)
 - [12. Themed Integration Tests — 主题化集成回归](#12-themed-integration-tests--主题化集成回归)
   - [12.1 Actor 生命周期](#121-actor-生命周期)
   - [12.2 Actor 交互](#122-actor-交互)
@@ -678,6 +679,20 @@
 | 测试名 | 验证内容 |
 |--------|----------|
 | Editor.SourceNavigation.Functions | 编译注解类后，`UASFunction` 保留源路径与行号，`FSourceCodeNavigation::CanNavigateTo*` 为真 |
+
+---
+
+## 11.5 Debugger — 调试器
+
+> 源文件：`AngelscriptRuntime/Tests/AngelscriptDebugProtocolTests.cpp`、`AngelscriptRuntime/Tests/AngelscriptDebugTransportTests.cpp`、`Debugger/AngelscriptDebuggerSmokeTests.cpp`、`Debugger/AngelscriptDebuggerBreakpointTests.cpp`、`Debugger/AngelscriptDebuggerSteppingTests.cpp`
+
+| 测试前缀 | 代表源文件 | 验证内容 |
+|--------|----------|----------|
+| `Angelscript.CppTests.Debug.Protocol.*` | `AngelscriptDebugProtocolTests.cpp` | 调试消息体 round-trip、版本字段与结构兼容 |
+| `Angelscript.CppTests.Debug.Transport.*` | `AngelscriptDebugTransportTests.cpp` | 调试 envelope 的 framing、半包、多包与错误长度处理 |
+| `Angelscript.TestModule.Debugger.Smoke.*` | `Debugger/AngelscriptDebuggerSmokeTests.cpp` | 调试会话握手、server version 返回与基础连接链路 |
+| `Angelscript.TestModule.Debugger.Breakpoint.*` | `Debugger/AngelscriptDebuggerBreakpointTests.cpp` | 断点下发、命中行号、分支忽略与继续执行行为 |
+| `Angelscript.TestModule.Debugger.Stepping.*` | `Debugger/AngelscriptDebuggerSteppingTests.cpp` | `StepIn` / `StepOver` / `StepOut` 的停止行为与调用栈变化 |
 
 ---
 

@@ -45,10 +45,18 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Test
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Group AngelscriptSmoke
 ```
 
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Group AngelscriptDebugger
+```
+
 ### 按具名 suite 运行
 
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTestSuite.ps1 -Suite Smoke
+```
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTestSuite.ps1 -Suite Debugger
 ```
 
 ### 需要图形输出时
@@ -120,6 +128,7 @@ Saved/Tests/<Label>/<Timestamp>/
 - `AngelscriptSmoke`
 - `AngelscriptNative`
 - `AngelscriptRuntimeUnit`
+- `AngelscriptDebugger`
 - `AngelscriptFast`
 - `AngelscriptScenario`
 - `AngelscriptEditor`
@@ -128,15 +137,17 @@ Saved/Tests/<Label>/<Timestamp>/
 推荐顺序：
 
 1. 快速冒烟：`AngelscriptSmoke`
-2. 无 world 的运行时回归：`AngelscriptRuntimeUnit`、`AngelscriptFast`
-3. 需要 world / actor / subsystem 的集成回归：`AngelscriptScenario`
-4. 编辑器相关：`AngelscriptEditor`
+2. 调试器协议与场景回归：`AngelscriptDebugger`
+3. 无 world 的运行时回归：`AngelscriptRuntimeUnit`、`AngelscriptFast`
+4. 需要 world / actor / subsystem 的集成回归：`AngelscriptScenario`
+5. 编辑器相关：`AngelscriptEditor`
 
 常用具名 suite 以 `Tools\RunTestSuite.ps1 -ListSuites` 的输出为准，当前重点包括：
 
 - `Smoke`
 - `NativeCore`
 - `RuntimeCpp`
+- `Debugger`
 - `Bindings`
 - `HotReload`
 - `ScenarioSamples`

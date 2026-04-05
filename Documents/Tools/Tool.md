@@ -7,7 +7,7 @@
 | GenerateAgentConfigTemplate | `Tools\GenerateAgentConfigTemplate.bat` | 在项目根目录生成本机专用的 `AgentConfig.ini` 模板，供 AI Agent 和开发者读取引擎路径、项目路径、默认构建参数与测试超时。 | `Tools\GenerateAgentConfigTemplate.bat` | 生成 `AgentConfig.ini` | 如果目标文件已存在，默认不会覆盖。 |
 | GenerateAgentConfigTemplate `--force` | `Tools\GenerateAgentConfigTemplate.bat` | 强制覆盖并重新生成 `AgentConfig.ini` 模板。 | `Tools\GenerateAgentConfigTemplate.bat --force` | 重新生成 `AgentConfig.ini` | 仅在确认需要覆盖本地配置时使用。 |
 | RunTests | `Tools\RunTests.ps1` | 一键运行 UE 自动化测试，自动读取 AgentConfig.ini，创建带时间戳输出目录，解析结果摘要。 | `.\Tools\RunTests.ps1 -TestPrefix "Angelscript"` | `Saved/Automation/<timestamp>_<Label>/test.log` + `Reports/` | 退出码 0=全通过，1=有失败。 |
-| RunTestSuite | `Tools\RunTestSuite.ps1` | 按具名 suite 顺序运行一组标准测试前缀，固化 smoke / native / scenario 等推荐波次。 | `.\Tools\RunTestSuite.ps1 -Suite Smoke` | 多个 `Saved/Automation/<timestamp>_<Label>/` 子目录 | 适合标准化回归流程；底层仍调用 `RunTests.ps1`。 |
+| RunTestSuite | `Tools\RunTestSuite.ps1` | 按具名 suite 顺序运行一组标准测试前缀，固化 smoke / native / debugger / scenario 等推荐波次。 | `.\Tools\RunTestSuite.ps1 -Suite Smoke` | 多个 `Saved/Automation/<timestamp>_<Label>/` 子目录 | 适合标准化回归流程；底层仍调用 `RunTests.ps1`。 |
 | PullReference `list` | `Tools\PullReference.bat` | 列出当前支持的外部参考仓库 key。 | `Tools\PullReference.bat list` | 输出可用 key 与说明 | 用于查看可拉取和不可拉取的参考源。 |
 | PullReference `angelscript` | `Tools\PullReference.bat` | 通过对应 SSH 克隆或同步 AngelScript 上游参考仓库。 | `Tools\PullReference.bat angelscript` | 在 `Reference\angelscript-v2.38.0` 拉取或更新仓库 | 默认同步到当前项目的 `Reference\angelscript-v2.38.0`。 |
 | PullReference `unrealcsharp` | `Tools\PullReference.bat` | 通过对应 SSH 克隆或同步 `UnrealCSharp` 参考仓库。 | `Tools\PullReference.bat unrealcsharp` | 在 `Reference\UnrealCSharp` 拉取或更新仓库 | 默认同步到当前项目的 `Reference\UnrealCSharp`。 |
@@ -135,6 +135,7 @@ powershell.exe -ExecutionPolicy Bypass -File "Tools\RunTests.ps1" -TestPrefix "A
 - `Smoke`
 - `NativeCore`
 - `RuntimeCpp`
+- `Debugger`
 - `Bindings`
 - `Internals`
 - `LearningNative`
@@ -151,6 +152,9 @@ powershell.exe -ExecutionPolicy Bypass -File "Tools\RunTests.ps1" -TestPrefix "A
 
 # 跑一轮标准 smoke
 .\Tools\RunTestSuite.ps1 -Suite Smoke
+
+# 跑调试器协议 + 场景回归
+.\Tools\RunTestSuite.ps1 -Suite Debugger
 
 # 查看场景样本套件会执行哪些命令
 .\Tools\RunTestSuite.ps1 -Suite ScenarioSamples -DryRun

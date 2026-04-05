@@ -1,7 +1,5 @@
 # Angelscript Test Conventions & Macro Guide
 
-Chinese companion: `TESTING_GUIDE_ZH.md`
-
 ## Overview
 
 This project uses a two-layer macro system defined in `Shared/AngelscriptTestMacros.h` to reduce test boilerplate. All test files still use `IMPLEMENT_SIMPLE_AUTOMATION_TEST` for test declaration, but engine creation and lifecycle management are handled by macros.
@@ -30,9 +28,7 @@ This project uses a two-layer macro system defined in `Shared/AngelscriptTestMac
 | `ASTEST_BEGIN_CLONE` / `ASTEST_END_CLONE` | Creates `FAngelscriptEngineScope` | Auto-discards all active modules |
 | `ASTEST_BEGIN_NATIVE` / `ASTEST_END_NATIVE` | Validates non-null pointer | Auto `ShutDownAndRelease` |
 
-For the `SHARE` family, `ASTEST_BEGIN_*` is currently the canonical place to establish the engine scope, while `ASTEST_END_*` remains the paired lifecycle closeout point for future global control.
-
-Canonical placement rule: keep the terminal `return` after `ASTEST_END_*`. Early returns inside the scoped block still trigger RAII cleanup, but the final success/failure return should remain outside the lifecycle pair so the source keeps an explicit `BEGIN` / `END` boundary.
+For the `SHARE` family, `ASTEST_BEGIN_*` is currently the canonical place to establish the engine scope, while `ASTEST_END_*` is intentionally kept as the paired lifecycle closeout point for future global control.
 
 ### Helper Macros
 
@@ -244,14 +240,18 @@ The following scenarios should use `IMPLEMENT_SIMPLE_AUTOMATION_TEST` directly w
 2. **Multi-engine interaction tests** - Tests that create and manage multiple engine instances
 3. **Engine isolation / context stack tests** - Tests verifying engine scope behavior
 4. **Production-like engine tests** - Tests using `AcquireProductionLikeEngine`
-5. **Native ASSDK tests with custom adapters** - Tests using `CreateASSDKTestEngine` with `FAngelscriptSDKTestAdapter`
-6. **Tests whose helper semantics are still under review** - For example, paths that currently require explicit shared/global teardown beyond the existing lifecycle macros
+5. **Debugger session tests** - Tests under `Debugger/` that attach to a running debug server and need socket/session fixtures
+6. **Native ASSDK tests with custom adapters** - Tests using `CreateASSDKTestEngine` with `FAngelscriptSDKTestAdapter`
+7. **Tests whose helper semantics are still under review** - For example, paths that currently require explicit shared/global teardown beyond the existing lifecycle macros
 
 ## Files
 
 - **Macro definitions**: `Shared/AngelscriptTestMacros.h`
 - **Utility functions**: `Shared/AngelscriptTestUtilities.h`
 - **Compile/execute helpers**: `Shared/AngelscriptTestEngineHelper.h`
+- **Debugger session helpers**: `Shared/AngelscriptDebuggerTestSession.h`
+- **Debugger client helpers**: `Shared/AngelscriptDebuggerTestClient.h`
+- **Debugger script fixtures**: `Shared/AngelscriptDebuggerScriptFixture.h`
 - **Scenario test utils**: `Shared/AngelscriptScenarioTestUtils.h`
 - **Native test support**: `Native/AngelscriptNativeTestSupport.h`
 - **Native test adapter**: `Native/AngelscriptTestAdapter.h`

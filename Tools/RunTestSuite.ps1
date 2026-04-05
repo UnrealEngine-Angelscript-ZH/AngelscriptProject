@@ -67,6 +67,10 @@ $suiteDefinitions = [ordered]@{
     "HotReload" = @(
         @{ Prefix = "Angelscript.TestModule.HotReload"; Label = "HotReload" }
     )
+    "Debugger" = @(
+        @{ Prefix = "Angelscript.CppTests.Debug."; Label = "CppDebugger" }
+        @{ Prefix = "Angelscript.TestModule.Debugger."; Label = "TestModuleDebugger" }
+    )
     "ScenarioSamples" = @(
         @{ Prefix = "Angelscript.TestModule.Actor"; Label = "Actor" }
         @{ Prefix = "Angelscript.TestModule.Component"; Label = "Component" }
