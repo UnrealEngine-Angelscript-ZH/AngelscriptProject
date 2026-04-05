@@ -1,15 +1,18 @@
 # UHT 插件计划：自动生成函数调用表
 
-## 当前实现状态（2026-04-04）
+## 当前实现状态（2026-04-05）
 
-- 已在基于当前 `main` 的新 worktree 上承接旧 `uht-plugin-plan` 分支的 UHT 插件实现，并完成主线适配。
-- `AngelscriptUhtPlugin` 现可在 UHT 阶段执行，并为支持的 `BlueprintCallable` / `BlueprintPure` 函数生成 `AddFunctionEntry` 编译产物。
+- 已在基于当前 `main` 的新 worktree `uht-tool-mainline` 上承接 `uht-plugin-mainline` 的已提交 UHT 历史，并保持当前 main 架构兼容。
+- `AngelscriptUHTTool` 现可在 UHT 阶段执行，并为支持的 `BlueprintCallable` / `BlueprintPure` 函数生成 `AddFunctionEntry` 编译产物。
 - 生成策略已从“每模块单文件”调整为“每模块多分片”，用于规避 `Engine` 等大模块上的 `C4883` 大函数编译失败。
 - 生成过滤已收紧为“可链接 + 唯一候选”的 direct-bind 集合；对 `MinimalAPI`、未导出符号和重载/歧义候选统一回退到 `ERASE_NO_FUNCTION()`，优先保证主线可编译。
-- `Tools/RunBuild.ps1` 已显式传入 worktree-local 的 `-Log=<Saved/Build/.../UnrealBuildTool.log>`，解决多 worktree 共享 `Engine/Programs/UnrealBuildTool/Log.txt` 的锁冲突。
+- `Tools/RunBuild.ps1` 已显式传入 worktree-local 的 `-Log=<Saved/Build/.../UnrealBuildTool.log>`，解决多 worktree 共享 `Engine/Programs/UnrealBuildTool/Log.txt` 的锁冲突；在 `uht-tool-mainline` 上已完成真实构建验证。
 - `Plugins/Angelscript/Source/AngelscriptRuntime/FunctionCallers/FunctionCallers_*.cpp` 共 14 个历史死文件已删除。
 - `Plugins/Angelscript/Source/AngelscriptTest/Core/AngelscriptBindConfigTests.cpp` 已补充针对生成条目填充和 `AddFunctionEntry` 去重语义的回归测试。
-- 当前已获得成功的本地构建证据；`Tools/RunTests.ps1` 已在测试前自动预热 `TargetInfo.json` 并为 `UnrealEditor-Cmd` 增加 `-BUILDMACHINE`，规避启动阶段的 `Build.bat -Mode=QueryTargets` 阻塞；`Angelscript.TestModule.Engine.BindConfig.` 前缀共 7 条自动化测试已验证通过。
+- 当前已获得成功的本地构建证据；`Tools/RunTests.ps1` 已在测试前自动预热 `TargetInfo.json` 并为 `UnrealEditor-Cmd` 增加 `-BUILDMACHINE`。
+- `Tools/RunTests.ps1` 现已在启动编辑器前显式等待 `Build.bat` 全局脚本锁；若锁长期被其他 worktree 占用，会快速报错并记录锁路径，而不再把整个测试超时耗在不可见的外部争用上。
+- 但当前机器上的 `Angelscript.TestModule.Engine.BindConfig` 自动化验证**尚未完全收口**：测试 run 已能正常启动编辑器，但会被系统里其他 worktree 正在运行的 `Build.bat -Mode=QueryTargets` 全局脚本锁连带阻塞，导致在进入 `Automation RunTests` 之前超时。
+- 因此，目前可确认的状态是：**构建与 UHT exporter 生成链路已通过；自动化测试超时根因已定位为外部并发 `Build.bat` 锁争用，而不是当前 `uht-tool-mainline` 上的 UHT 编译链路失败。**
 - 已完成 Phase 5 的首批覆盖提升：
   - `Bind_BlueprintCallable` 与 UHT generator 均已支持 `BlueprintInternalUseOnly + UsableInAngelscript` override；
   - `Helper_FunctionSignature` 已支持函数级 `ScriptMethod`；
@@ -17,7 +20,8 @@
   - `AngelscriptHeaderSignatureResolver` 已支持基于参数/返回类型的重载候选判定，`AngelscriptFunctionSignatureBuilder` 对重载恢复场景已恢复显式 `ERASE_FUNCTION_PTR` / `ERASE_METHOD_PTR` 生成；
   - `Bind_BlueprintCallable` 已增加 declaration/name 级重复注册保护，避免重载恢复后与现有手写绑定冲突；
   - Exporter 构建日志已输出模块级 coverage 诊断（如 `Engine/UMG/GameplayAbilities/UnrealEd/AIModule` 的 direct/stub/shard 统计）；
-  - `Angelscript.TestModule.Engine.BindConfig.` 前缀现共 **11** 条自动化测试通过。
+  - `Angelscript.TestModule.Engine.BindConfig.` 前缀的进一步验证暂被外部 `Build.bat` 锁争用阻塞，需在无并发 Build.bat 占锁时重新执行并收口统计值。
+- 已追加两条 Phase 5 白名单样本恢复：`URuntimeFloatCurveMixinLibrary::GetNumKeys` 与 `URuntimeFloatCurveMixinLibrary::GetTimeRange` 已从 `ERASE_NO_FUNCTION()` 恢复为显式 `ERASE_FUNCTION_PTR(...)` direct bind；当前 `AngelscriptRuntime` 模块覆盖统计已由 `direct=247 / stubs=161` 提升到 `direct=249 / stubs=159`。
 
 ## 背景与目标
 
