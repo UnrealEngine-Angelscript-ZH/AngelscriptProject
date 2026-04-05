@@ -72,11 +72,14 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Grou
 `Tools\RunTests.ps1` 会自动：
 
 - 读取 `AgentConfig.ini`
+- 在启动编辑器前先运行一次 `UnrealBuildTool -Mode=QueryTargets`，刷新 `Intermediate/TargetInfo.json`
 - 调用 `UnrealEditor-Cmd.exe`
+- 默认追加 `-BUILDMACHINE`
 - 追加 `-stdout -FullStdOutLogOutput -UTF8Output`
 - 默认追加 `-Unattended -NoPause -NoSplash -NOSOUND`
 - 在非渲染模式下追加 `-NullRHI`
 - 为每次运行生成独立的 `-ABSLOG` 和 `-ReportExportPath`
+- 为预热阶段生成独立的 `QueryTargets.log`
 - 预热并校验当前 worktree 的 `Intermediate/TargetInfo.json`；如果发现旧缓存包含 parent assembly targets，会按当前项目作用域自动重建，避免启动阶段再次触发 `QueryTargets`
 - 对同一 worktree 启用单飞锁，防止同一 worktree 内并发跑多个 build/test
 - 在超时或异常退出时结束整个进程树

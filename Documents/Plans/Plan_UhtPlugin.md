@@ -1,5 +1,28 @@
 # UHT 插件计划：自动生成函数调用表
 
+## 当前实现状态（2026-04-05）
+
+- 已在基于当前 `main` 的新 worktree `uht-tool-mainline` 上承接 `uht-plugin-mainline` 的已提交 UHT 历史，并保持当前 main 架构兼容。
+- `AngelscriptUHTTool` 现可在 UHT 阶段执行，并为支持的 `BlueprintCallable` / `BlueprintPure` 函数生成 `AddFunctionEntry` 编译产物。
+- 生成策略已从“每模块单文件”调整为“每模块多分片”，用于规避 `Engine` 等大模块上的 `C4883` 大函数编译失败。
+- 生成过滤已收紧为“可链接 + 唯一候选”的 direct-bind 集合；对 `MinimalAPI`、未导出符号和重载/歧义候选统一回退到 `ERASE_NO_FUNCTION()`，优先保证主线可编译。
+- `Tools/RunBuild.ps1` 已显式传入 worktree-local 的 `-Log=<Saved/Build/.../UnrealBuildTool.log>`，解决多 worktree 共享 `Engine/Programs/UnrealBuildTool/Log.txt` 的锁冲突；在 `uht-tool-mainline` 上已完成真实构建验证。
+- `Plugins/Angelscript/Source/AngelscriptRuntime/FunctionCallers/FunctionCallers_*.cpp` 共 14 个历史死文件已删除。
+- `Plugins/Angelscript/Source/AngelscriptTest/Core/AngelscriptBindConfigTests.cpp` 已补充针对生成条目填充和 `AddFunctionEntry` 去重语义的回归测试。
+- 当前已获得成功的本地构建证据；`Tools/RunTests.ps1` 已在测试前自动预热 `TargetInfo.json` 并为 `UnrealEditor-Cmd` 增加 `-BUILDMACHINE`。
+- `Tools/RunTests.ps1` 现已在启动编辑器前显式等待 `Build.bat` 全局脚本锁；若锁长期被其他 worktree 占用，会快速报错并记录锁路径，而不再把整个测试超时耗在不可见的外部争用上。
+- 但当前机器上的 `Angelscript.TestModule.Engine.BindConfig` 自动化验证**尚未完全收口**：测试 run 已能正常启动编辑器，但会被系统里其他 worktree 正在运行的 `Build.bat -Mode=QueryTargets` 全局脚本锁连带阻塞，导致在进入 `Automation RunTests` 之前超时。
+- 因此，目前可确认的状态是：**构建与 UHT exporter 生成链路已通过；自动化测试超时根因已定位为外部并发 `Build.bat` 锁争用，而不是当前 `uht-tool-mainline` 上的 UHT 编译链路失败。**
+- 已完成 Phase 5 的首批覆盖提升：
+  - `Bind_BlueprintCallable` 与 UHT generator 均已支持 `BlueprintInternalUseOnly + UsableInAngelscript` override；
+  - `Helper_FunctionSignature` 已支持函数级 `ScriptMethod`；
+  - `Helper_FunctionSignature` 已支持 `CallableWithoutWorldContext` 不再打 `asTRAIT_USES_WORLDCONTEXT`；
+  - `AngelscriptHeaderSignatureResolver` 已支持基于参数/返回类型的重载候选判定，`AngelscriptFunctionSignatureBuilder` 对重载恢复场景已恢复显式 `ERASE_FUNCTION_PTR` / `ERASE_METHOD_PTR` 生成；
+  - `Bind_BlueprintCallable` 已增加 declaration/name 级重复注册保护，避免重载恢复后与现有手写绑定冲突；
+  - Exporter 构建日志已输出模块级 coverage 诊断（如 `Engine/UMG/GameplayAbilities/UnrealEd/AIModule` 的 direct/stub/shard 统计）；
+  - `Angelscript.TestModule.Engine.BindConfig.` 前缀的进一步验证暂被外部 `Build.bat` 锁争用阻塞，需在无并发 Build.bat 占锁时重新执行并收口统计值。
+- 已追加两条 Phase 5 白名单样本恢复：`URuntimeFloatCurveMixinLibrary::GetNumKeys` 与 `URuntimeFloatCurveMixinLibrary::GetTimeRange` 已从 `ERASE_NO_FUNCTION()` 恢复为显式 `ERASE_FUNCTION_PTR(...)` direct bind；当前 `AngelscriptRuntime` 模块覆盖统计已由 `direct=247 / stubs=161` 提升到 `direct=249 / stubs=159`。
+
 ## 背景与目标
 
 ### Hazelight 的 UHT 改动全景
@@ -169,6 +192,92 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
   - 考虑按 "Runtime vs Editor" 分开生成（Editor 模块的函数只在编辑器构建中生成）
   - 评估是否需要添加 `#if WITH_EDITOR` 条件编译
 - [ ] **P4.3** 📦 Git 提交：`[Plugin/UHT] Optimize: generation strategy tuning`
+
+### Phase 5：覆盖率提升批次化推进（下一批）
+
+> 目标：在保持当前“可编译、可测试、可回退”的前提下，系统性缩减 `ERASE_NO_FUNCTION()` 的数量，把下一批高价值候选恢复为 direct bind。
+
+#### 当前覆盖率基线（基于 2026-04-05 主线稳定版）
+
+- 当前生成结果中，`ERASE_NO_FUNCTION()` 仍约有 **5619** 个，direct bind（`ERASE_AUTO_FUNCTION_PTR` / `ERASE_AUTO_METHOD_PTR`）约有 **423** 个。
+- `ERASE_NO_FUNCTION()` 主要集中在：`Engine`、`UMG`、`GameplayAbilities`、`UnrealEd`、`AIModule`、`AssetRegistry`。
+- 这些 fallback 目前混合了三类原因：
+  1. **明确不可插件化 direct bind**：`MinimalAPI` / 未导出符号 / 非 public / interface；
+  2. **当前策略保守跳过但理论可恢复**：多重重载、静态帮助类、部分 editor-only API；
+  3. **需要更细粒度签名/可见性判定**：函数级 `*_API`、类级 `*_API`、模板/typedef 包装、重载候选精确选型。
+
+- [x] **P5.1** 建立覆盖率基线与模块热点清单
+  - 在 Exporter 日志或独立摘要中输出每个模块的 `direct-bind` / `ERASE_NO_FUNCTION()` 计数
+  - 按模块生成“高价值候选清单”，优先关注 `Engine`、`UMG`、`GameplayAbilities`、`AIModule`
+  - 为每个候选记录 fallback 原因：`unexported-symbol`、`overloaded-unresolved`、`non-public`、`interface` 等
+  - 目标不是立刻恢复全部函数，而是先把“可恢复”和“不可恢复”边界钉死
+- [ ] **P5.1** 📦 Git 提交：`[Plugin/UHT] Feat: add per-module coverage diagnostics`
+
+- [ ] **P5.2** 恢复“唯一可见但当前被保守跳过”的静态/实例函数
+  - 针对已导出且候选唯一的函数，验证是否可从 header 直接恢复为 `ERASE_AUTO_*`
+  - 优先选取不引入新增模块依赖的类型样本，例如 `AngelscriptRuntime` 自身类、公开 `*_API` 的运行时类
+  - 保持当前安全边界：`MinimalAPI`、未导出符号、interface 仍继续回退 `ERASE_NO_FUNCTION()`
+  - 对恢复成功的样本补充自动化测试，验证 `ClassFuncMaps` 填充 + direct-bind 有效
+- [ ] **P5.2** 📦 Git 提交：`[Plugin/UHT] Feat: recover unique exported direct binds`
+
+  **建议优先拆成以下可插件化子批次：**
+
+  - [x] **P5.2.a** `UsableInAngelscript` 元数据 override
+    - 在 `Bind_BlueprintCallable.cpp` 中对 `BlueprintInternalUseOnly` 增加 `UsableInAngelscript` 放行逻辑
+    - 目标：恢复一批当前因 `BlueprintInternalUseOnly` 被硬过滤、但脚本侧可安全暴露的节点
+  - [x] **P5.2.b** `ScriptMethod` 按函数级 mixin 支持
+    - 当前本地仅支持类级 `ScriptMixin`；补齐单函数级 `ScriptMethod` 逻辑
+    - 目标：恢复一批静态帮助函数的实例风格调用能力，和 Hazelight/UE 约定对齐
+  - [ ] **P5.2.c** `ScriptAllowTemporaryThis` / `CallableWithoutWorldContext` 元数据
+    - 对齐 Hazelight 已支持但本地尚未覆盖的元数据语义
+    - 目标：先扩展脚本侧行为能力，再决定这些函数是否进入 direct bind 恢复集合
+    - 当前进度：`CallableWithoutWorldContext` 已完成；`ScriptAllowTemporaryThis` 在当前代码库、UEAS2 参考和 AngelScript traits 中均无现成语义/trait，对应能力暂记为“待设计”而非强行落地
+  - [x] **P5.2.d** direct-bind 候选白名单样本
+    - 先在 `AngelscriptRuntime` 自身类型和少量公开运行时类中恢复一小批 direct bind
+    - 每恢复一类样本，必须补对应自动化测试，避免再次引入链接错误
+
+- [x] **P5.3** 缩小“重载歧义”导致的 fallback 面
+  - 为重载类函数建立更细粒度的候选筛选规则，而不是一律 `overloaded-unresolved`
+  - 优先只处理“同名重载中 blueprint 暴露签名可唯一映射”的场景
+  - 对无法稳定判定的重载，继续保守回退，避免重新引入链接/签名错误
+  - 为每条新增规则配套失败测试，确保不会把先前已稳定的 direct bind 再打回编译失败
+- [ ] **P5.3** 📦 Git 提交：`[Plugin/UHT] Feat: reduce overload fallback cases`
+
+  **下一批先不碰的重载类型：**
+
+  - 带复杂 delegate / interface / container typedef 的重载
+  - 仅靠 header 文本无法稳定区分的 `const&` / by-value 双重载
+  - 任何需要引擎侧 `ASReflectedFunctionPointers` / UHT 注入才能彻底解决的场景
+
+- [x] **P5.4** 拆分 runtime/editor 覆盖策略
+  - 将 `Editor` 模块的 direct-bind 恢复策略与 `Runtime` 模块分开评估，避免 editor-only 规则污染 runtime 覆盖率
+  - 补齐 `WITH_EDITOR` 条件下的统计和测试入口
+  - 对 `UnrealEd` / `UMGEditor` 等 editor-only 模块单独维护 fallback 原因和覆盖目标
+- [ ] **P5.4** 📦 Git 提交：`[Plugin/UHT] Optimize: split runtime and editor coverage policy`
+
+- [x] **P5.5** 下一批覆盖率验收测试
+  - 为每个恢复批次至少补 1 条“表已填充”测试 + 1 条“direct bind 有效”测试
+  - 当前已验证通过的 `BindConfig` 测试作为基线，不得回归
+  - 新增测试优先覆盖：
+    - 公开 runtime 类 direct bind 样本
+    - 静态帮助类样本
+    - 重载函数恢复样本
+    - editor-only 样本（若该批次涉及）
+- [ ] **P5.5** 📦 Git 提交：`[Plugin/UHT] Test: extend coverage batch verification`
+
+#### 下一批明确不做的内容
+
+- 不尝试通过插件层强行恢复 `MinimalAPI` / 未导出符号的 direct bind
+- 不引入引擎 patch 来复制 Hazelight 的 `ASReflectedFunctionPointers` / UHT 注入方案
+- 不在没有失败测试的前提下继续放宽签名恢复规则
+- 不把“能填表”误当成“能 direct bind”，两者必须分别验证
+
+#### 需要引擎 patch 才能进入后续阶段的事项
+
+- `UClass::ASReflectedFunctionPointers` 一类的 CoreUObject 结构扩展
+- `FClassNativeFunction` 携带 Angelscript 反射函数指针并在 `RegisterFunctions()` 自动写入
+- UHT 直接向 `.gen.cpp` / 原生注册表注入 `ERASE_METHOD_PTR` / `ERASE_FUNCTION_PTR`
+- 任何依赖引擎私有注册表而非插件侧 `ClassFuncMaps` 的全覆盖方案
 
 ## 验收标准
 
