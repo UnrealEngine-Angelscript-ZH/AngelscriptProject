@@ -46,6 +46,65 @@ function Assert-Null {
     }
 }
 
+function New-FixtureProjectRoot {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Name
+    )
+
+    $root = Join-Path $tempRoot $Name
+    New-Item -ItemType Directory -Path $root -Force | Out-Null
+    Set-Content -LiteralPath (Join-Path $root 'AngelscriptProject.uproject') -Encoding UTF8 -Value '{ "FileVersion": 3 }'
+    return $root
+}
+
+function Write-AgentConfigFixture {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$ProjectRoot,
+
+        [Parameter(Mandatory = $true)]
+        [string]$EngineRoot,
+
+        [string]$ProjectFile = '',
+
+        [string]$BuildDefaultTimeoutMs = '',
+
+        [string]$TestDefaultTimeoutMs = '600000'
+    )
+
+    if ([string]::IsNullOrWhiteSpace($ProjectFile)) {
+        $ProjectFile = Join-Path $ProjectRoot 'AngelscriptProject.uproject'
+    }
+
+    $lines = @(
+        '[Paths]'
+        ('EngineRoot={0}' -f $EngineRoot)
+        ('ProjectFile={0}' -f $ProjectFile)
+        ''
+        '[Build]'
+        'EditorTarget=AngelscriptProjectEditor'
+        'Platform=Win64'
+        'Configuration=Development'
+        'Architecture=x64'
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($BuildDefaultTimeoutMs)) {
+        $lines += ('DefaultTimeoutMs={0}' -f $BuildDefaultTimeoutMs)
+    }
+
+    $lines += @(
+        ''
+        '[Test]'
+        ('DefaultTimeoutMs={0}' -f $TestDefaultTimeoutMs)
+        ''
+        '[References]'
+        'HazelightAngelscriptEngineRoot='
+    )
+
+    Set-Content -LiteralPath (Join-Path $ProjectRoot 'AgentConfig.ini') -Encoding UTF8 -Value $lines
+}
+
 function Invoke-TestCase {
     param(
         [string]$Name,
@@ -71,6 +130,54 @@ Invoke-TestCase -Name "TimeoutLimitRejectsTooLargeValues" -Body {
     }
 
     Assert-True -Condition $failed -Message "Resolve-TimeoutMs should reject values above 900000ms."
+}
+
+Invoke-TestCase -Name "BuildDefaultTimeoutFallsBackTo180000" -Body {
+    $fixtureRoot = New-FixtureProjectRoot -Name "timeout-default"
+    Write-AgentConfigFixture -ProjectRoot $fixtureRoot -EngineRoot 'J:\UnrealEngine\UERelease'
+
+    $resolved = Resolve-AgentConfiguration -ProjectRoot $fixtureRoot
+    Assert-Equal -Actual $resolved.BuildDefaultTimeoutMs -Expected 180000 -Message "Build default timeout should fall back to 180000ms when Build.DefaultTimeoutMs is missing."
+}
+
+Invoke-TestCase -Name "ExecutionDeadlineTracksRemainingBudget" -Body {
+    $deadline = New-ExecutionDeadline -TimeoutMs 200
+    Start-Sleep -Milliseconds 80
+
+    $remainingMs = Get-RemainingTimeoutMs -DeadlineUtc $deadline -PhaseName "deadline-smoke"
+    Assert-True -Condition ($remainingMs -gt 0) -Message "Remaining timeout budget should stay positive before the deadline expires."
+    Assert-True -Condition ($remainingMs -lt 200) -Message "Remaining timeout budget should shrink after time elapses."
+}
+
+Invoke-TestCase -Name "ExecutionDeadlineRejectsExpiredBudget" -Body {
+    $deadline = New-ExecutionDeadline -TimeoutMs 50
+    Start-Sleep -Milliseconds 90
+
+    $failed = $false
+    try {
+        Get-RemainingTimeoutMs -DeadlineUtc $deadline -PhaseName "expired-budget" | Out-Null
+    }
+    catch {
+        $failed = $_.Exception.Message -like '*expired-budget*timeout*'
+    }
+
+    Assert-True -Condition $failed -Message "Expired timeout budgets should fail instead of silently reusing the original timeout."
+}
+
+Invoke-TestCase -Name "ResolveAgentConfigurationRejectsCrossWorktreeProjectFile" -Body {
+    $fixtureRoot = New-FixtureProjectRoot -Name "config-scope"
+    $otherRoot = New-FixtureProjectRoot -Name "config-scope-other"
+    Write-AgentConfigFixture -ProjectRoot $fixtureRoot -EngineRoot 'J:\UnrealEngine\UERelease' -ProjectFile (Join-Path $otherRoot 'AngelscriptProject.uproject')
+
+    $failed = $false
+    try {
+        Resolve-AgentConfiguration -ProjectRoot $fixtureRoot | Out-Null
+    }
+    catch {
+        $failed = $_.Exception.Message -like '*ProjectFile*project root*'
+    }
+
+    Assert-True -Condition $failed -Message "Resolve-AgentConfiguration should reject AgentConfig.ini values that point at another worktree."
 }
 
 Invoke-TestCase -Name "WorktreeMutexRejectsSecondAcquire" -Body {
@@ -165,6 +272,21 @@ Invoke-TestCase -Name "TimeoutKillsProcessTree" -Body {
     Assert-Equal -Actual $remaining.Count -Expected 0 -Message "Timed out process tree should be terminated."
 }
 
+Invoke-TestCase -Name "RequestedOutputRootGetsUniqueRunDirectory" -Body {
+    $requestedRoot = Join-Path $tempRoot "shared-output-root"
+    New-Item -ItemType Directory -Path $requestedRoot -Force | Out-Null
+
+    $first = New-CommandOutputLayout -ProjectRoot $ProjectRoot -Category "Tests" -Label "OutputIsolation" -RequestedOutputRoot $requestedRoot -LogFileName "Automation.log"
+    Start-Sleep -Milliseconds 30
+    $second = New-CommandOutputLayout -ProjectRoot $ProjectRoot -Category "Tests" -Label "OutputIsolation" -RequestedOutputRoot $requestedRoot -LogFileName "Automation.log"
+
+    Assert-True -Condition ($first.OutputRoot -ne $requestedRoot) -Message "Requested output root should be treated as a parent directory, not the final run directory."
+    Assert-True -Condition ($second.OutputRoot -ne $requestedRoot) -Message "Requested output root should be treated as a parent directory, not the final run directory."
+    Assert-True -Condition ($first.OutputRoot -ne $second.OutputRoot) -Message "Each call should allocate a unique run directory under the requested output root."
+    Assert-True -Condition ($first.OutputRoot.StartsWith($requestedRoot, [System.StringComparison]::OrdinalIgnoreCase)) -Message "First output root should stay under the requested root."
+    Assert-True -Condition ($second.OutputRoot.StartsWith($requestedRoot, [System.StringComparison]::OrdinalIgnoreCase)) -Message "Second output root should stay under the requested root."
+}
+
 Invoke-TestCase -Name "CommandLineResolutionMapsWorktree" -Body {
     $worktreeRoot = Normalize-PathValue -Path $ProjectRoot
     $commandLine = 'dotnet.exe "J:\UnrealEngine\UERelease\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.dll" AngelscriptProjectEditor Win64 Development "-Project={0}\AngelscriptProject.uproject" -NoMutex -NoEngineChanges' -f $worktreeRoot
@@ -183,6 +305,70 @@ Invoke-TestCase -Name "CommandLineResolutionMapsWorktree" -Body {
     Assert-Equal -Actual $descriptor.WorktreeRoot -Expected $worktreeRoot -Message "Worktree root should resolve from the project path."
     Assert-Equal -Actual $descriptor.Branch -Expected "test-engine-isolation" -Message "Branch should be copied from the worktree map."
     Assert-Equal -Actual $descriptor.ProjectFile -Expected (Join-Path $worktreeRoot "AngelscriptProject.uproject") -Message "Project file should resolve from the command line."
+}
+
+Invoke-TestCase -Name "BootstrapWorktreeCreatesConfigAndNormalizesProjectFile" -Body {
+    $fixtureRoot = New-FixtureProjectRoot -Name "bootstrap"
+    $bootstrapScript = Join-Path $ProjectRoot 'Tools\BootstrapWorktree.ps1'
+
+    & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $bootstrapScript -ProjectRoot $fixtureRoot -EngineRoot 'J:\UnrealEngine\UERelease' -NoPrewarm | Out-Null
+    $exitCode = $LASTEXITCODE
+
+    Assert-Equal -Actual $exitCode -Expected 0 -Message "BootstrapWorktree should succeed for a local fixture project."
+    Assert-True -Condition (Test-Path -LiteralPath (Join-Path $fixtureRoot 'AgentConfig.ini') -PathType Leaf) -Message "BootstrapWorktree should create AgentConfig.ini."
+
+    $resolved = Resolve-AgentConfiguration -ProjectRoot $fixtureRoot
+    Assert-Equal -Actual $resolved.ProjectFile -Expected (Join-Path $fixtureRoot 'AngelscriptProject.uproject') -Message "BootstrapWorktree should set ProjectFile to the current worktree project."
+    Assert-Equal -Actual $resolved.BuildDefaultTimeoutMs -Expected 180000 -Message "BootstrapWorktree should backfill Build.DefaultTimeoutMs."
+    Assert-Equal -Actual $resolved.TestDefaultTimeoutMs -Expected 600000 -Message "BootstrapWorktree should preserve the standard test timeout."
+}
+
+Invoke-TestCase -Name "RunTestSuiteDryRunForwardsTimeout" -Body {
+    $suiteScript = Join-Path $ProjectRoot 'Tools\RunTestSuite.ps1'
+    $powerShell = Get-ConsolePowerShellPath
+    $observedLines = New-Object System.Collections.Generic.List[string]
+    $logPath = Join-Path $tempRoot 'suite-dryrun.log'
+
+    $result = Invoke-StreamingProcess `
+        -FilePath $powerShell `
+        -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $suiteScript, '-Suite', 'Smoke', '-DryRun', '-TimeoutMs', '123456') `
+        -WorkingDirectory $ProjectRoot `
+        -TimeoutMs 5000 `
+        -LogPath $logPath `
+        -Label 'suite-dryrun' `
+        -OnLine {
+            param($StreamName, $Line)
+            $observedLines.Add([string]$Line) | Out-Null
+        }
+
+    Assert-Equal -Actual $result.ExitCode -Expected 0 -Message "RunTestSuite dry run should succeed."
+    Assert-True -Condition ($observedLines.Count -gt 0) -Message "RunTestSuite dry run should emit command lines."
+    Assert-True -Condition (($observedLines -join "`n") -match '-TimeoutMs 123456') -Message "RunTestSuite should forward TimeoutMs to each RunTests invocation."
+}
+
+Invoke-TestCase -Name "ResolveAgentCommandTemplatesFallsBackToBootstrapGuidance" -Body {
+    $fixtureRoot = New-FixtureProjectRoot -Name 'command-templates-bootstrap'
+    $templatesScript = Join-Path $ProjectRoot 'Tools\ResolveAgentCommandTemplates.ps1'
+    $powerShell = Get-ConsolePowerShellPath
+    $observedLines = New-Object System.Collections.Generic.List[string]
+    $logPath = Join-Path $tempRoot 'command-templates-bootstrap.log'
+
+    $result = Invoke-StreamingProcess `
+        -FilePath $powerShell `
+        -ArgumentList @('-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', $templatesScript, '-ProjectRoot', $fixtureRoot) `
+        -WorkingDirectory $ProjectRoot `
+        -TimeoutMs 5000 `
+        -LogPath $logPath `
+        -Label 'command-templates-bootstrap' `
+        -OnLine {
+            param($StreamName, $Line)
+            $observedLines.Add([string]$Line) | Out-Null
+        }
+
+    Assert-Equal -Actual $result.ExitCode -Expected 0 -Message "ResolveAgentCommandTemplates should emit bootstrap guidance when AgentConfig.ini is missing."
+    $joinedOutput = $observedLines -join "`n"
+    Assert-True -Condition ($observedLines.Contains('Status=BootstrapRequired')) -Message "ResolveAgentCommandTemplates should report BootstrapRequired status."
+    Assert-True -Condition ($joinedOutput -match 'BootstrapCommand=.*BootstrapWorktree\.ps1') -Message "ResolveAgentCommandTemplates should emit a BootstrapCommand."
 }
 
 Write-Host ""

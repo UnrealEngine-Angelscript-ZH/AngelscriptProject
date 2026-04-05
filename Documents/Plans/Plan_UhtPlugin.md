@@ -11,7 +11,7 @@
 - `Plugins/Angelscript/Source/AngelscriptTest/Core/AngelscriptBindConfigTests.cpp` 已补充针对生成条目填充和 `AddFunctionEntry` 去重语义的回归测试。
 - 当前已获得成功的本地构建证据；`Tools/RunTests.ps1` 已在测试前自动预热 `TargetInfo.json` 并为 `UnrealEditor-Cmd` 增加 `-BUILDMACHINE`。
 - `Tools/RunTests.ps1` 现已在启动编辑器前显式等待 `Build.bat` 全局脚本锁；若锁长期被其他 worktree 占用，会快速报错并记录锁路径，而不再把整个测试超时耗在不可见的外部争用上。
-- 但当前机器上的 `Angelscript.TestModule.Engine.BindConfig` 自动化验证**尚未完全收口**：测试 run 已能正常启动编辑器，但会被系统里其他 worktree 正在运行的 `Build.bat -Mode=QueryTargets` 全局脚本锁连带阻塞，导致在进入 `Automation RunTests` 之前超时。
+- 但当前机器上的 `Angelscript.TestModule.Engine.BindConfig` 自动化验证**尚未完全收口**：测试 run 已能正常启动编辑器，但会被系统里其他 worktree 正在运行的 `Build.bat` 全局脚本锁连带阻塞，导致在进入 `Automation RunTests` 之前超时。
 - 因此，目前可确认的状态是：**构建与 UHT exporter 生成链路已通过；自动化测试超时根因已定位为外部并发 `Build.bat` 锁争用，而不是当前 `uht-tool-mainline` 上的 UHT 编译链路失败。**
 - 已完成 Phase 5 的首批覆盖提升：
   - `Bind_BlueprintCallable` 与 UHT generator 均已支持 `BlueprintInternalUseOnly + UsableInAngelscript` override；

@@ -212,15 +212,11 @@ Phase 0 记录 live inventory 时，统一使用“扫描源码中的 automation
 
 ### 构建命令
 
-```powershell
-powershell.exe -Command "& '<EngineRoot>\Engine\Build\BatchFiles\Build.bat' AngelscriptProjectEditor Win64 Development '-Project=<ProjectFile>' -WaitMutex -FromMsBuild -architecture=x64 2>&1 | Out-String"
-```
+Use `Tools\RunBuild.ps1`（例如 `Tools\RunBuild.ps1 -Label bootstrap -TimeoutMs 180000 -- -SerializeByEngine`）来验证 `AngelscriptProjectEditor`，保持和 `AgentConfig.ini` 中的路径/超时一致，同时自动处理 UBT 进程锁和日志输出。
 
 ### 单组自动化测试命令（NullRHI）
 
-```powershell
-powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"<ProjectFile>\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NullRHI','-NOSOUND','-ABSLOG=<AbsoluteLogPath>','-ReportExportPath=<AbsoluteReportDir>' -Wait -NoNewWindow; Write-Host 'DONE'"
-```
+自动化测试建议通过 `Tools\RunTests.ps1 -TestPrefix <TestName> -Label <Label> -TimeoutMs 600000 -- -NullRHI` 来启动；日志、报告与摘要统一由脚本写入 `Saved/Tests/<Label>/<RunId>/`，不再手写 `-ABSLOG` / `-ReportExportPath`。
 
 ### 执行约束
 

@@ -44,6 +44,7 @@ try {
 
     $defaultTimeoutMs = $agentConfig.TestDefaultTimeoutMs
     $resolvedTimeoutMs = Resolve-TimeoutMs -RequestedTimeoutMs $TimeoutMs -DefaultTimeoutMs $defaultTimeoutMs -ParameterName 'TimeoutMs'
+    $deadlineUtc = New-ExecutionDeadline -TimeoutMs $resolvedTimeoutMs
     $editorCmd = Join-Path $agentConfig.EngineRoot 'Engine\Binaries\Win64\UnrealEditor-Cmd.exe'
     if (-not (Test-Path -LiteralPath $editorCmd -PathType Leaf)) {
         throw "UnrealEditor-Cmd.exe was not found: $editorCmd"
@@ -69,7 +70,7 @@ try {
     $metadataPath = Join-Path $outputLayout.OutputRoot 'RunMetadata.json'
     $summaryPath = Join-Path $outputLayout.OutputRoot 'Summary.json'
     $targetInfoPath = Join-Path $projectRoot 'Intermediate\TargetInfo.json'
-    $queryTargetsLogPath = Join-Path $outputLayout.OutputRoot 'QueryTargets.log'
+    $timedOutPhase = $null
 
     $worktreeMutexName = Get-NamedMutexName -Scope 'ue-command-worktree' -KeyPath $projectRoot
     $worktreeMutex = Acquire-NamedMutex -Name $worktreeMutexName -TimeoutMs 0
@@ -106,7 +107,8 @@ try {
     $prewarmResult = Ensure-TargetInfoJson `
         -EngineRoot $agentConfig.EngineRoot `
         -ProjectFile $agentConfig.ProjectFile `
-        -ProjectRoot $projectRoot
+        -ProjectRoot $projectRoot `
+        -TimeoutMs (Get-RemainingTimeoutMs -DeadlineUtc $deadlineUtc -PhaseName 'TargetInfo prewarm')
 
     if ($prewarmResult.Status -eq 'TimedOut') {
         Write-Host ("[warn] TargetInfo.json prewarm timed out after {0}ms. Editor startup may be slow." -f $prewarmResult.DurationMs) -ForegroundColor Yellow
@@ -115,10 +117,12 @@ try {
         Write-Host ("[warn] TargetInfo.json prewarm failed: {0}" -f $prewarmResult.Message) -ForegroundColor Yellow
     }
 
-    $buildLockWaitBudgetMs = [Math]::Max(1000, [Math]::Min([int]($resolvedTimeoutMs / 3), 300000))
+    $remainingAfterPrewarmMs = Get-RemainingTimeoutMs -DeadlineUtc $deadlineUtc -PhaseName 'Build.bat lock wait'
+    $buildLockWaitBudgetMs = [Math]::Min([int]($resolvedTimeoutMs / 3), [int]$remainingAfterPrewarmMs, 300000)
     $buildLockResult = Wait-BuildBatLockRelease -EngineRoot $agentConfig.EngineRoot -TimeoutMs $buildLockWaitBudgetMs
     if ($buildLockResult.Status -eq 'TimedOut') {
         Write-Host ("[error] Build.bat global lock did not release within {0}ms: {1}" -f $buildLockResult.DurationMs, $buildLockResult.LockPath) -ForegroundColor Red
+        $timedOutPhase = 'BuildBatLockWait'
         $scriptExitCode = $exitCodes.TimedOut
         return
     }
@@ -139,7 +143,7 @@ try {
             ReportPath        = $outputLayout.ReportPath
             SummaryPath       = $summaryPath
             TargetInfoPath    = $targetInfoPath
-            QueryTargetsLogPath = $queryTargetsLogPath
+            TimedOutPhase     = $timedOutPhase
             Arguments         = $argumentList
             Prewarm           = [PSCustomObject]@{
                 Status     = $prewarmResult.Status
@@ -165,7 +169,6 @@ try {
     Write-Host ('TimeoutMs       : {0}' -f $resolvedTimeoutMs)
     Write-Host ('LogPath         : {0}' -f $outputLayout.LogPath)
     Write-Host ('TargetInfoPath  : {0}' -f $targetInfoPath)
-    Write-Host ('QueryTargetsLog : {0}' -f $queryTargetsLogPath)
     Write-Host ('ReportPath      : {0}' -f $outputLayout.ReportPath)
     Write-Host ('Render          : {0}' -f ([bool]$Render))
     Write-Host ('Prewarm         : {0} ({1}ms)' -f $prewarmResult.Status, $prewarmResult.DurationMs)
@@ -180,7 +183,7 @@ try {
             Write-Host '[info] Tests finished. Waiting for editor process to shut down...' -ForegroundColor DarkCyan
         }
     }
-    $remainingTimeoutMs = [Math]::Max(1000, $resolvedTimeoutMs - [int]$buildLockResult.DurationMs)
+    $remainingTimeoutMs = Get-RemainingTimeoutMs -DeadlineUtc $deadlineUtc -PhaseName 'Automation execution'
     $result = Invoke-StreamingProcess `
         -FilePath $editorCmd `
         -ArgumentList $argumentList `
@@ -197,6 +200,7 @@ try {
 
     $processExitCode = [int]$result.ExitCode
     $scriptExitCode = if ($result.TimedOut) {
+        $timedOutPhase = 'AutomationExecution'
         $exitCodes.TimedOut
     }
     elseif ($processExitCode -eq 0) {
@@ -246,9 +250,12 @@ try {
             ReportPath        = $outputLayout.ReportPath
             SummaryPath       = if ($NoReport) { $null } else { $summaryPath }
             TargetInfoPath    = $targetInfoPath
-            QueryTargetsLogPath = $queryTargetsLogPath
-            QueryTargetsExitCode = $null
-            QueryTargetsDurationMs = $prewarmResult.DurationMs
+            Prewarm           = [PSCustomObject]@{
+                Status     = $prewarmResult.Status
+                DurationMs = $prewarmResult.DurationMs
+                Message    = $prewarmResult.Message
+            }
+            TimedOutPhase     = $timedOutPhase
             BuildBatLockWait  = [PSCustomObject]@{
                 Status     = $buildLockResult.Status
                 DurationMs = $buildLockResult.DurationMs
@@ -269,17 +276,18 @@ try {
 }
 catch {
     Write-Host ("[error] {0}" -f $_.Exception.Message) -ForegroundColor Red
+    $isTimeoutBudgetError = $_.Exception.Message -like '*allocated timeout budget*'
 
     if (-not [string]::IsNullOrWhiteSpace($metadataPath)) {
         Write-Utf8JsonFile -Path $metadataPath -Value ([PSCustomObject]@{
                 Label       = $Label
                 ProjectRoot = $projectRoot
                 Message     = $_.Exception.Message
-                ExitCode    = $exitCodes.ConfigError
+                ExitCode    = if ($isTimeoutBudgetError) { $exitCodes.TimedOut } else { $exitCodes.ConfigError }
             })
     }
 
-    $scriptExitCode = $exitCodes.ConfigError
+    $scriptExitCode = if ($isTimeoutBudgetError) { $exitCodes.TimedOut } else { $exitCodes.ConfigError }
 }
 finally {
     if ($null -ne $worktreeMutex) {

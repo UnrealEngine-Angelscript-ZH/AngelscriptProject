@@ -116,12 +116,7 @@
 ## 验证命令基线
 
 - 执行前先读取项目根目录 `AgentConfig.ini`，用其中的 `Paths.EngineRoot` 解析编辑器路径；不要在实现里写死本地绝对路径
-- 目标自动化测试建议使用 `UnrealEditor-Cmd.exe` + `-NullRHI -Unattended -NoPause -NoSplash -NOSOUND`
-- AI Agent 环境命令模板（根据 `Documents/Guides/Build.md`）：
-
-```powershell
-powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"<ProjectFile>\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NullRHI','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
-```
+目标自动化测试建议通过 `Tools\RunTests.ps1 -TestPrefix <TestName> -Label <TestName> -TimeoutMs 600000 -- -NullRHI` 来统一启动，保持和 `AgentConfig.ini` 中的路径/超时一致，并让脚本把日志/报告写入独立的 `Saved/Tests/<Label>/<RunId>/` 目录。
 
 - 首批建议的验证粒度：
   - `Angelscript.TestModule.Internals.Context`

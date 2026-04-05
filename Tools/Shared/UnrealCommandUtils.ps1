@@ -69,6 +69,38 @@ function Read-IniFile {
     return $result
 }
 
+function Write-IniFile {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$Path,
+
+        [Parameter(Mandatory = $true)]
+        [hashtable]$Config
+    )
+
+    $directory = Split-Path -Parent $Path
+    if (-not [string]::IsNullOrWhiteSpace($directory)) {
+        New-Item -ItemType Directory -Path $directory -Force | Out-Null
+    }
+
+    $utf8Encoding = New-Object System.Text.UTF8Encoding($false)
+    $builder = New-Object System.Text.StringBuilder
+    $orderedSections = @($Config.Keys | Sort-Object)
+    foreach ($section in $orderedSections) {
+        [void]$builder.AppendLine(("[{0}]" -f $section))
+        $sectionValues = $Config[$section]
+        if ($null -ne $sectionValues) {
+            $orderedKeys = @($sectionValues.Keys | Sort-Object)
+            foreach ($key in $orderedKeys) {
+                [void]$builder.AppendLine(("{0}={1}" -f $key, [string]$sectionValues[$key]))
+            }
+        }
+        [void]$builder.AppendLine()
+    }
+
+    [System.IO.File]::WriteAllText($Path, $builder.ToString(), $utf8Encoding)
+}
+
 function Get-IniValue {
     param(
         [Parameter(Mandatory = $true)]
@@ -116,6 +148,32 @@ function Resolve-TimeoutMs {
     }
 
     return $resolvedTimeoutMs
+}
+
+function New-ExecutionDeadline {
+    param(
+        [Parameter(Mandatory = $true)]
+        [int]$TimeoutMs
+    )
+
+    $resolvedTimeoutMs = Resolve-TimeoutMs -RequestedTimeoutMs $TimeoutMs -DefaultTimeoutMs $TimeoutMs -ParameterName 'TimeoutMs'
+    return [DateTime]::UtcNow.AddMilliseconds($resolvedTimeoutMs)
+}
+
+function Get-RemainingTimeoutMs {
+    param(
+        [Parameter(Mandatory = $true)]
+        [DateTime]$DeadlineUtc,
+
+        [string]$PhaseName = 'command'
+    )
+
+    $remainingMs = [int][Math]::Floor(($DeadlineUtc - [DateTime]::UtcNow).TotalMilliseconds)
+    if ($remainingMs -le 0) {
+        throw ("{0} exceeded the allocated timeout budget." -f $PhaseName)
+    }
+
+    return $remainingMs
 }
 
 function ConvertTo-SafeLabel {
@@ -179,20 +237,17 @@ function New-CommandOutputLayout {
     $resolvedProjectRoot = Normalize-PathValue -Path $ProjectRoot
     $safeCategory = ConvertTo-SafeLabel -Value $Category -Fallback 'Command'
     $safeLabel = ConvertTo-SafeLabel -Value $Label -Fallback $safeCategory
-    $timestamp = Get-Date -Format 'yyyyMMdd_HHmmss'
-
-    if ([string]::IsNullOrWhiteSpace($RequestedOutputRoot)) {
-        $outputRoot = Join-Path $resolvedProjectRoot (Join-Path "Saved\$safeCategory\$safeLabel" $timestamp)
-        $logPath = Join-Path $outputRoot $LogFileName
-        $reportPath = Join-Path $outputRoot $ReportFolderName
+    $runId = "{0}_{1}" -f (Get-Date -Format 'yyyyMMdd_HHmmss_fff'), ([Guid]::NewGuid().ToString('N').Substring(0, 8))
+    $outputParent = if ([string]::IsNullOrWhiteSpace($RequestedOutputRoot)) {
+        Join-Path $resolvedProjectRoot (Join-Path "Saved\$safeCategory\$safeLabel" '')
     }
     else {
-        $outputRoot = Normalize-PathValue -Path $RequestedOutputRoot
-        $logStem = [System.IO.Path]::GetFileNameWithoutExtension($LogFileName)
-        $logExtension = [System.IO.Path]::GetExtension($LogFileName)
-        $logPath = Join-Path $outputRoot ("{0}_{1}{2}" -f $logStem, $timestamp, $logExtension)
-        $reportPath = Join-Path $outputRoot ("{0}_{1}" -f $ReportFolderName, $timestamp)
+        Join-Path (Normalize-PathValue -Path $RequestedOutputRoot) (Join-Path $safeCategory $safeLabel)
     }
+
+    $outputRoot = Join-Path $outputParent $runId
+    $logPath = Join-Path $outputRoot $LogFileName
+    $reportPath = Join-Path $outputRoot $ReportFolderName
 
     New-Item -ItemType Directory -Path $outputRoot -Force | Out-Null
     New-Item -ItemType Directory -Path (Split-Path -Parent $logPath) -Force | Out-Null
@@ -201,7 +256,7 @@ function New-CommandOutputLayout {
     return [PSCustomObject]@{
         Category   = $safeCategory
         Label      = $safeLabel
-        Timestamp  = $timestamp
+        RunId      = $runId
         OutputRoot = $outputRoot
         LogPath    = $logPath
         ReportPath = $reportPath
@@ -786,20 +841,28 @@ function Resolve-AgentConfiguration {
         Normalize-PathValue -Path $ConfigPath
     }
 
+    if (-not (Test-Path -LiteralPath $resolvedConfigPath -PathType Leaf)) {
+        throw "AgentConfig.ini was not found: $resolvedConfigPath. Run Tools\BootstrapWorktree.ps1 to initialize this worktree."
+    }
+
     $config = Read-IniFile -Path $resolvedConfigPath
     $engineRoot = Normalize-PathValue -Path (Get-IniValue -Config $config -Section 'Paths' -Key 'EngineRoot' -Required)
+    $projectFiles = @(Get-ChildItem -LiteralPath $resolvedProjectRoot -Filter *.uproject -File)
+    if ($projectFiles.Count -eq 0) {
+        throw "Could not resolve a .uproject file from '$resolvedProjectRoot'."
+    }
+
+    $resolvedProjectFileCandidates = @($projectFiles | ForEach-Object { Normalize-PathValue -Path $_.FullName })
 
     $projectFile = Get-IniValue -Config $config -Section 'Paths' -Key 'ProjectFile'
     if ([string]::IsNullOrWhiteSpace($projectFile)) {
-        $uproject = Get-ChildItem -LiteralPath $resolvedProjectRoot -Filter *.uproject -File | Select-Object -First 1
-        if ($null -eq $uproject) {
-            throw "Could not resolve a .uproject file from '$resolvedProjectRoot'."
-        }
-
-        $projectFile = $uproject.FullName
+        $projectFile = $resolvedProjectFileCandidates[0]
     }
 
     $resolvedProjectFile = Normalize-PathValue -Path $projectFile
+    if ($resolvedProjectFileCandidates -notcontains $resolvedProjectFile) {
+        throw "AgentConfig.ini [Paths] ProjectFile does not belong to project root '$resolvedProjectRoot'. Run Tools\BootstrapWorktree.ps1 for this worktree."
+    }
 
     return [PSCustomObject]@{
         ProjectRoot           = $resolvedProjectRoot
@@ -811,7 +874,7 @@ function Resolve-AgentConfiguration {
         Platform              = Get-IniValue -Config $config -Section 'Build' -Key 'Platform' -DefaultValue 'Win64'
         Configuration         = Get-IniValue -Config $config -Section 'Build' -Key 'Configuration' -DefaultValue 'Development'
         Architecture          = Get-IniValue -Config $config -Section 'Build' -Key 'Architecture' -DefaultValue 'x64'
-        BuildDefaultTimeoutMs = [int](Get-IniValue -Config $config -Section 'Build' -Key 'DefaultTimeoutMs' -DefaultValue (Get-IniValue -Config $config -Section 'Test' -Key 'DefaultTimeoutMs' -DefaultValue '180000'))
+        BuildDefaultTimeoutMs = [int](Get-IniValue -Config $config -Section 'Build' -Key 'DefaultTimeoutMs' -DefaultValue '180000')
         TestDefaultTimeoutMs  = [int](Get-IniValue -Config $config -Section 'Test' -Key 'DefaultTimeoutMs' -DefaultValue '600000')
     }
 }

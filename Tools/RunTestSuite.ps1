@@ -24,6 +24,7 @@ param(
     [string]$Suite = "",
     [string]$LabelPrefix = "",
     [string]$OutputRoot = "",
+    [int]$TimeoutMs = 0,
     [switch]$NoReport,
     [switch]$ListSuites,
     [switch]$DryRun
@@ -101,6 +102,14 @@ if (-not $suiteDefinitions.Contains($Suite)) {
     throw "Unknown suite '$Suite'. Use -ListSuites to inspect available values."
 }
 
+if ($TimeoutMs -lt 0) {
+    throw "TimeoutMs must be zero or a positive integer."
+}
+
+if ($TimeoutMs -gt 900000) {
+    throw "TimeoutMs cannot exceed 900000ms."
+}
+
 $selectedSuite = $suiteDefinitions[$Suite]
 $effectiveLabelPrefix = if ([string]::IsNullOrWhiteSpace($LabelPrefix)) { $Suite } else { $LabelPrefix }
 
@@ -109,6 +118,7 @@ Write-Host "  Angelscript Test Suite Runner"
 Write-Host "================================================================"
 Write-Host "Suite        : $Suite"
 Write-Host "Dry run      : $DryRun"
+Write-Host "TimeoutMs    : $(if ($TimeoutMs -gt 0) { $TimeoutMs } else { '<per-run default>' })"
 Write-Host "Run count    : $($selectedSuite.Count)"
 Write-Host "Runner       : $runTestsPath"
 Write-Host "================================================================"
@@ -117,6 +127,7 @@ for ($index = 0; $index -lt $selectedSuite.Count; ++$index) {
     $entry = $selectedSuite[$index]
     $runLabel = "{0}_{1:D2}_{2}" -f $effectiveLabelPrefix, ($index + 1), $entry.Label
     $argList = @(
+        "-NoProfile",
         "-ExecutionPolicy", "Bypass",
         "-File", $runTestsPath,
         "-TestPrefix", $entry.Prefix,
@@ -125,6 +136,9 @@ for ($index = 0; $index -lt $selectedSuite.Count; ++$index) {
 
     if (-not [string]::IsNullOrWhiteSpace($OutputRoot)) {
         $argList += @("-OutputRoot", $OutputRoot)
+    }
+    if ($TimeoutMs -gt 0) {
+        $argList += @("-TimeoutMs", $TimeoutMs)
     }
     if ($NoReport) {
         $argList += "-NoReport"

@@ -30,31 +30,45 @@ else {
     Normalize-PathValue -Path $ConfigPath
 }
 
-$agentConfig = Resolve-AgentConfiguration -ProjectRoot $resolvedProjectRoot -ConfigPath $resolvedConfigPath
 $powerShell = Get-ConsolePowerShellPath
-
-$buildTimeoutMs = $agentConfig.BuildDefaultTimeoutMs
-$testTimeoutMs = $agentConfig.TestDefaultTimeoutMs
-
+$bootstrapScript = Join-Path $resolvedProjectRoot 'Tools\BootstrapWorktree.ps1'
 $buildScript = Join-Path $resolvedProjectRoot 'Tools\RunBuild.ps1'
 $testScript = Join-Path $resolvedProjectRoot 'Tools\RunTests.ps1'
+$testSuiteScript = Join-Path $resolvedProjectRoot 'Tools\RunTestSuite.ps1'
 $ubtProcessScript = Join-Path $resolvedProjectRoot 'Tools\Get-UbtProcess.ps1'
 
 $resolved = [ordered]@{
+    Status                  = 'BootstrapRequired'
+    BootstrapCommand        = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}"' -f $powerShell, $bootstrapScript)
+    BootstrapAllCommand     = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -AllRegisteredWorktrees' -f $powerShell, $bootstrapScript)
     ConfigPath              = $resolvedConfigPath
     ProjectRoot             = $resolvedProjectRoot
-    EngineRoot              = $agentConfig.EngineRoot
-    ProjectFile             = $agentConfig.ProjectFile
-    EditorTarget            = $agentConfig.EditorTarget
-    Platform                = $agentConfig.Platform
-    Configuration           = $agentConfig.Configuration
-    Architecture            = $agentConfig.Architecture
-    BuildDefaultTimeoutMs   = $buildTimeoutMs
-    TestDefaultTimeoutMs    = $testTimeoutMs
-    BuildCommand            = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -Label "{2}" -TimeoutMs {3}' -f $powerShell, $buildScript, $BuildLabel, $buildTimeoutMs)
-    SerializedBuildCommand  = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -Label "{2}" -TimeoutMs {3} -SerializeByEngine' -f $powerShell, $buildScript, $BuildLabel, $buildTimeoutMs)
-    TestCommand             = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -TestPrefix "{2}" -Label "{3}" -TimeoutMs {4}' -f $powerShell, $testScript, $TestName, $TestLabel, $testTimeoutMs)
-    UbtProcessCommand       = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -CurrentWorktreeOnly' -f $powerShell, $ubtProcessScript)
+    Message                 = 'AgentConfig.ini is missing or needs normalization. Run BootstrapCommand first.'
+}
+
+try {
+    $agentConfig = Resolve-AgentConfiguration -ProjectRoot $resolvedProjectRoot -ConfigPath $resolvedConfigPath
+    $buildTimeoutMs = $agentConfig.BuildDefaultTimeoutMs
+    $testTimeoutMs = $agentConfig.TestDefaultTimeoutMs
+
+    $resolved.Status = 'Ready'
+    $resolved.Message = 'Official build and test runners resolved from AgentConfig.ini.'
+    $resolved.EngineRoot = $agentConfig.EngineRoot
+    $resolved.ProjectFile = $agentConfig.ProjectFile
+    $resolved.EditorTarget = $agentConfig.EditorTarget
+    $resolved.Platform = $agentConfig.Platform
+    $resolved.Configuration = $agentConfig.Configuration
+    $resolved.Architecture = $agentConfig.Architecture
+    $resolved.BuildDefaultTimeoutMs = $buildTimeoutMs
+    $resolved.TestDefaultTimeoutMs = $testTimeoutMs
+    $resolved.BuildCommand = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -Label "{2}" -TimeoutMs {3}' -f $powerShell, $buildScript, $BuildLabel, $buildTimeoutMs)
+    $resolved.SerializedBuildCommand = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -Label "{2}" -TimeoutMs {3} -SerializeByEngine' -f $powerShell, $buildScript, $BuildLabel, $buildTimeoutMs)
+    $resolved.TestCommand = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -TestPrefix "{2}" -Label "{3}" -TimeoutMs {4}' -f $powerShell, $testScript, $TestName, $TestLabel, $testTimeoutMs)
+    $resolved.TestSuiteSmokeCommand = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -Suite Smoke -LabelPrefix "{2}" -TimeoutMs {3}' -f $powerShell, $testSuiteScript, $TestLabel, $testTimeoutMs)
+    $resolved.UbtProcessCommand = ('{0} -NoProfile -ExecutionPolicy Bypass -File "{1}" -CurrentWorktreeOnly' -f $powerShell, $ubtProcessScript)
+}
+catch {
+    $resolved.Message = $_.Exception.Message
 }
 
 $resolved.GetEnumerator() | ForEach-Object {

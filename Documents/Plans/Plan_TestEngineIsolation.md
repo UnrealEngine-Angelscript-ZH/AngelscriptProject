@@ -122,7 +122,7 @@
 执行命令：
 
 ```
-UnrealEditor-Cmd.exe "AngelscriptProject.uproject" -ExecCmds="Automation RunTests Angelscript; Quit" -NullRHI -Unattended -NoPause -NoSplash -NOSOUND
+Tools\RunTests.ps1 -Group Angelscript -Label TestEngineIsolation -TimeoutMs 900000 -- -NullRHI
 ```
 
 #### 结果概要

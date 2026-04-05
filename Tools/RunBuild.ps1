@@ -37,9 +37,12 @@ try {
 
     $defaultTimeoutMs = $agentConfig.BuildDefaultTimeoutMs
     $resolvedTimeoutMs = Resolve-TimeoutMs -RequestedTimeoutMs $TimeoutMs -DefaultTimeoutMs $defaultTimeoutMs -ParameterName 'TimeoutMs'
+    $deadlineUtc = New-ExecutionDeadline -TimeoutMs $resolvedTimeoutMs
     $ubtPaths = Resolve-UbtPaths -EngineRoot $agentConfig.EngineRoot
     $outputLayout = New-CommandOutputLayout -ProjectRoot $projectRoot -Category 'Build' -Label $Label -RequestedOutputRoot $LogRoot -LogFileName 'Build.log'
     $metadataPath = Join-Path $outputLayout.OutputRoot 'RunMetadata.json'
+    $engineWaitDurationMs = 0
+    $timedOutPhase = $null
 
     $worktreeMutexName = Get-NamedMutexName -Scope 'ue-command-worktree' -KeyPath $projectRoot
     $worktreeMutex = Acquire-NamedMutex -Name $worktreeMutexName -TimeoutMs 0
@@ -52,13 +55,17 @@ try {
     if ($SerializeByEngine) {
         $engineMutexName = Get-NamedMutexName -Scope 'ue-build-engine' -KeyPath $agentConfig.EngineRoot
         Write-Host ('Serialized engine mode enabled for: {0}' -f $agentConfig.EngineRoot)
-        $engineMutex = Acquire-NamedMutex -Name $engineMutexName -TimeoutMs $resolvedTimeoutMs -PollIntervalMs 5000 -OnWait {
+        $engineWaitStartedAt = [DateTime]::UtcNow
+        $engineWaitTimeoutMs = Get-RemainingTimeoutMs -DeadlineUtc $deadlineUtc -PhaseName 'Build engine slot wait'
+        $engineMutex = Acquire-NamedMutex -Name $engineMutexName -TimeoutMs $engineWaitTimeoutMs -PollIntervalMs 5000 -OnWait {
             param($ElapsedMs, $RemainingMs)
             Write-Host ("[wait] Engine build slot busy. elapsed={0}ms remaining={1}ms" -f $ElapsedMs, $RemainingMs)
         }
+        $engineWaitDurationMs = [int]([DateTime]::UtcNow - $engineWaitStartedAt).TotalMilliseconds
 
         if ($null -eq $engineMutex) {
             Write-Host '[error] Failed to acquire the engine build slot within the requested timeout.' -ForegroundColor Red
+            $timedOutPhase = 'EngineWait'
             $scriptExitCode = $exitCodes.EngineBusy
             return
         }
@@ -97,6 +104,8 @@ try {
             TimeoutMs         = $resolvedTimeoutMs
             OutputRoot        = $outputLayout.OutputRoot
             LogPath           = $outputLayout.LogPath
+            EngineWaitDurationMs = $engineWaitDurationMs
+            TimedOutPhase     = $timedOutPhase
             Arguments         = $argumentList
             TimedOut          = $false
             ProcessExitCode   = $null
@@ -122,16 +131,18 @@ try {
     }
     Write-Host '----------------------------------------------------------------'
 
+    $processTimeoutMs = Get-RemainingTimeoutMs -DeadlineUtc $deadlineUtc -PhaseName 'Build execution'
     $result = Invoke-StreamingProcess `
         -FilePath $ubtPaths.DotNetExecutablePath `
         -ArgumentList $argumentList `
         -WorkingDirectory $ubtPaths.WorkingDirectory `
-        -TimeoutMs $resolvedTimeoutMs `
+        -TimeoutMs $processTimeoutMs `
         -LogPath $outputLayout.LogPath `
         -Label 'ubt-build' `
         -Environment $ubtPaths.Environment
 
     $scriptExitCode = if ($result.TimedOut) {
+        $timedOutPhase = 'BuildExecution'
         $exitCodes.TimedOut
     }
     elseif ([int]$result.ExitCode -eq 0) {
@@ -161,6 +172,8 @@ try {
             TimeoutMs         = $resolvedTimeoutMs
             OutputRoot        = $outputLayout.OutputRoot
             LogPath           = $outputLayout.LogPath
+            EngineWaitDurationMs = $engineWaitDurationMs
+            TimedOutPhase     = $timedOutPhase
             Arguments         = $argumentList
             TimedOut          = [bool]$result.TimedOut
             ProcessExitCode   = [int]$result.ExitCode
@@ -179,17 +192,18 @@ try {
 }
 catch {
     Write-Host ("[error] {0}" -f $_.Exception.Message) -ForegroundColor Red
+    $isTimeoutBudgetError = $_.Exception.Message -like '*allocated timeout budget*'
 
     if (-not [string]::IsNullOrWhiteSpace($metadataPath)) {
         Write-Utf8JsonFile -Path $metadataPath -Value ([PSCustomObject]@{
                 Label       = $Label
                 ProjectRoot = $projectRoot
                 Message     = $_.Exception.Message
-                ExitCode    = $exitCodes.ConfigError
+                ExitCode    = if ($isTimeoutBudgetError) { $exitCodes.TimedOut } else { $exitCodes.ConfigError }
             })
     }
 
-    $scriptExitCode = $exitCodes.ConfigError
+    $scriptExitCode = if ($isTimeoutBudgetError) { $exitCodes.TimedOut } else { $exitCodes.ConfigError }
 }
 finally {
     if ($null -ne $engineMutex) {

@@ -3,14 +3,14 @@
 ## 强制规则
 
 - 本仓库的标准自动化测试入口是 `Tools\RunTests.ps1`。
-- 测试放置、命名、前缀与具名 suite 约定以 `Documents/Guides/TestConventions.md` 为准；`Test.md` 只说明执行入口与运行约束。
-- 不再允许把 `UnrealEditor-Cmd.exe` 直调命令、`Start-Process UnrealEditor-Cmd.exe` 拼参命令、或旧的 `Tools\RunAutomationTests.ps1` 作为标准执行方式写入指南。
-- 所有测试命令都必须显式带超时，且超时不得超过 `900000ms`（15 分钟）。
-- 默认测试超时来自 `AgentConfig.ini` 中的 `Test.DefaultTimeoutMs`，仓库模板默认值为 `600000ms`（10 分钟）。
-- 测试过程必须实时输出。进入编辑器后，终端要逐行看到日志，不允许静默等待。
-- 测试超时或异常退出后，脚本必须终止整个进程树，避免残留编辑器、子进程或 UBT。
+- 具名 suite 只能通过 `Tools\RunTestSuite.ps1` 调度；不要手写一组 `RunTests` 命令散落到文档里。
+- 不再允许把 `UnrealEditor-Cmd.exe` 直调命令、`Start-Process UnrealEditor-Cmd.exe` 拼参命令、或旧的 `Tools\RunAutomationTests.ps1` 当作标准入口写入指南。
+- 所有测试命令都必须显式带超时，且超时不得超过 `900000ms`。
+- 默认测试超时来自 `AgentConfig.ini` 的 `Test.DefaultTimeoutMs`；仓库标准默认值为 `600000ms`。
+- 测试过程必须实时输出；超时或异常退出后脚本必须清理整棵编辑器/UBT 进程树。
+- 每次测试都必须写入自己的独立输出目录；禁止多个 run 共用同一份 `Automation.log` 或报告目录。
 
-## AgentConfig.ini
+## AgentConfig.ini 与 bootstrap
 
 执行测试前，先读取项目根目录的 `AgentConfig.ini`。
 
@@ -25,10 +25,22 @@ ProjectFile=<当前 worktree 的 .uproject>
 DefaultTimeoutMs=600000
 ```
 
-如果本地还没有该文件，先执行：
+如果当前 worktree 还没有配置，先执行：
 
 ```powershell
-Tools\GenerateAgentConfigTemplate.bat
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1
+```
+
+批量补齐所有 worktree：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1 -AllRegisteredWorktrees
+```
+
+只想拿标准命令模板时，使用：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\ResolveAgentCommandTemplates.ps1
 ```
 
 ## 标准入口
@@ -36,99 +48,116 @@ Tools\GenerateAgentConfigTemplate.bat
 ### 按测试前缀运行
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.Bindings."
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.Bindings." -Label bindings -TimeoutMs 600000
 ```
 
 ### 按测试组运行
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Group AngelscriptSmoke
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Group AngelscriptSmoke -Label smoke -TimeoutMs 600000
 ```
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Group AngelscriptDebugger
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Group AngelscriptDebugger -Label debugger -TimeoutMs 600000
 ```
 
 ### 按具名 suite 运行
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTestSuite.ps1 -Suite Smoke
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTestSuite.ps1 -Suite Smoke -LabelPrefix smoke -TimeoutMs 600000
 ```
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTestSuite.ps1 -Suite Debugger
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTestSuite.ps1 -Suite Debugger -LabelPrefix debugger -TimeoutMs 600000
 ```
 
-### 需要图形输出时
+### 需要真实渲染时
 
-默认测试会启用 `-NullRHI`。只有明确需要真实渲染时才使用：
+默认测试会追加 `-NullRHI`。只有明确需要真实渲染时才加 `-Render`：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Group AngelscriptSmoke -Render
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Group AngelscriptSmoke -Label smoke-render -TimeoutMs 600000 -Render
 ```
 
 ## 脚本默认行为
 
 `Tools\RunTests.ps1` 会自动：
 
-- 读取 `AgentConfig.ini`
-- 在启动编辑器前先运行一次 `UnrealBuildTool -Mode=QueryTargets`，刷新 `Intermediate/TargetInfo.json`
-- 调用 `UnrealEditor-Cmd.exe`
-- 默认追加 `-BUILDMACHINE`
-- 追加 `-stdout -FullStdOutLogOutput -UTF8Output`
-- 默认追加 `-Unattended -NoPause -NoSplash -NOSOUND`
-- 在非渲染模式下追加 `-NullRHI`
-- 为每次运行生成独立的 `-ABSLOG` 和 `-ReportExportPath`
-- 为预热阶段生成独立的 `QueryTargets.log`
-- 预热并校验当前 worktree 的 `Intermediate/TargetInfo.json`；如果发现旧缓存包含 parent assembly targets，会按当前项目作用域自动重建，避免启动阶段再次触发 `QueryTargets`
-- 对同一 worktree 启用单飞锁，防止同一 worktree 内并发跑多个 build/test
-- 在超时或异常退出时结束整个进程树
+- 读取当前 worktree 的 `AgentConfig.ini`
+- 在启动编辑器前预热 `Intermediate/TargetInfo.json`
+- 防御性等待外部旧流程留下的 `Build.bat` 全局锁，避免把整个超时都耗在不可见争用上
+- 以统一参数启动 `UnrealEditor-Cmd.exe`
+- 默认追加 `-BUILDMACHINE`、`-stdout -FullStdOutLogOutput -UTF8Output`、`-Unattended -NoPause -NoSplash -NOSOUND`
+- 非渲染模式下追加 `-NullRHI`
+- 通过 `-ABSLOG` 与 `-ReportExportPath` 把日志和报告写入当前 run 的独立目录
+- 在超时或异常退出时结束整棵编辑器/UBT 进程树
 
-`Tools\RunTestSuite.ps1` 是基于 `Tools\RunTests.ps1` 的薄封装，用于把常用 smoke / native / runtime / scenario 波次固化成具名入口；需要单条前缀或 group 控制时，仍直接使用 `Tools\RunTests.ps1`。
+`Tools\RunTestSuite.ps1` 是基于 `Tools\RunTests.ps1` 的官方调度层。它会顺序执行内置 suite 中的前缀，并把 `-TimeoutMs`、`-OutputRoot`、`-NoReport` 透传给每个子 run。
 
 ## 常用参数
 
-```powershell
-Tools\RunTests.ps1 -Group AngelscriptSmoke -TimeoutMs 120000
-Tools\RunTests.ps1 -TestPrefix "Angelscript.CppTests." -Label runtime-unit
-Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.Dump" -TimeoutMs 600000
-Tools\RunTests.ps1 -Group AngelscriptScenario -Render
-Tools\RunTests.ps1 -Group AngelscriptFast -- -log
-```
+### `Tools\RunTests.ps1`
 
-参数说明：
+```powershell
+Tools\RunTests.ps1 -Group AngelscriptSmoke -Label smoke -TimeoutMs 120000
+Tools\RunTests.ps1 -TestPrefix "Angelscript.CppTests." -Label runtime-unit -TimeoutMs 600000
+Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.Dump" -Label dump -TimeoutMs 600000
+Tools\RunTests.ps1 -Group AngelscriptScenario -Label scenario -TimeoutMs 900000 -Render
+Tools\RunTests.ps1 -Group AngelscriptFast -Label fast -TimeoutMs 600000 -- -log
+```
 
 - `-TestPrefix`：按测试名前缀运行
 - `-Group`：按 `Config/DefaultEngine.ini` 中定义的 automation group 运行
-- `-TimeoutMs`：本次测试超时，必须大于 0 且不超过 `900000`
+- `-TimeoutMs`：本次测试超时，必须大于 `0` 且不超过 `900000`
 - `-Label`：输出目录标签
-- `-OutputRoot`：自定义输出根目录
-- `-Render`：关闭 `-NullRHI`，允许真实渲染
-- `-NoReport`：跳过结构化摘要生成
+- `-OutputRoot`：自定义输出父目录；脚本会在其下再创建 `Tests/<Label>/<RunId>/`
+- `-Render`：关闭 `-NullRHI`
+- `-NoReport`：跳过 `Summary.json` 生成
 - `-- <ExtraArgs>`：透传额外编辑器命令行参数
+
+### `Tools\RunTestSuite.ps1`
+
+```powershell
+Tools\RunTestSuite.ps1 -Suite Smoke -LabelPrefix smoke -TimeoutMs 600000
+Tools\RunTestSuite.ps1 -Suite Debugger -LabelPrefix debugger -TimeoutMs 600000 -DryRun
+Tools\RunTestSuite.ps1 -Suite ScenarioSamples -LabelPrefix scenario -TimeoutMs 900000 -OutputRoot "D:\Tmp\SuiteRuns"
+```
+
+- `-Suite`：具名 suite 名称
+- `-LabelPrefix`：每一波子 run 的标签前缀
+- `-TimeoutMs`：透传给每个 `RunTests` 子 run 的超时
+- `-OutputRoot`：透传给每个 `RunTests` 子 run 的输出父目录
+- `-NoReport`：透传给每个 `RunTests` 子 run
+- `-ListSuites`：列出内置 suite 与对应前缀
+- `-DryRun`：只打印将要执行的命令
 
 ## 输出与产物
 
-若不指定 `-OutputRoot`，测试产物默认写入：
+默认输出目录：
 
 ```text
-Saved/Tests/<Label>/<Timestamp>/
+Saved/Tests/<Label>/<RunId>/
   Automation.log
   Report/
   RunMetadata.json
   Summary.json
 ```
 
-其中：
+如果传入 `-OutputRoot D:\Tmp\TestRuns`，实际目录会变成：
 
-- `Automation.log`：编辑器实时日志
-- `Report/`：`-ReportExportPath` 导出的结构化结果
-- `RunMetadata.json`：本次执行参数、超时、退出码、耗时
-- `Summary.json`：供 AI Agent / CI 消费的轻量摘要
+```text
+D:\Tmp\TestRuns\Tests\<Label>\<RunId>\
+```
 
-## 当前常用测试组
+注意：
 
-当前仓库已定义的常用 group 以 `Config/DefaultEngine.ini` 为准，典型入口包括：
+- `-OutputRoot` 只是父目录，不是最终目录
+- 每次调用都会新建独立 `RunId`
+- `Automation.log`、`Report/`、`RunMetadata.json`、`Summary.json` 都是 run 私有产物，不能手写成共享路径
+
+## 常用 group 与 suite
+
+常用 group 以 `Config/DefaultEngine.ini` 为准，典型入口包括：
 
 - `AngelscriptSmoke`
 - `AngelscriptNative`
@@ -139,65 +168,54 @@ Saved/Tests/<Label>/<Timestamp>/
 - `AngelscriptEditor`
 - `AngelscriptExamples`
 
-推荐顺序：
-
-1. 快速冒烟：`AngelscriptSmoke`
-2. 调试器协议与场景回归：`AngelscriptDebugger`
-3. 无 world 的运行时回归：`AngelscriptRuntimeUnit`、`AngelscriptFast`
-4. 需要 world / actor / subsystem 的集成回归：`AngelscriptScenario`
-5. 编辑器相关：`AngelscriptEditor`
-
-常用具名 suite 以 `Tools\RunTestSuite.ps1 -ListSuites` 的输出为准，当前重点包括：
+常用 suite 以 `Tools\RunTestSuite.ps1 -ListSuites` 输出为准，当前重点包括：
 
 - `Smoke`
 - `NativeCore`
 - `RuntimeCpp`
 - `Debugger`
 - `Bindings`
+- `Internals`
 - `HotReload`
 - `ScenarioSamples`
 - `All`
 
 ## 与 Gauntlet 的边界
 
-- `Tools\RunTests.ps1` 负责仓库内的标准自动化测试入口、日志、摘要和超时收口。
-- `Gauntlet` 只在需要 outer shell、networking、多进程会话编排或更复杂生命周期管理时使用。
-- 不要在常规本地回归、AI Agent 执行或普通 CI 里直接跳过 `Tools\RunTests.ps1` 改用手写 `RunUAT` 命令。
+- `Tools\RunTests.ps1` / `Tools\RunTestSuite.ps1` 负责仓库内标准自动化测试入口、日志、摘要和超时收口。
+- `Gauntlet` 只在需要 outer shell、多进程会话编排、联网拓扑或更复杂生命周期管理时使用。
+- 常规本地回归、AI Agent 执行和普通 CI 不要绕过官方 runner 去手写 `RunUAT` / `UnrealEditor-Cmd.exe`。
 
 ## 故障排除
 
-### 构建阶段卡死（XGE 槽位争抢）
+### 测试前卡在构建阶段
 
-测试前通常需要先构建。如果构建阶段长时间无编译输出，可能是多个 worktree 同时使用 XGE 分布式执行器导致槽位争抢。解决方案是在构建时透传 `-NoXGE`：
+如果日志里长时间没有任何编译推进，优先排查：
 
-```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -- -NoXGE
-```
+1. 是否有其他 worktree 还在跑旧的 `Build.bat` 路径
+2. 是否需要在对应 build 中透传 `-NoXGE`
+3. `Intermediate/TargetInfo.json` 是否已通过 bootstrap 正常预热
 
-详见 `Documents/Guides/Build.md` 的"多 Worktree 并发构建故障排除"章节。
+### 测试无输出直到超时
 
-### 测试进程无输出超时
+按以下顺序排查：
 
-如果测试启动后长时间没有任何输出：
-
-1. **确认参数名正确**：`-TestPrefix`（不是 `-Filter`）。错误的参数名会导致 PowerShell 在参数绑定阶段挂起，脚本根本不会执行到超时保护代码
-2. **确认没有残留的 UBT / Editor 进程**：用 `Tools\Get-UbtProcess.ps1` 检查
-3. **确认 worktree 锁未被占用**：同一 worktree 不能同时运行两个 build/test 任务
+1. 确认参数名正确，前缀用 `-TestPrefix`，不是 `-Filter`
+2. 用 `Tools\Get-UbtProcess.ps1` 检查是否有残留 UBT / Editor
+3. 确认同一 worktree 内没有第二个 build/test 正在运行
+4. 检查当前 run 的 `RunMetadata.json`，看是否卡在 `TargetInfo` 预热、`Build.bat` 锁等待或编辑器执行阶段
 
 ## 对 AI Agent 的要求
 
-当 AI Agent 需要执行自动化测试时，必须遵守以下要求：
-
 1. 先读取根目录 `AgentConfig.ini`
-2. 只通过 `Tools\RunTests.ps1` 执行
-3. 必须显式传入或继承一个不超过 `900000ms` 的超时
-4. 不得直接拼装 `UnrealEditor-Cmd.exe` 命令作为标准入口
-5. 执行时必须实时打印日志
-6. 超时或异常退出后必须结束整个进程树
-7. 同一 worktree 已有 build/test 运行时，不得重复启动第二个任务
+2. 配置缺失或 worktree 路径不匹配时先跑 `Tools\BootstrapWorktree.ps1`
+3. 单条测试只通过 `Tools\RunTests.ps1`
+4. suite 波次只通过 `Tools\RunTestSuite.ps1`
+5. 显式传入或继承一个不超过 `900000ms` 的超时
+6. 不要手写 `UnrealEditor-Cmd.exe`、`RunAutomationTests.ps1` 或共享日志路径
 
 ## 推荐提示词
 
 ```text
-请先读取项目根目录的 AgentConfig.ini，然后仅通过 Tools\RunTests.ps1 执行自动化测试。测试必须显式带超时，且不得超过 900000ms（15 分钟）。执行时必须实时打印编辑器日志，并在超时或异常退出后结束整个进程树。除非明确需要真实渲染，否则保持默认 headless 模式，不要直接手写 UnrealEditor-Cmd.exe 命令。
+请先读取项目根目录的 AgentConfig.ini；如果缺失或 ProjectFile 不属于当前 worktree，先执行 Tools\BootstrapWorktree.ps1。自动化测试只能通过 Tools\RunTests.ps1 或 Tools\RunTestSuite.ps1 执行，并显式带一个不超过 900000ms 的超时。不要手写 UnrealEditor-Cmd.exe 命令，也不要手写 -ABSLOG / -ReportExportPath 共享路径；日志、报告和摘要必须写入当前 run 的独立目录。除非明确需要真实渲染，否则保持默认 headless 模式。
 ```
