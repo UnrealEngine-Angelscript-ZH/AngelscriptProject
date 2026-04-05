@@ -14,7 +14,7 @@ using namespace AngelscriptTestSupport;
 
 namespace
 {
-	bool StartDebuggerSession(FAutomationTestBase& Test, FAngelscriptDebuggerTestSession& Session, FAngelscriptDebuggerTestClient& Client)
+	bool StartSteppingDebuggerSession(FAutomationTestBase& Test, FAngelscriptDebuggerTestSession& Session, FAngelscriptDebuggerTestClient& Client)
 	{
 		FAngelscriptDebuggerSessionConfig SessionConfig;
 		SessionConfig.ExistingEngine = TryGetRunningProductionEngine();
@@ -79,7 +79,7 @@ namespace
 		return true;
 	}
 
-	bool WaitForBreakpointCount(
+	bool WaitForSteppingBreakpointCount(
 		FAutomationTestBase& Test,
 		FAngelscriptDebuggerTestSession& Session,
 		int32 ExpectedCount,
@@ -100,20 +100,20 @@ namespace
 		return bReachedCount;
 	}
 
-	struct FAsyncModuleInvocationState : public TSharedFromThis<FAsyncModuleInvocationState>
+	struct FAsyncSteppingInvocationState : public TSharedFromThis<FAsyncSteppingInvocationState>
 	{
 		TAtomic<bool> bCompleted = false;
 		bool bSucceeded = false;
 		int32 Result = 0;
 	};
 
-	TSharedRef<FAsyncModuleInvocationState> DispatchModuleInvocation(
+	TSharedRef<FAsyncSteppingInvocationState> DispatchSteppingModuleInvocation(
 		FAngelscriptEngine& Engine,
 		const FString& Filename,
 		FName ModuleName,
 		const FString& Declaration)
 	{
-		TSharedRef<FAsyncModuleInvocationState> State = MakeShared<FAsyncModuleInvocationState>();
+		TSharedRef<FAsyncSteppingInvocationState> State = MakeShared<FAsyncSteppingInvocationState>();
 
 		AsyncTask(ENamedThreads::GameThread, [&Engine, Filename, ModuleName, Declaration, State]()
 		{
@@ -126,10 +126,10 @@ namespace
 		return State;
 	}
 
-	bool WaitForInvocationCompletion(
+	bool WaitForSteppingInvocationCompletion(
 		FAutomationTestBase& Test,
 		FAngelscriptDebuggerTestSession& Session,
-		const TSharedRef<FAsyncModuleInvocationState>& InvocationState,
+		const TSharedRef<FAsyncSteppingInvocationState>& InvocationState,
 		const TCHAR* Context)
 	{
 		const bool bCompleted = Session.PumpUntil(
@@ -349,7 +349,7 @@ bool FAngelscriptDebuggerSteppingStepInTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptDebuggerTestSession Session;
 	FAngelscriptDebuggerTestClient Client;
-	if (!StartDebuggerSession(*this, Session, Client))
+	if (!StartSteppingDebuggerSession(*this, Session, Client))
 	{
 		return false;
 	}
@@ -393,18 +393,18 @@ bool FAngelscriptDebuggerSteppingStepInTest::RunTest(const FString& Parameters)
 		return false;
 	}
 
-	if (!WaitForBreakpointCount(*this, Session, 1, TEXT("Stepping.StepIn should observe the breakpoint registration")))
+	if (!WaitForSteppingBreakpointCount(*this, Session, 1, TEXT("Stepping.StepIn should observe the breakpoint registration")))
 	{
 		return false;
 	}
 
-	const TSharedRef<FAsyncModuleInvocationState> InvocationState = DispatchModuleInvocation(
+	const TSharedRef<FAsyncSteppingInvocationState> InvocationState = DispatchSteppingModuleInvocation(
 		Engine,
 		Fixture.Filename,
 		Fixture.ModuleName,
 		Fixture.EntryFunctionDeclaration);
 
-	if (!WaitForInvocationCompletion(*this, Session, InvocationState, TEXT("Stepping.StepIn should finish after monitor continues execution")))
+	if (!WaitForSteppingInvocationCompletion(*this, Session, InvocationState, TEXT("Stepping.StepIn should finish after monitor continues execution")))
 	{
 		return false;
 	}
@@ -457,7 +457,7 @@ bool FAngelscriptDebuggerSteppingStepOverTest::RunTest(const FString& Parameters
 {
 	FAngelscriptDebuggerTestSession Session;
 	FAngelscriptDebuggerTestClient Client;
-	if (!StartDebuggerSession(*this, Session, Client))
+	if (!StartSteppingDebuggerSession(*this, Session, Client))
 	{
 		return false;
 	}
@@ -501,18 +501,18 @@ bool FAngelscriptDebuggerSteppingStepOverTest::RunTest(const FString& Parameters
 		return false;
 	}
 
-	if (!WaitForBreakpointCount(*this, Session, 1, TEXT("Stepping.StepOver should observe the breakpoint registration")))
+	if (!WaitForSteppingBreakpointCount(*this, Session, 1, TEXT("Stepping.StepOver should observe the breakpoint registration")))
 	{
 		return false;
 	}
 
-	const TSharedRef<FAsyncModuleInvocationState> InvocationState = DispatchModuleInvocation(
+	const TSharedRef<FAsyncSteppingInvocationState> InvocationState = DispatchSteppingModuleInvocation(
 		Engine,
 		Fixture.Filename,
 		Fixture.ModuleName,
 		Fixture.EntryFunctionDeclaration);
 
-	if (!WaitForInvocationCompletion(*this, Session, InvocationState, TEXT("Stepping.StepOver should finish after monitor continues execution")))
+	if (!WaitForSteppingInvocationCompletion(*this, Session, InvocationState, TEXT("Stepping.StepOver should finish after monitor continues execution")))
 	{
 		return false;
 	}
@@ -558,7 +558,7 @@ bool FAngelscriptDebuggerSteppingStepOutTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptDebuggerTestSession Session;
 	FAngelscriptDebuggerTestClient Client;
-	if (!StartDebuggerSession(*this, Session, Client))
+	if (!StartSteppingDebuggerSession(*this, Session, Client))
 	{
 		return false;
 	}
@@ -603,18 +603,18 @@ bool FAngelscriptDebuggerSteppingStepOutTest::RunTest(const FString& Parameters)
 		return false;
 	}
 
-	if (!WaitForBreakpointCount(*this, Session, 1, TEXT("Stepping.StepOut should observe the breakpoint registration")))
+	if (!WaitForSteppingBreakpointCount(*this, Session, 1, TEXT("Stepping.StepOut should observe the breakpoint registration")))
 	{
 		return false;
 	}
 
-	const TSharedRef<FAsyncModuleInvocationState> InvocationState = DispatchModuleInvocation(
+	const TSharedRef<FAsyncSteppingInvocationState> InvocationState = DispatchSteppingModuleInvocation(
 		Engine,
 		Fixture.Filename,
 		Fixture.ModuleName,
 		Fixture.EntryFunctionDeclaration);
 
-	if (!WaitForInvocationCompletion(*this, Session, InvocationState, TEXT("Stepping.StepOut should finish after monitor continues execution")))
+	if (!WaitForSteppingInvocationCompletion(*this, Session, InvocationState, TEXT("Stepping.StepOut should finish after monitor continues execution")))
 	{
 		return false;
 	}
