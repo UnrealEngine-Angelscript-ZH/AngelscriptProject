@@ -35,6 +35,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptSoftReloadBasicTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
 	ASTEST_BEGIN_SHARE_FRESH
 	const FString ScriptV1 = TEXT(R"AS(
@@ -129,13 +130,15 @@ int GetSoftReloadVersion()
 		return false;
 	}
 	TestEqual(TEXT("Global version should return v2 after soft reload"), AfterReloadResult, 2);
-	return AfterReloadResult == 2;
-
+	bPassed = AfterReloadResult == 2;
 	ASTEST_END_SHARE_FRESH
+
+	return bPassed;
 }
 
 bool FAngelscriptSoftReloadPreservesOtherModulesTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
 	ASTEST_BEGIN_SHARE_FRESH
 	const FString ScriptA = TEXT(R"AS(
@@ -195,9 +198,10 @@ int GetValueA()
 
 	TestEqual(TEXT("Module A should reflect its reloaded implementation"), ResultA, 11);
 	TestEqual(TEXT("Module B should preserve its original implementation"), ResultB, 20);
-	return ResultA == 11 && ResultB == 20;
-
+	bPassed = ResultA == 11 && ResultB == 20;
 	ASTEST_END_SHARE_FRESH
+
+	return bPassed;
 }
 
 bool FAngelscriptFullReloadBasicTest::RunTest(const FString& Parameters)
@@ -295,9 +299,9 @@ class UFullReloadTarget : UObject
 
 	TestEqual(TEXT("Version default should update after full reload"), VersionProperty->GetPropertyValue_InContainer(ObjV2), 2);
 	TestEqual(TEXT("Mana default should be introduced after full reload"), ManaProperty->GetPropertyValue_InContainer(ObjV2), 5);
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptFullReloadEnumBasicTest::RunTest(const FString& Parameters)
@@ -380,9 +384,9 @@ class UFullReloadEnumTarget : UObject
 	}
 
 	TestNotNull(TEXT("Enum-backed property should still exist after full reload"), FindFProperty<FProperty>(ReloadedClass, TEXT("State")));
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 #endif

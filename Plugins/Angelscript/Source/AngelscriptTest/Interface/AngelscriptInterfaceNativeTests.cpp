@@ -228,9 +228,9 @@ class AScenarioInterfaceNativeImplement : AActor, UAngelscriptNativeParentInterf
 	}
 	TestEqual(TEXT("C++ Execute_ bridge should call the script implementation of SetNativeMarker"), NativeMarker, FName(TEXT("FromCpp")));
 
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptScenarioInterfaceNativeInheritedImplementTest::RunTest(const FString& Parameters)
@@ -353,9 +353,9 @@ class AScenarioInterfaceNativeInheritedImplement : AActor, UAngelscriptNativeChi
 	TestEqual(TEXT("C++ Execute_ should dispatch child interface method on child implementation"),
 		IAngelscriptNativeChildInterface::Execute_GetChildValue(Actor), 11);
 
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 #endif

@@ -97,9 +97,9 @@ class AScenarioInterfaceCastSuccess : AActor, UIDamageableCastOk
 	}
 
 	TestEqual(TEXT("Cast to interface should succeed for implementing actor"), CastSucceeded, 1);
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptScenarioInterfaceCastFailTest::RunTest(const FString& Parameters)
@@ -166,9 +166,9 @@ class AScenarioInterfaceCastFail : AActor
 	}
 
 	TestEqual(TEXT("Cast to interface should fail for non-implementing actor"), CastReturnedNull, 1);
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptScenarioInterfaceMethodCallTest::RunTest(const FString& Parameters)
@@ -259,9 +259,9 @@ class AScenarioInterfaceMethodCall : AActor, UIDamageableMethodCall
 	}
 	TestEqual(TEXT("Method should have been called via interface reference"), MethodCalled, 1);
 
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 #endif

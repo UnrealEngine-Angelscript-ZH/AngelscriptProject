@@ -76,9 +76,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TObjectPtr compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptSoftObjectPtrBindingsTest::RunTest(const FString& Parameters)
@@ -187,9 +187,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TSoftObjectPtr compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 #endif

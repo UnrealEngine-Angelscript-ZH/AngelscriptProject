@@ -65,9 +65,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TSet iterator helpers should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptMapIteratorBindingsTest::RunTest(const FString& Parameters)
@@ -122,9 +122,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TMap iterator helpers should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

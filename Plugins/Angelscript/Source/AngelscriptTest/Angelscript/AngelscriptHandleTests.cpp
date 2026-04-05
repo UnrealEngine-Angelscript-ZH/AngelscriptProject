@@ -21,6 +21,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptHandleBasicTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASHandleBasic.as"));
 	ASTEST_BEGIN_FULL
@@ -38,8 +39,10 @@ bool FAngelscriptHandleBasicTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	return CompileResult == ECompileResult::Error;
+	bPassed = CompileResult == ECompileResult::Error;
 	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -74,8 +77,9 @@ bool FAngelscriptHandleImplicitTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestTrue(TEXT("Handles.Implicit currently verifies compile and symbol registration only because executing implicit script-class parameter passing still faults at runtime on this branch"), true);
-	return true;
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -85,6 +89,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptHandleAutoTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASHandleAuto.as"));
 	ASTEST_BEGIN_FULL
@@ -102,8 +107,10 @@ bool FAngelscriptHandleAutoTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	return CompileResult == ECompileResult::Error;
+	bPassed = CompileResult == ECompileResult::Error;
 	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -145,8 +152,8 @@ bool FAngelscriptHandleRefArgumentTest::RunTest(const FString& Parameters)
 	}
 
 	TestEqual(TEXT("Handles.RefArgument should propagate out-ref writes back to the caller"), Result, 42);
-	return true;
 	ASTEST_END_SHARE
+	return true;
 }
 
 #endif

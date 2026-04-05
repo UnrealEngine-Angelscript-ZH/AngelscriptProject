@@ -273,9 +273,9 @@ class AScenarioBlueprintChildInheritsScriptBeginPlayParent : AActor
 	}
 
 	TestEqual(TEXT("Blueprint child should inherit and execute the script BeginPlay override"), BeginPlayCount, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioBlueprintChildInheritsScriptTickTest::RunTest(const FString& Parameters)
@@ -367,9 +367,9 @@ class AScenarioBlueprintChildInheritsScriptTickParent : AActor
 		TEXT("Blueprint child should inherit and execute the script Tick override for each manual world tick"),
 		LogicalTickCount - InitialLogicalTickCount,
 		BlueprintSubclassRuntimeTest::InheritedTickCount);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioBlueprintChildScriptUFunctionStillCallableTest::RunTest(const FString& Parameters)
@@ -457,9 +457,9 @@ class AScenarioBlueprintChildScriptUFunctionStillCallableParent : AActor
 
 	TestEqual(TEXT("Blueprint child should preserve script UFUNCTION dispatch through ProcessEvent"), ScriptCallCount, 1);
 	TestEqual(TEXT("Blueprint child should preserve reflected integer parameters when invoking script UFUNCTIONs"), LastCallValue, 77);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioBlueprintChildRecreateDoesNotLeakPreviousStateTest::RunTest(const FString& Parameters)
@@ -571,9 +571,9 @@ class AScenarioBlueprintChildRecreateStateParent : AActor
 	TestEqual(TEXT("Blueprint child recreate scenario should observe the first actor mutating its local script state"), FirstStatefulValue, 48);
 	TestEqual(TEXT("Blueprint child recreate scenario should reset script state when respawning a new blueprint child"), SecondStatefulValue, 11);
 	TestEqual(TEXT("Blueprint child recreate scenario should execute BeginPlay independently for each spawned instance"), SecondBeginPlayCount, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioBlueprintChildNoOverrideUsesScriptParentDefaultTest::RunTest(const FString& Parameters)
@@ -680,9 +680,9 @@ class AScenarioBlueprintChildNoOverrideUsesScriptParentDefaultParent : AActor
 	TestEqual(TEXT("Blueprint child with no overrides should preserve parent integer defaults on spawned instances"), DefaultCounterOnInstance, 23);
 	TestTrue(TEXT("Blueprint child with no overrides should preserve parent boolean defaults on spawned instances"), bDefaultToggleOnInstance);
 	TestEqual(TEXT("Blueprint child with no overrides should preserve parent string defaults on spawned instances"), DefaultLabelOnInstance, FString(TEXT("ScriptParentDefault")));
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioBlueprintChildOverrideChainHasDeterministicCountsTest::RunTest(const FString& Parameters)
@@ -862,9 +862,9 @@ class AScenarioBlueprintChildOverrideChainScriptChild : AScenarioBlueprintChildO
 		TEXT("Blueprint child override-chain scenario should execute deterministic child Tick steps"),
 		ChildTickCount,
 		BlueprintSubclassRuntimeTest::OverrideChainTickCount);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

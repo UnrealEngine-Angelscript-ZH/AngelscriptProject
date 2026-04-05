@@ -280,13 +280,14 @@ bool FAngelscriptGCStatisticsTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Fresh GC collector should start with zero detected cycles"), TotalDetected, 0u);
 	TestEqual(TEXT("Fresh GC collector should start with zero new objects"), NewObjects, 0u);
 	TestEqual(TEXT("Fresh GC collector should start with zero newly destroyed objects"), TotalNewDestroyed, 0u);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptGCEmptyCollectTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
 	ASTEST_BEGIN_SHARE_CLEAN
 	asCGarbageCollector Collector;
@@ -294,13 +295,15 @@ bool FAngelscriptGCEmptyCollectTest::RunTest(const FString& Parameters)
 
 	const int Result = Collector.GarbageCollect(asGC_FULL_CYCLE, 1);
 	TestEqual(TEXT("GC full cycle on an empty collector should complete immediately"), Result, 0);
-	return Result == 0;
-
+	bPassed = Result == 0;
 	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 bool FAngelscriptGCInvalidObjectLookupTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
 	ASTEST_BEGIN_SHARE_CLEAN
 	asCGarbageCollector Collector;
@@ -315,13 +318,15 @@ bool FAngelscriptGCInvalidObjectLookupTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("GetObjectInGC should zero the sequence number on failure"), SeqNbr, 0u);
 	TestEqual(TEXT("GetObjectInGC should null the object pointer on failure"), Object, static_cast<void*>(nullptr));
 	TestEqual(TEXT("GetObjectInGC should null the type pointer on failure"), Type, static_cast<asITypeInfo*>(nullptr));
-	return Result == asINVALID_ARG;
-
+	bPassed = Result == asINVALID_ARG;
 	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 bool FAngelscriptGCReportUndestroyedEmptyTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
 	ASTEST_BEGIN_SHARE_CLEAN
 	asCGarbageCollector Collector;
@@ -329,9 +334,10 @@ bool FAngelscriptGCReportUndestroyedEmptyTest::RunTest(const FString& Parameters
 
 	const int Result = Collector.ReportAndReleaseUndestroyedObjects();
 	TestEqual(TEXT("ReportAndReleaseUndestroyedObjects should return zero when no objects are tracked"), Result, 0);
-	return Result == 0;
-
+	bPassed = Result == 0;
 	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 bool FAngelscriptGCManualCycleCollectionTest::RunTest(const FString& Parameters)
@@ -364,9 +370,9 @@ bool FAngelscriptGCManualCycleCollectionTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Manual GC should destroy at least one released cyclic object"), AfterCollect.TotalDestroyed > BeforeRelease.TotalDestroyed);
 	TestTrue(TEXT("Manual GC should not increase the number of tracked objects after collecting a released cycle"), AfterCollect.CurrentSize <= BeforeRelease.CurrentSize);
 	TestEqual(TEXT("Manual GC should leave no probe objects alive after collecting a self-cycle"), FGCProbeObject::LiveCount, 0);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptGCCycleDetectionTest::RunTest(const FString& Parameters)
@@ -407,9 +413,9 @@ bool FAngelscriptGCCycleDetectionTest::RunTest(const FString& Parameters)
 	const FGCStatisticsSnapshot AfterCollect = GetGCStatisticsSnapshot(*ScriptEngine);
 	TestTrue(TEXT("GC should eventually destroy the detected cycle"), AfterCollect.TotalDestroyed >= AfterDetect.TotalDestroyed);
 	TestEqual(TEXT("GC should leave no probe objects alive after collecting the detected self-cycle"), FGCProbeObject::LiveCount, 0);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

@@ -119,9 +119,9 @@ int PatrolEntry()
 	TestEqual(TEXT("Filename-or-module lookup should resolve the same module name"), ModuleByEither->ModuleName, FString(TEXT("Game.AI.Patrol")));
 
 	CleanFileSystemTestRoot();
-	return true;
-
 ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptCompileFromDiskTest::RunTest(const FString& Parameters)
@@ -165,9 +165,9 @@ int Entry()
 
 	TestEqual(TEXT("Disk-loaded script should return expected value"), Result, 42);
 	CleanFileSystemTestRoot();
-	return true;
-
 ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptPartialFailurePreservesGoodModulesTest::RunTest(const FString& Parameters)
@@ -229,9 +229,9 @@ int BrokenEntry()
 	}
 
 	CleanFileSystemTestRoot();
-	return true;
-
 ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptDiscoverScriptFilenamesTest::RunTest(const FString& Parameters)
@@ -273,9 +273,9 @@ ASTEST_BEGIN_SHARE_CLEAN
 	TestTrue(TEXT("Discovery should include Game/AI/Patrol.as"), FoundRelativePaths.Contains(TEXT("Game/AI/Patrol.as")));
 
 	CleanFileSystemTestRoot();
-	return true;
-
 ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptDiscoverySkipRulesTest::RunTest(const FString& Parameters)
@@ -311,9 +311,9 @@ ASTEST_BEGIN_SHARE_CLEAN
 	}
 
 	CleanFileSystemTestRoot();
-	return true;
-
 ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptRenameUpdatesModuleLookupTest::RunTest(const FString& Parameters)
@@ -362,9 +362,9 @@ int PatrolEntry()
 	TestTrue(TEXT("Rename lookup should keep module-name lookup alive after the filename switch"), Engine.GetModuleByFilenameOrModuleName(NewAbsolutePath, TEXT("Game.AI.Patrol")).IsValid());
 
 	CleanFileSystemTestRoot();
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptPathNormalizationLookupTest::RunTest(const FString& Parameters)
@@ -407,9 +407,9 @@ int NormalizeEntry()
 	TestEqual(TEXT("Normalization lookup should not duplicate the module when normalizing paths through filename-or-module fallback"), ModuleByEither->ModuleName, FString(TEXT("Game.Path.Normalize")));
 
 	CleanFileSystemTestRoot();
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptMixedSuccessFailureRecoveryAndRemapTest::RunTest(const FString& Parameters)
@@ -541,9 +541,9 @@ int BrokenEntry()
 	}
 	TestEqual(TEXT("Renamed good module should preserve updated behavior"), GoodResultAfterRename, 17);
 
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

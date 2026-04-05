@@ -82,9 +82,9 @@ class AScenarioActorUProperty : AActor
 
 	TestEqual(TEXT("Scenario actor reflected int UPROPERTY should keep its default value"), Health, 100);
 	TestEqual(TEXT("Scenario actor reflected FString UPROPERTY should keep its default value"), DisplayName, FString(TEXT("TestActor")));
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioActorUFunctionTest::RunTest(const FString& Parameters)
@@ -145,9 +145,9 @@ class AScenarioActorUFunction : AActor
 	}
 
 	TestEqual(TEXT("Scenario actor reflected UFUNCTION should return the scripted property value"), Result, 100);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioActorDefaultValuesTest::RunTest(const FString& Parameters)
@@ -189,9 +189,9 @@ class AScenarioActorDefaultValues : AActor
 	BeginPlayActor(Engine, *Actor);
 
 	TestTrue(TEXT("Scenario actor default values should apply the configured tick interval"), FMath::IsNearlyEqual(Actor->PrimaryActorTick.TickInterval, 0.5f));
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

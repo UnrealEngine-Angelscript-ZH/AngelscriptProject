@@ -37,6 +37,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptStructNotBlueprintTypeByDefaultTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
 	ASTEST_BEGIN_SHARE_CLEAN
 	UScriptStruct* Struct = BuildScriptStruct(
@@ -56,9 +57,10 @@ struct FScopeConstructStruct
 	}
 
 	TestFalse(TEXT("Script structs should not be BlueprintType by default"), Struct->GetBoolMetaData(TEXT("BlueprintType")));
-	return !Struct->GetBoolMetaData(TEXT("BlueprintType"));
-
+	bPassed = !Struct->GetBoolMetaData(TEXT("BlueprintType"));
 	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 #endif

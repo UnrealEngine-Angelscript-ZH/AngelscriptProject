@@ -85,9 +85,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Bound UE value types should behave as expected in script"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptFNameArrayCompatBindingsTest::RunTest(const FString& Parameters)
@@ -154,9 +154,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("FName arrays should support copy, index, alias, and add operations"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptTArrayMutationCompatBindingsTest::RunTest(const FString& Parameters)
@@ -218,9 +218,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TArray mutation helpers should match expected script behaviour"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptForeachCompatBindingsTest::RunTest(const FString& Parameters)
@@ -308,9 +308,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TArray should support foreach and range-for compatibility syntax"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptTArrayIteratorCompatBindingsTest::RunTest(const FString& Parameters)
@@ -391,9 +391,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TArray iterator helpers should match expected script behaviour"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 #endif

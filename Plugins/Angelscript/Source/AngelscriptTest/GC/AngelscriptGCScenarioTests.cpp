@@ -113,9 +113,9 @@ class AScenarioGCActorDestroy : AActor
 	CollectGarbage(RF_NoFlags, true);
 
 	TestTrue(TEXT("Scenario GC actor destroy should complete without leaving a live actor reference"), !WeakActor.IsValid());
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioGCComponentDestroyTest::RunTest(const FString& Parameters)
@@ -161,9 +161,9 @@ class UScenarioGCComponentDestroy : UAngelscriptComponent
 	CollectGarbage(RF_NoFlags, true);
 
 	TestTrue(TEXT("Scenario GC component destroy should complete without leaving a live component reference"), !WeakComponent.IsValid());
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioGCWorldTeardownTest::RunTest(const FString& Parameters)
@@ -234,9 +234,9 @@ class UScenarioGCWorldTeardownComponent : UAngelscriptComponent
 	TestTrue(TEXT("Scenario GC world teardown should release the world after scope cleanup"), !WeakWorld.IsValid());
 	TestTrue(TEXT("Scenario GC world teardown should release spawned actors after scope cleanup"), !WeakActor.IsValid());
 	TestTrue(TEXT("Scenario GC world teardown should release spawned components after scope cleanup"), !WeakComponent.IsValid());
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

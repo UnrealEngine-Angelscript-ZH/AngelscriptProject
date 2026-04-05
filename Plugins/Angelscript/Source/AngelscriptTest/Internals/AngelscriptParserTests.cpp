@@ -112,9 +112,9 @@ bool FAngelscriptParserDeclarationTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Root node should be a script node"), static_cast<int32>(Root->nodeType), static_cast<int32>(snScript));
 	TestTrue(TEXT("Parser should emit a declaration node for the global variable"), ContainsNodeType(Root, snDeclaration));
 	TestTrue(TEXT("Parser should emit a class node for the class declaration"), ContainsNodeType(Root, snClass));
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptParserExpressionAstTest::RunTest(const FString& Parameters)
@@ -141,9 +141,9 @@ bool FAngelscriptParserExpressionAstTest::RunTest(const FString& Parameters)
 
 	TestEqual(TEXT("Expression root should be an expression node"), static_cast<int32>(Root->nodeType), static_cast<int32>(snExpression));
 	TestTrue(TEXT("Parser should emit an expression operator node"), ContainsNodeType(Root, snExprOperator));
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptParserControlFlowTest::RunTest(const FString& Parameters)
@@ -172,13 +172,14 @@ bool FAngelscriptParserControlFlowTest::RunTest(const FString& Parameters)
 	TestTrue(TEXT("Parser should emit an if node"), ContainsNodeType(Root, snIf));
 	TestTrue(TEXT("Parser should emit a for node"), ContainsNodeType(Root, snFor));
 	TestTrue(TEXT("Parser should emit a while node"), ContainsNodeType(Root, snWhile));
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptParserSyntaxErrorTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
 	ASTEST_BEGIN_SHARE_CLEAN
 	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
@@ -196,9 +197,10 @@ bool FAngelscriptParserSyntaxErrorTest::RunTest(const FString& Parameters)
 	asCParser Parser(&Builder);
 	const int ParseResult = Parser.ParseScript(&Code);
 	TestTrue(TEXT("Parser should reject malformed syntax"), ParseResult < 0);
-	return ParseResult < 0;
-
+	bPassed = ParseResult < 0;
 	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 #endif

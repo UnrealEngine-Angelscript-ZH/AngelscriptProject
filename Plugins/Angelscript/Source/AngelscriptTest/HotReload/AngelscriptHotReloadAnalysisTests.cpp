@@ -85,9 +85,9 @@ class UReloadNoChangeTarget : UObject
 	TestEqual(TEXT("Unchanged module should remain soft reload"), ReloadRequirement, FAngelscriptClassGenerator::SoftReload);
 	TestFalse(TEXT("Unchanged module should not suggest full reload"), bWantsFullReload);
 	TestFalse(TEXT("Unchanged module should not require full reload"), bNeedsFullReload);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptAnalyzeReloadPropertyCountChangeTest::RunTest(const FString& Parameters)
@@ -132,9 +132,9 @@ class UReloadPropertyTarget : UObject
 
 	TestTrue(TEXT("Property count change should request a full reload path"), bWantsFullReload || bNeedsFullReload);
 	TestTrue(TEXT("Property count change should not remain soft reload"), ReloadRequirement == FAngelscriptClassGenerator::FullReloadRequired || ReloadRequirement == FAngelscriptClassGenerator::FullReloadSuggested);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptAnalyzeReloadSuperClassChangeTest::RunTest(const FString& Parameters)
@@ -172,9 +172,9 @@ class UReloadSuperTarget : AActor
 
 	TestTrue(TEXT("Super-class change should request a full reload path"), bWantsFullReload || bNeedsFullReload);
 	TestEqual(TEXT("Super-class change should require a full reload"), ReloadRequirement, FAngelscriptClassGenerator::FullReloadRequired);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptAnalyzeReloadSoftReloadRequirementTest::RunTest(const FString& Parameters)
@@ -223,9 +223,9 @@ class UReloadSoftRequirementTarget : UObject
 	TestEqual(TEXT("Body-only change should remain soft reload"), ReloadRequirement, FAngelscriptClassGenerator::SoftReload);
 	TestFalse(TEXT("Body-only change should not suggest full reload"), bWantsFullReload);
 	TestFalse(TEXT("Body-only change should not require full reload"), bNeedsFullReload);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptAnalyzeReloadClassAddedTest::RunTest(const FString& Parameters)
@@ -268,9 +268,9 @@ class UNewReloadTarget : UObject
 
 	TestTrue(TEXT("Class add should request a full reload path"), bWantsFullReload || bNeedsFullReload);
 	TestEqual(TEXT("Class add should suggest a full reload"), ReloadRequirement, FAngelscriptClassGenerator::FullReloadSuggested);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptAnalyzeReloadClassRemovedTest::RunTest(const FString& Parameters)
@@ -313,9 +313,9 @@ class UReloadSurvivorTarget : UObject
 
 	TestTrue(TEXT("Class remove should request a full reload path"), bWantsFullReload || bNeedsFullReload);
 	TestEqual(TEXT("Class remove should require a full reload"), ReloadRequirement, FAngelscriptClassGenerator::FullReloadRequired);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptAnalyzeReloadFunctionSignatureChangedTest::RunTest(const FString& Parameters)
@@ -363,9 +363,9 @@ class UReloadFunctionTarget : UObject
 
 	TestTrue(TEXT("Function signature change should request a full reload path"), bWantsFullReload || bNeedsFullReload);
 	TestEqual(TEXT("Function signature change should require a full reload"), ReloadRequirement, FAngelscriptClassGenerator::FullReloadRequired);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

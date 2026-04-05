@@ -89,9 +89,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Hash compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptUtilityBindingsTest::RunTest(const FString& Parameters)
@@ -156,9 +156,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Utility compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptParseBindingsTest::RunTest(const FString& Parameters)
@@ -219,9 +219,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Parse compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptRandomStreamBindingsTest::RunTest(const FString& Parameters)
@@ -287,9 +287,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("RandomStream compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptStringRemoveAtBindingsTest::RunTest(const FString& Parameters)
@@ -333,9 +333,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("FString RemoveAt(Index, Count) should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 #endif

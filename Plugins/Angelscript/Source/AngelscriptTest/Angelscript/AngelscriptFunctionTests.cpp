@@ -32,9 +32,9 @@ bool FAngelscriptFunctionDefaultArgumentsTest::RunTest(const FString& Parameters
 		Result);
 
 	TestEqual(TEXT("Default arguments should be applied when omitted"), Result, 12);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -55,9 +55,9 @@ bool FAngelscriptFunctionNamedArgumentsTest::RunTest(const FString& Parameters)
 		Result);
 
 	TestEqual(TEXT("Named arguments should bind to the intended parameters"), Result, 321);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -78,9 +78,9 @@ bool FAngelscriptFunctionPointerAndOverloadTest::RunTest(const FString& Paramete
 		Result);
 
 	TestEqual(TEXT("Overload resolution should choose the expected function bodies"), Result, 11);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -90,6 +90,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionPointerTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
 	ASTEST_BEGIN_FULL
 
@@ -105,9 +106,10 @@ bool FAngelscriptFunctionPointerTest::RunTest(const FString& Parameters)
 		CompileResult);
 	UE_SET_LOG_VERBOSITY(Angelscript, Log);
 	TestFalse(TEXT("Function pointer syntax should remain unsupported on the current branch"), bCompiled);
-	return !bCompiled;
-
+	bPassed = !bCompiled;
 	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -129,9 +131,9 @@ bool FAngelscriptFunctionConstructorTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -152,9 +154,9 @@ bool FAngelscriptFunctionDestructorTest::RunTest(const FString& Parameters)
 		Result);
 
 	TestEqual(TEXT("Destructor declarations should compile and execute in local scope"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -164,6 +166,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionTemplateTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
 	ASTEST_BEGIN_FULL
 
@@ -179,9 +182,10 @@ bool FAngelscriptFunctionTemplateTest::RunTest(const FString& Parameters)
 		CompileResult);
 	UE_SET_LOG_VERBOSITY(Angelscript, Log);
 	TestFalse(TEXT("Template syntax should currently remain unsupported on this 2.33-based branch"), bCompiled);
-	return !bCompiled;
-
+	bPassed = !bCompiled;
 	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -191,6 +195,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionFactoryTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
 	ASTEST_BEGIN_FULL
 
@@ -206,9 +211,10 @@ bool FAngelscriptFunctionFactoryTest::RunTest(const FString& Parameters)
 		CompileResult);
 	UE_SET_LOG_VERBOSITY(Angelscript, Log);
 	TestFalse(TEXT("Factory-style handle construction should remain unsupported on the current branch"), bCompiled);
-	return !bCompiled;
-
+	bPassed = !bCompiled;
 	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 #endif

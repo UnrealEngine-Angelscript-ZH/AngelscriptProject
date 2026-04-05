@@ -128,6 +128,7 @@ namespace
 
 bool FAngelscriptConsoleVariableBindingsTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
 	ASTEST_BEGIN_SHARE_CLEAN
 
@@ -206,13 +207,15 @@ int Entry()
 	const bool bFloatPassed = VerifyConsoleVariableFloat(*this, FloatName, 3.25f);
 	const bool bBoolPassed = VerifyConsoleVariableBool(*this, BoolName, false);
 	const bool bStringPassed = VerifyConsoleVariableString(*this, StringName, TEXT("UpdatedValue"));
-	return bScriptPassed && bIntPassed && bFloatPassed && bBoolPassed && bStringPassed;
-
+	bPassed = bScriptPassed && bIntPassed && bFloatPassed && bBoolPassed && bStringPassed;
 	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 bool FAngelscriptConsoleVariableExistingBindingsTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
 	ASTEST_BEGIN_SHARE_CLEAN
 	const FString ExistingName = MakeConsoleVariableName(TEXT("Existing"));
@@ -262,13 +265,15 @@ int Entry()
 
 	const bool bScriptPassed = TestEqual(TEXT("Console variable existing-value script should reuse the already-registered cvar"), Result, 1);
 	const bool bNativeValuePassed = VerifyConsoleVariableInt(*this, ExistingName, 21);
-	return bScriptPassed && bNativeValuePassed;
-
+	bPassed = bScriptPassed && bNativeValuePassed;
 	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 bool FAngelscriptConsoleCommandBindingsTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
 	ASTEST_BEGIN_SHARE_CLEAN
 	const FString CommandName = MakeConsoleVariableName(TEXT("Command"));
@@ -330,14 +335,16 @@ int Entry()
 
 	Engine.DiscardModule(TEXT("ASConsoleCommandCompat"));
 	const bool bUnregistered = VerifyConsoleCommandMissing(*this, CommandName);
-
-	return bEntryPassed && bRegistered && bExecuted && bOutputUpdated && bUnregistered;
+	bPassed = bEntryPassed && bRegistered && bExecuted && bOutputUpdated && bUnregistered;
 
 	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 bool FAngelscriptConsoleCommandReplacementBindingsTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
 	ASTEST_BEGIN_SHARE_CLEAN
 	const FString CommandName = MakeConsoleVariableName(TEXT("ReplacementCommand"));
@@ -430,14 +437,16 @@ int Entry()
 
 	Engine.DiscardModule(TEXT("ASConsoleCommandReplacementCompat"));
 	const bool bUnregistered = VerifyConsoleCommandMissing(*this, CommandName);
-
-	return bEntryPassed && bRegistered && bExecuted && bReplacementObserved && bUnregistered;
+	bPassed = bEntryPassed && bRegistered && bExecuted && bReplacementObserved && bUnregistered;
 
 	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 bool FAngelscriptConsoleCommandSignatureBindingsTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	AddExpectedError(TEXT("Global function for console command must have signature"), EAutomationExpectedErrorFlags::Contains, 1);
 	AddExpectedError(TEXT("ASConsoleCommandSignatureCompat"), EAutomationExpectedErrorFlags::Contains, 1);
 	AddExpectedError(TEXT("int Entry() | Line 8 | Col 2"), EAutomationExpectedErrorFlags::Contains, 1);
@@ -491,9 +500,10 @@ int Entry()
 	const bool bPrepared = TestEqual(TEXT("Console command signature mismatch should still prepare the entry function"), PrepareResult, asSUCCESS);
 	const bool bExecutionFailed = TestTrue(TEXT("Console command signature mismatch should fail command construction during execution"), ExecuteResult != asEXECUTION_FINISHED);
 	const bool bNotRegistered = VerifyConsoleCommandMissing(*this, CommandName);
-	return bPrepared && bExecutionFailed && bNotRegistered;
-
+	bPassed = bPrepared && bExecutionFailed && bNotRegistered;
 	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 #endif

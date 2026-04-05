@@ -23,9 +23,9 @@ bool FAngelscriptCoreCreateCompileExecuteTest::RunTest(const FString& Parameters
 		TEXT("int Run()"), Result);
 
 	TestEqual(TEXT("Core create/compile/execute should return the expected value"), Result, 42);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -44,9 +44,9 @@ bool FAngelscriptCoreGlobalStateTest::RunTest(const FString& Parameters)
 		TEXT("int Run()"), Result);
 
 	TestEqual(TEXT("Const globals and helper calls should evaluate as expected"), Result, 7);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -157,8 +157,9 @@ bool FAngelscriptCompilerBasicTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestEqual(TEXT("Core.CompilerBasic should report an error compile result for invalid syntax"), ErrorCompileResult, ECompileResult::Error);
-	return true;
 	ASTEST_END_FULL
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -206,8 +207,9 @@ bool FAngelscriptCompilerParserTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestEqual(TEXT("Core.Parser should report an error compile result for invalid syntax"), InvalidCompileResult, ECompileResult::Error);
-	return true;
 	ASTEST_END_FULL
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -253,8 +255,9 @@ bool FAngelscriptCompilerOptimizeTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestEqual(TEXT("Core.Optimize should keep reachable results stable when dead code is present"), DeadCodeResult, 1);
-	return true;
 	ASTEST_END_FULL
+
+	return true;
 }
 
 #endif

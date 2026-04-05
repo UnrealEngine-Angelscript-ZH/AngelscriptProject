@@ -50,9 +50,9 @@ interface UIDamageable
 	{
 		TestTrue(TEXT("Interface class should have CLASS_Interface flag"), InterfaceClass->HasAnyClassFlags(CLASS_Interface));
 	}
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioInterfaceDeclareInheritanceTest::RunTest(const FString& Parameters)
@@ -91,9 +91,9 @@ interface UIKillableInh : UIDamageableInh
 	{
 		TestTrue(TEXT("Child interface should have CLASS_Interface flag"), ChildInterface->HasAnyClassFlags(CLASS_Interface));
 	}
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

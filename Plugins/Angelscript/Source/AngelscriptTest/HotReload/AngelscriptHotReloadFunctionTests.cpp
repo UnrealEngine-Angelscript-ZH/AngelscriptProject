@@ -145,9 +145,9 @@ class UTrackedObjectB : UObject
 	TestNotNull(TEXT("UTrackedObjectA class should exist"), FindGeneratedClass(&Engine, TEXT("UTrackedObjectA")));
 	TestNotNull(TEXT("UTrackedObjectB class should exist"), FindGeneratedClass(&Engine, TEXT("UTrackedObjectB")));
 	TestTrue(TEXT("Unknown module record should not exist"), !Engine.GetModuleByModuleName(TEXT("NonExistent")).IsValid());
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptDiscardModuleTest::RunTest(const FString& Parameters)
@@ -208,9 +208,9 @@ int SurvivorEntry()
 	TestEqual(TEXT("Survivor module should still return 99 after discard"), SurvivorResult, 99);
 
 	TestFalse(TEXT("Discarding the same module twice should fail"), Engine.DiscardModule(TEXT("DiscardA")));
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptDiscardAndRecompileTest::RunTest(const FString& Parameters)
@@ -294,9 +294,9 @@ class UDiscardRecompileTargetV2 : UObject
 
 	TestEqual(TEXT("Version default should be 2 after discard and recompile"), VersionProperty->GetPropertyValue_InContainer(ObjV2), 2);
 	TestTrue(TEXT("Reload module record should exist after recompile"), Engine.GetModuleByModuleName(TEXT("DiscardRecompileMod")).IsValid());
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptModuleWatcherQueuesFileChangesTest::RunTest(const FString& Parameters)
@@ -331,6 +331,7 @@ bool FAngelscriptModuleWatcherQueuesFileChangesTest::RunTest(const FString& Para
 
 bool FAngelscriptHotReloadModifyLookupFlowTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
 	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("HotReloadModifyLookupFlow"));
@@ -408,9 +409,10 @@ class UHotReloadModifyLookupFlow : UObject
 
 	TestEqual(TEXT("Modify/lookup flow should surface the modified function body result after reload"), Result, 2);
 	Engine.DiscardModule(*ModuleName.ToString());
-	return TestTrue(TEXT("Modify/lookup flow should clear the module lookup after discard"), !Engine.GetModuleByModuleName(ModuleName.ToString()).IsValid());
-
+	bPassed = TestTrue(TEXT("Modify/lookup flow should clear the module lookup after discard"), !Engine.GetModuleByModuleName(ModuleName.ToString()).IsValid());
 	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 bool FAngelscriptHotReloadFailureKeepsOldCodeTest::RunTest(const FString& Parameters)
@@ -497,9 +499,9 @@ class UHotReloadFailureKeepsOldCode : UObject
 	}
 
 	TestEqual(TEXT("Failure fallback test should keep the old code active after the broken reload"), ResultAfterFailure, 5);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

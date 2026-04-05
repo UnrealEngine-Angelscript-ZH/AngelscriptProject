@@ -81,9 +81,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TSet compare operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptMapCompareBindingsTest::RunTest(const FString& Parameters)
@@ -138,9 +138,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TMap compare operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptOptionalTypeCompareTest::RunTest(const FString& Parameters)
@@ -209,9 +209,9 @@ bool FAngelscriptOptionalTypeCompareTest::RunTest(const FString& Parameters)
 	OptionalUsage.DestructValue(RightStorage);
 
 	TestFalse(TEXT("Set and unset optionals should compare unequal"), bSetVsUnsetEqual);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptMapDebuggerBindingsTest::RunTest(const FString& Parameters)
@@ -260,9 +260,9 @@ bool FAngelscriptMapDebuggerBindingsTest::RunTest(const FString& Parameters)
 	}
 
 	TestEqual(TEXT("TMap debugger key lookup should return the mapped value"), AlphaDebugValue.Value, FString(TEXT("2")));
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 #endif

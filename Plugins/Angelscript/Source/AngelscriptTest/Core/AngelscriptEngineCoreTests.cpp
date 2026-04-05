@@ -74,6 +74,7 @@ bool FAngelscriptTestModuleLifecycleTest::RunTest(const FString& Parameters)
 
 bool FAngelscriptTestModuleCompileSnippetTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
 	ASTEST_BEGIN_SHARE
 	if (!TestNotNull(TEXT("Compile test should create an initialized engine"), &Engine))
@@ -97,13 +98,15 @@ bool FAngelscriptTestModuleCompileSnippetTest::RunTest(const FString& Parameters
 	{
 		Function->Release();
 	}
-	return CompileResult == asSUCCESS && bCompiled;
-
+	bPassed = CompileResult == asSUCCESS && bCompiled;
 	ASTEST_END_SHARE
+
+	return bPassed;
 }
 
 bool FAngelscriptTestModuleExecuteSnippetTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
 	ASTEST_BEGIN_SHARE
 	if (!TestNotNull(TEXT("Execute test should create an initialized engine"), &Engine))
@@ -144,9 +147,10 @@ bool FAngelscriptTestModuleExecuteSnippetTest::RunTest(const FString& Parameters
 	TestEqual(TEXT("Execute test should receive the script return value"), static_cast<int>(Context->GetReturnDWord()), 42);
 	Context->Release();
 	Function->Release();
-	return PrepareResult == asSUCCESS && ExecuteResult == asEXECUTION_FINISHED;
-
+	bPassed = PrepareResult == asSUCCESS && ExecuteResult == asEXECUTION_FINISHED;
 	ASTEST_END_SHARE
+
+	return bPassed;
 }
 
 bool FAngelscriptFullDestroyClearsTypeStateTest::RunTest(const FString& Parameters)

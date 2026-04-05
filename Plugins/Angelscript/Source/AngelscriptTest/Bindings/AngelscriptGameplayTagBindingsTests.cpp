@@ -90,9 +90,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("GameplayTag compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptGameplayTagContainerBindingsTest::RunTest(const FString& Parameters)
@@ -183,9 +183,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("GameplayTagContainer compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptGameplayTagQueryBindingsTest::RunTest(const FString& Parameters)
@@ -282,9 +282,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("GameplayTagQuery compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 #endif

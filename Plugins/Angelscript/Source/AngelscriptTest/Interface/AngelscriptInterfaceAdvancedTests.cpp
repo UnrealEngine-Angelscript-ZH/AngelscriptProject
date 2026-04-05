@@ -142,13 +142,14 @@ class AScenarioInterfaceInherited : AActor, UIKillableChild
 	{
 		TestTrue(TEXT("Actor implementing child interface should also satisfy parent UIDamageableParent"), Actor->GetClass()->ImplementsInterface(ParentInterface));
 	}
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptScenarioInterfaceMissingMethodTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
 	ASTEST_BEGIN_SHARE_FRESH
 	static const FName ModuleName(TEXT("ScenarioInterfaceMissingMethod"));
@@ -201,9 +202,10 @@ class AScenarioInterfaceMissingMethod : AActor, UIDamageableMissing
 		TestEqual(TEXT("Interface should declare exactly 2 methods"), FuncCount, 2);
 	}
 
-	return bCompiled;
-
+	bPassed = bCompiled;
 	ASTEST_END_SHARE_FRESH
+
+	return bPassed;
 }
 
 bool FAngelscriptScenarioInterfaceNoPropertyTest::RunTest(const FString& Parameters)
@@ -243,9 +245,9 @@ interface UINoProperty
 	}
 
 	TestEqual(TEXT("Interface should have no UPROPERTY members"), PropertyCount, 0);
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptScenarioInterfaceGCSafeTest::RunTest(const FString& Parameters)
@@ -305,9 +307,9 @@ class AScenarioInterfaceGCSafe : AActor, UIDamageableGC
 	CollectGarbage(RF_NoFlags, true);
 
 	TestTrue(TEXT("Interface actor should be collected after destroy + GC"), !WeakActor.IsValid());
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 #if 1
@@ -407,9 +409,9 @@ class AScenarioInterfaceHotReload : AActor, UIDamageableHR
 		TestTrue(TEXT("V2 class should still implement interface after hot reload"), ClassV2->ImplementsInterface(InterfaceV2));
 	}
 
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 #endif
 
@@ -470,9 +472,9 @@ class AScenarioInterfaceCppBase : AActor, UICppTestInterface
 		TestTrue(TEXT("Class should implement its declared interface"), Actor->GetClass()->ImplementsInterface(InterfaceClass));
 	}
 
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptScenarioInterfaceInheritedMethodDispatchTest::RunTest(const FString& Parameters)
@@ -583,9 +585,9 @@ class AScenarioInterfaceInheritedDispatch : AActor, UIKillableDispatch
 	TestEqual(TEXT("Child interface cast should succeed for inherited script interface"), ChildCastWorked, 1);
 	TestEqual(TEXT("Parent interface method should dispatch through inherited interface reference"), ParentResult, 3);
 	TestEqual(TEXT("Child interface method should dispatch through child interface reference"), ChildResult, 5);
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptScenarioInterfaceMultipleInheritanceChainTest::RunTest(const FString& Parameters)
@@ -671,9 +673,9 @@ class AScenarioInterfaceMultiChain : AActor, UILeafChain
 		TestTrue(TEXT("Actor implementing leaf should satisfy leaf interface"), Actor->GetClass()->ImplementsInterface(LeafInterface));
 	}
 
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptScenarioInterfaceMultipleInheritanceDispatchTest::RunTest(const FString& Parameters)
@@ -793,9 +795,9 @@ class AScenarioInterfaceMultiDispatch : AActor, UILeafDispatchChain
 	TestEqual(TEXT("Base interface method should dispatch through a leaf implementation"), BaseResult, 2);
 	TestEqual(TEXT("Mid interface method should dispatch through a leaf implementation"), MidResult, 4);
 	TestEqual(TEXT("Leaf interface method should dispatch through a leaf implementation"), LeafResult, 8);
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 #endif

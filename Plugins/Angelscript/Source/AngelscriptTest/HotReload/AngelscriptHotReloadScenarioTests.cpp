@@ -144,9 +144,9 @@ class AScenarioHotReloadPropertyPreserved : AActor
 		return false;
 	}
 	TestEqual(TEXT("Scenario hot-reload property-preserved function should observe the preserved property value after reload"), Result, 142);
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptScenarioHotReloadAddPropertyTest::RunTest(const FString& Parameters)
@@ -231,9 +231,9 @@ class AScenarioHotReloadAddProperty : AActor
 
 	TestEqual(TEXT("Scenario hot-reload add-property should preserve the original property default"), ExistingValue, 1);
 	TestEqual(TEXT("Scenario hot-reload add-property should expose the newly added property with its default value"), NewValue, 99);
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptScenarioHotReloadFunctionChangeTest::RunTest(const FString& Parameters)
@@ -333,9 +333,9 @@ class AScenarioHotReloadFunctionChange : AActor
 		return false;
 	}
 	TestEqual(TEXT("Scenario hot-reload function-change should expose the updated function body on the same actor instance"), AfterReloadResult, 2);
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptScenarioHotReloadPIEStructuralChangeNeedsFullReloadTest::RunTest(const FString& Parameters)

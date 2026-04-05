@@ -626,6 +626,7 @@ class UScenarioScriptClassNonUClassTypeCannotSpawn : UObject
 
 bool FAngelscriptScenarioScriptClassRenameReplacesOldClassTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
 	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioScriptClassRenameReplacesOldClass"));
@@ -684,9 +685,10 @@ class AScenarioScriptClassRenameNew : AActor
 		return false;
 	}
 
-	return TestEqual(TEXT("Rename scenario should apply the renamed class default value after replacement"), VersionProperty->GetPropertyValue_InContainer(NewClass->GetDefaultObject()), 2);
-
+	bPassed = TestEqual(TEXT("Rename scenario should apply the renamed class default value after replacement"), VersionProperty->GetPropertyValue_InContainer(NewClass->GetDefaultObject()), 2);
 	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 #endif

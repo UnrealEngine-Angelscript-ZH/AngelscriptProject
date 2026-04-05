@@ -86,9 +86,9 @@ class AScenarioInterfaceImplBasic : AActor, UIDamageableImpl
 	{
 		TestTrue(TEXT("Actor should implement the interface"), Actor->GetClass()->ImplementsInterface(InterfaceClass));
 	}
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptScenarioInterfaceImplementMultipleTest::RunTest(const FString& Parameters)
@@ -167,9 +167,9 @@ class AScenarioInterfaceImplMultiple : AActor, UIDamageableMulti, UIHealableMult
 	{
 		TestTrue(TEXT("Actor should implement UIHealableMulti"), Actor->GetClass()->ImplementsInterface(HealableClass));
 	}
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 bool FAngelscriptScenarioInterfaceImplementsInterfaceMethodTest::RunTest(const FString& Parameters)
@@ -244,9 +244,9 @@ class AScenarioInterfaceImplMethod : AActor, UIDamageableImplCheck
 	}
 
 	TestEqual(TEXT("ImplementsInterface via StaticClass() should succeed in AS script"), ImplementsResult, 1);
-	return true;
-
 	ASTEST_END_SHARE_FRESH
+
+	return true;
 }
 
 #endif

@@ -88,9 +88,9 @@ bool FAngelscriptScriptNodeTraversalTest::RunTest(const FString& Parameters)
 	TestNotNull(TEXT("Root should expose the last child"), Root->lastChild);
 	TestTrue(TEXT("First and last child should differ when multiple declarations exist"), Root->firstChild != Root->lastChild);
 	TestEqual(TEXT("Second child should point back to the first child as prev"), Root->lastChild->prev, Root->firstChild);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScriptNodeCopyTest::RunTest(const FString& Parameters)
@@ -129,9 +129,9 @@ bool FAngelscriptScriptNodeCopyTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Copied root should keep the same node type"), static_cast<int32>(Copy->nodeType), static_cast<int32>(Root->nodeType));
 	TestTrue(TEXT("Copied node should be a different instance"), Copy != Root);
 	TestTrue(TEXT("Copied first child should be a different instance"), Copy->firstChild != nullptr && Copy->firstChild != Root->firstChild);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

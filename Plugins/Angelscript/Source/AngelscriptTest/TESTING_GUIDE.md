@@ -1,5 +1,7 @@
 # Angelscript Test Conventions & Macro Guide
 
+Chinese companion: `TESTING_GUIDE_ZH.md`
+
 ## Overview
 
 This project uses a two-layer macro system defined in `Shared/AngelscriptTestMacros.h` to reduce test boilerplate. All test files still use `IMPLEMENT_SIMPLE_AUTOMATION_TEST` for test declaration, but engine creation and lifecycle management are handled by macros.
@@ -28,7 +30,9 @@ This project uses a two-layer macro system defined in `Shared/AngelscriptTestMac
 | `ASTEST_BEGIN_CLONE` / `ASTEST_END_CLONE` | Creates `FAngelscriptEngineScope` | Auto-discards all active modules |
 | `ASTEST_BEGIN_NATIVE` / `ASTEST_END_NATIVE` | Validates non-null pointer | Auto `ShutDownAndRelease` |
 
-For the `SHARE` family, `ASTEST_BEGIN_*` is currently the canonical place to establish the engine scope, while `ASTEST_END_*` is intentionally kept as the paired lifecycle closeout point for future global control.
+For the `SHARE` family, `ASTEST_BEGIN_*` is currently the canonical place to establish the engine scope, while `ASTEST_END_*` remains the paired lifecycle closeout point for future global control.
+
+Canonical placement rule: keep the terminal `return` after `ASTEST_END_*`. Early returns inside the scoped block still trigger RAII cleanup, but the final success/failure return should remain outside the lifecycle pair so the source keeps an explicit `BEGIN` / `END` boundary.
 
 ### Helper Macros
 

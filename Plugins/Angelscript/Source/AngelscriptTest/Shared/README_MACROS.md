@@ -1,5 +1,7 @@
 # Angelscript Test Macro Notes
 
+Chinese companion: `README_MACROS_ZH.md`
+
 ## Status
 
 This file previously documented an abandoned `ANGELSCRIPT_TEST` / `ANGELSCRIPT_ISOLATED_TEST` wrapper family.
@@ -53,4 +55,5 @@ bool FExampleMacroTest::RunTest(const FString& Parameters)
 
 - Treat historical `ANGELSCRIPT_*` macro references as deprecated design artifacts.
 - Use `TESTING_GUIDE.md` for active examples and macro-selection guidance.
+- Keep the terminal `return` after `ASTEST_END_*`; treat `BEGIN` / `END` as the explicit lifecycle boundary in source.
 - Use `MACRO_MIGRATION_GUIDE.txt` only as a current redirect unless it has been updated to the same `ASTEST_*` terminology.

@@ -105,9 +105,9 @@ class UScenarioWorldLifecycleTracker : UScriptWorldSubsystem
 	}
 
 	TestEqual(TEXT("Scenario world subsystem lifecycle should currently fail compilation on this branch"), CompileResult, ECompileResult::Error);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioWorldSubsystemTickTest::RunTest(const FString& Parameters)
@@ -147,9 +147,9 @@ class UScenarioWorldTicker : UScriptWorldSubsystem
 	}
 
 	TestEqual(TEXT("Scenario world subsystem tick should currently fail compilation on this branch"), CompileResult, ECompileResult::Error);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioWorldSubsystemActorAccessTest::RunTest(const FString& Parameters)
@@ -195,9 +195,9 @@ class AScenarioWorldSubsystemActorAccessActor : AActor
 	}
 
 	TestEqual(TEXT("Scenario world subsystem actor access should currently fail compilation on this branch"), CompileResult, ECompileResult::Error);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioGameInstanceSubsystemLifecycleTest::RunTest(const FString& Parameters)
@@ -242,9 +242,9 @@ class UScenarioGameInstanceLifecycleTracker : UScriptGameInstanceSubsystem
 	}
 
 	TestEqual(TEXT("Scenario game-instance subsystem lifecycle should currently fail compilation on this branch"), CompileResult, ECompileResult::Error);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

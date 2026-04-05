@@ -97,9 +97,9 @@ class AScenarioInheritanceDerived : AScenarioInheritanceBase
 	}
 
 	TestEqual(TEXT("Scenario script-to-script actor inheritance should currently stay in the error state"), ReloadRequirement, FAngelscriptClassGenerator::Error);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioInheritanceSuperTest::RunTest(const FString& Parameters)
@@ -163,9 +163,9 @@ class AScenarioInheritanceSuperDerived : AScenarioInheritanceSuperBase
 	}
 
 	TestEqual(TEXT("Scenario inheritance with Super should currently stay in the error state"), ReloadRequirement, FAngelscriptClassGenerator::Error);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioInheritanceIsATest::RunTest(const FString& Parameters)
@@ -228,9 +228,9 @@ class AScenarioInheritanceIsADerived : AScenarioInheritanceIsABase
 	TestTrue(TEXT("Scenario inheritance IsA/Cast should not remain on the soft-reload path"),
 		ReloadRequirement == FAngelscriptClassGenerator::FullReloadRequired
 		|| ReloadRequirement == FAngelscriptClassGenerator::FullReloadSuggested);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

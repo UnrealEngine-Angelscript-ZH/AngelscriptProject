@@ -30,9 +30,9 @@ bool FAngelscriptObjectModelInheritanceTest::RunTest(const FString& Parameters)
 		Result);
 
 	TestEqual(TEXT("Value-type construction and member access should preserve field values"), Result, 7);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -53,9 +53,9 @@ bool FAngelscriptObjectModelDestructorTest::RunTest(const FString& Parameters)
 		Result);
 
 	TestEqual(TEXT("Value-type copies should preserve the original and apply arithmetic to the copy"), Result, 57);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -91,9 +91,9 @@ bool FAngelscriptObjectBasicTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestTrue(TEXT("Objects.Basic currently verifies compile and symbol registration only because executing script-object methods still faults at runtime on this branch"), true);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -129,9 +129,9 @@ bool FAngelscriptObjectCompositionTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestTrue(TEXT("Objects.Composition currently verifies compile and symbol registration only because nested script-object execution still faults at runtime on this branch"), true);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -163,9 +163,9 @@ bool FAngelscriptObjectZeroSizeTest::RunTest(const FString& Parameters)
 		Result);
 
 	TestEqual(TEXT("Zero-size script objects should still be instantiable"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 #endif

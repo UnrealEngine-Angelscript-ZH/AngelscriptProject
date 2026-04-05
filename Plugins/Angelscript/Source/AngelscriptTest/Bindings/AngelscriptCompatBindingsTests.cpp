@@ -28,6 +28,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptObjectCastCompatBindingsTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
 	ASTEST_BEGIN_SHARE
 	asIScriptModule* PlainModule = BuildModule(
@@ -134,9 +135,10 @@ class UBindingCastComponent : UActorComponent
 		return false;
 	}
 	TestEqual(TEXT("Annotated module Cast<T> should cast native return values to generated script classes"), AnnotatedResult, 1);
-	return AnnotatedResult == 1;
-
+	bPassed = AnnotatedResult == 1;
 	ASTEST_END_SHARE
+
+	return bPassed;
 }
 
 bool FAngelscriptObjectEditorOnlyBindingsTest::RunTest(const FString& Parameters)
@@ -175,9 +177,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("UObject editor-only binding should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptTimespanBindingsTest::RunTest(const FString& Parameters)
@@ -268,9 +270,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Timespan compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptDateTimeBindingsTest::RunTest(const FString& Parameters)
@@ -375,9 +377,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("DateTime compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 #endif

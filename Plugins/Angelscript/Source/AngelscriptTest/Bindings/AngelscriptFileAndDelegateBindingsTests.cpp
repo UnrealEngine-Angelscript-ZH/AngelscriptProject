@@ -100,9 +100,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Script delegate compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptSoftPathBindingsTest::RunTest(const FString& Parameters)
@@ -178,9 +178,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("SoftPath compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptSourceMetadataBindingsTest::RunTest(const FString& Parameters)
@@ -270,9 +270,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Source metadata accessors should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptFileHelperBindingsTest::RunTest(const FString& Parameters)
@@ -322,9 +322,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("FileHelper compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

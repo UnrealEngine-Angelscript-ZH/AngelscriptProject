@@ -64,13 +64,14 @@ bool FAngelscriptBuilderSingleModulePipelineTest::RunTest(const FString& Paramet
 	}
 
 	TestEqual(TEXT("Builder single-module pipeline should execute the compiled function"), Result, 42);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptBuilderCompileErrorCollectionTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
 	ASTEST_BEGIN_SHARE_CLEAN
 	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
@@ -86,9 +87,10 @@ bool FAngelscriptBuilderCompileErrorCollectionTest::RunTest(const FString& Param
 	const int32 BuildResult = Builder.CompileFunction("BuilderCompileErrors", "int Entry( { return 42; }", 0, 0, &Function);
 	TestTrue(TEXT("Builder should report invalid syntax as a build failure"), BuildResult < 0);
 	TestEqual(TEXT("Builder compile-error test should not return a compiled function on failure"), Function, static_cast<asCScriptFunction*>(nullptr));
-	return BuildResult < 0;
-
+	bPassed = BuildResult < 0;
 	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 bool FAngelscriptBuilderRebuildModuleTest::RunTest(const FString& Parameters)
@@ -138,9 +140,9 @@ bool FAngelscriptBuilderRebuildModuleTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestEqual(TEXT("Rebuilt builder module should execute the latest function body"), SecondResult, 2);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptBuilderImportBindingTest::RunTest(const FString& Parameters)
@@ -190,9 +192,9 @@ bool FAngelscriptBuilderImportBindingTest::RunTest(const FString& Parameters)
 	}
 
 	TestEqual(TEXT("Imported function binding should let the consumer execute the source function"), Result, 77);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

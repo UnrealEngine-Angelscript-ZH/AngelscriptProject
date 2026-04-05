@@ -24,9 +24,9 @@ bool FAngelscriptMiscNamespaceTest::RunTest(const FString& Parameters)
 		Result);
 
 	TestEqual(TEXT("Misc.Namespace should resolve namespace-qualified globals"), Result, 42);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 
@@ -48,9 +48,9 @@ bool FAngelscriptMiscGlobalVarTest::RunTest(const FString& Parameters)
 		Result);
 
 	TestEqual(TEXT("Misc.GlobalVar should expose compiled global state"), Result, 42);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -71,9 +71,9 @@ bool FAngelscriptMiscMultiAssignTest::RunTest(const FString& Parameters)
 		Result);
 
 	TestEqual(TEXT("Misc.MultiAssign should evaluate chained assignments from right to left"), Result, 126);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -94,9 +94,9 @@ bool FAngelscriptMiscAssignTest::RunTest(const FString& Parameters)
 		Result);
 
 	TestEqual(TEXT("Misc.Assign should apply compound assignments in sequence"), Result, 8);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -106,6 +106,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptMiscDuplicateFunctionTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
 	ASTEST_BEGIN_SHARE
 
@@ -130,9 +131,10 @@ bool FAngelscriptMiscDuplicateFunctionTest::RunTest(const FString& Parameters)
 	AddExpectedErrorPlain(TEXT("A function with the same name and parameters already exists"), EAutomationExpectedErrorFlags::Contains, 0);
 	const int32 BuildResult = Module->Build();
 	TestEqual(TEXT("Misc.DuplicateFunction should reject duplicate global function declarations on the raw AngelScript path"), BuildResult, static_cast<int32>(asERROR));
-	return BuildResult == asERROR;
-
+	bPassed = BuildResult == asERROR;
 	ASTEST_END_SHARE
+
+	return bPassed;
 }
 
 #endif

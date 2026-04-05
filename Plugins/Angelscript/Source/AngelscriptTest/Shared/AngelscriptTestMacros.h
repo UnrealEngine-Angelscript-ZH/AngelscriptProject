@@ -19,6 +19,7 @@
 //   ASTEST_BEGIN_FULL
 //   // ... test code ...
 //   ASTEST_END_FULL
+//   return true;
 //
 // See TESTING_GUIDE.md for detailed usage and decision tree.
 // ============================================================================
@@ -70,6 +71,11 @@
 // ============================================================================
 // Layer 2: Lifecycle Macros (BEGIN / END pairs)
 // ============================================================================
+// Placement rule:
+//   `ASTEST_END_*` closes the lifecycle scope opened by `ASTEST_BEGIN_*`.
+//   Put the terminal `return` after `ASTEST_END_*` so the lifecycle pairing
+//   remains explicit in source, even though RAII cleanup still runs on early
+//   returns inside the scoped block.
 
 // ---------- FULL lifecycle ----------
 // Establishes EngineScope + auto-discards all modules on exit.

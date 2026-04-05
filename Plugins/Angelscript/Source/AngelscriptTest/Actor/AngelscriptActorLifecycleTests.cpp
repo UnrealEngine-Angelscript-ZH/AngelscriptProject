@@ -93,9 +93,9 @@ class AScenarioActorBeginPlay : AActor
 	}
 
 	TestEqual(TEXT("BeginPlay should run when the script actor is spawned into the test world"), BeginPlayCalled, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioActorTickTest::RunTest(const FString& Parameters)
@@ -155,9 +155,9 @@ class AScenarioActorTick : AActor
 	}
 
 	TestTrue(TEXT("Tick should execute at least once per manual world tick"), TickCount >= 5);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioActorReceiveEndPlayTest::RunTest(const FString& Parameters)
@@ -215,9 +215,9 @@ class AScenarioActorReceiveEndPlay : AActor
 	}
 
 	TestEqual(TEXT("ReceiveEndPlay should run when the script actor is destroyed"), EndPlayCalled, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioActorReceiveDestroyedTest::RunTest(const FString& Parameters)
@@ -275,9 +275,9 @@ class AScenarioActorReceiveDestroyed : AActor
 	}
 
 	TestEqual(TEXT("ReceiveDestroyed should run when the script actor is destroyed"), DestroyedCalled, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioActorResetTest::RunTest(const FString& Parameters)
@@ -340,9 +340,9 @@ class AScenarioActorReset : AActor
 	}
 
 	TestEqual(TEXT("Reset should route through the script override and restore the expected value"), ResetValue, 7);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

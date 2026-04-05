@@ -85,9 +85,9 @@ class AScenarioActorPointDamage : AActor
 	UGameplayStatics::ApplyPointDamage(Actor, 42.0f, FVector::ForwardVector, FHitResult(), nullptr, nullptr, nullptr);
 
 	TestTrue(TEXT("Scenario point damage should route the applied damage into the script override"), FMath::IsNearlyEqual(Actor->GetActorTickInterval(), 42.0f));
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioActorRadialDamageTest::RunTest(const FString& Parameters)
@@ -152,9 +152,9 @@ class AScenarioActorRadialDamage : AActor
 	}
 
 	TestTrue(TEXT("Scenario radial damage should route the applied damage into the script override"), Actor->GetActorScale3D().Equals(FVector(24.0f, 24.0f, 24.0f), KINDA_SMALL_NUMBER));
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioActorMultiSpawnTest::RunTest(const FString& Parameters)
@@ -220,9 +220,9 @@ class AScenarioActorMultiSpawn : AActor
 
 	TestTrue(TEXT("Scenario multi-spawn should execute BeginPlay on every spawned instance at least once"), TotalBeginPlayCount >= 3);
 	TestTrue(TEXT("Scenario multi-spawn should create distinct actor instances"), SpawnedActors[0] != SpawnedActors[1] && SpawnedActors[1] != SpawnedActors[2] && SpawnedActors[0] != SpawnedActors[2]);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioActorCrossCallTest::RunTest(const FString& Parameters)
@@ -313,9 +313,9 @@ class AScenarioActorCrossCallA : AActor
 	}
 
 	TestTrue(TEXT("Scenario actor cross-call should let one spawned script actor invoke another's UFUNCTION"), CallCount >= 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

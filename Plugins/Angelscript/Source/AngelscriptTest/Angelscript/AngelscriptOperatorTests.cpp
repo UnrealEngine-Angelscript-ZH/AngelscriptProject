@@ -32,9 +32,9 @@ bool FAngelscriptOperatorOverloadTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestTrue(TEXT("Operators.Overload currently verifies compile coverage only because executing script-class operator overloads still faults on this branch"), true);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -70,9 +70,9 @@ bool FAngelscriptOperatorGetSetTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestTrue(TEXT("Operators.GetSet currently verifies compile coverage only because the raw accessor path does not expose stable globals or type metadata on this branch"), true);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -95,9 +95,9 @@ bool FAngelscriptOperatorConstTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestTrue(TEXT("Operators.Const currently verifies compile coverage only because executing const script-class methods still faults on this branch"), true);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -118,9 +118,9 @@ bool FAngelscriptOperatorPowerTest::RunTest(const FString& Parameters)
 		Result);
 
 	TestEqual(TEXT("Operators.Power should preserve exponentiation semantics"), Result, 8);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 #endif

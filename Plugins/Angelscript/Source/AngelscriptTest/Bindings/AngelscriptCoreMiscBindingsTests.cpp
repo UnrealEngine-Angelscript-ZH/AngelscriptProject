@@ -91,9 +91,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Guid compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptPathsBindingsTest::RunTest(const FString& Parameters)
@@ -169,9 +169,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Paths compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptNumberFormattingOptionsBindingsTest::RunTest(const FString& Parameters)
@@ -225,9 +225,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("NumberFormattingOptions compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 #endif

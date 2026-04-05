@@ -196,9 +196,9 @@ class AScenarioActorBlueprintSubclassBeginPlay : AActor
 		TEXT("World-level Tick should dispatch inherited script Tick to blueprint subclass actors at least once per world tick"),
 		TickCount >= BlueprintSubclassActorTest::ScenarioTickCount);
 
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

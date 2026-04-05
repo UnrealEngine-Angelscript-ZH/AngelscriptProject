@@ -106,9 +106,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Optional compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptSetBindingsTest::RunTest(const FString& Parameters)
@@ -180,9 +180,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Set compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptMapBindingsTest::RunTest(const FString& Parameters)
@@ -275,9 +275,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Map compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptArrayForeachBindingsTest::RunTest(const FString& Parameters)
@@ -330,9 +330,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TArray should support foreach syntax with value and index"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptSetForeachBindingsTest::RunTest(const FString& Parameters)
@@ -382,9 +382,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TSet should support foreach syntax with values"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptMapForeachBindingsTest::RunTest(const FString& Parameters)
@@ -437,9 +437,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TMap should support foreach syntax with value and key"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 #endif

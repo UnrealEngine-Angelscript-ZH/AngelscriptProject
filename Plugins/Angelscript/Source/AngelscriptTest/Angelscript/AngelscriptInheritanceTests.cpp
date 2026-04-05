@@ -46,8 +46,8 @@ bool FAngelscriptInheritanceBasicTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestTrue(TEXT("Inheritance.Basic currently verifies compile and symbol registration only because executing inherited script-class instances still faults on this branch"), true);
-	return true;
 	ASTEST_END_SHARE
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -57,6 +57,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptInheritanceInterfaceTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
 	ASTEST_BEGIN_FULL
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASInheritanceInterface.as"));
@@ -74,8 +75,10 @@ bool FAngelscriptInheritanceInterfaceTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	return CompileResult == ECompileResult::Error;
+	bPassed = CompileResult == ECompileResult::Error;
 	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -110,8 +113,8 @@ bool FAngelscriptInheritanceVirtualMethodTest::RunTest(const FString& Parameters
 		return false;
 	}
 	TestTrue(TEXT("Inheritance.VirtualMethod currently verifies compile and symbol registration only because inherited script-class dispatch still faults at runtime on this branch"), true);
-	return true;
 	ASTEST_END_SHARE
+	return true;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -121,6 +124,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptInheritanceCastOpTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
 	ASTEST_BEGIN_FULL
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASInheritanceCastOp.as"));
@@ -138,8 +142,10 @@ bool FAngelscriptInheritanceCastOpTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	return CompileResult == ECompileResult::Error;
+	bPassed = CompileResult == ECompileResult::Error;
 	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -149,6 +155,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptInheritanceMixinTest::RunTest(const FString& Parameters)
 {
+	bool bPassed = false;
 	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
 	ASTEST_BEGIN_FULL
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASInheritanceMixin.as"));
@@ -163,8 +170,10 @@ bool FAngelscriptInheritanceMixinTest::RunTest(const FString& Parameters)
 		CompileResult);
 	UE_SET_LOG_VERBOSITY(Angelscript, Log);
 	TestFalse(TEXT("Inheritance.Mixin should remain unsupported on this branch because the parser does not accept mixin-class syntax"), bCompiled);
-	return !bCompiled;
+	bPassed = !bCompiled;
 	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 #endif

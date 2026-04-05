@@ -77,9 +77,9 @@ bool FAngelscriptDataTypeObjectHandleTest::RunTest(const FString& Parameters)
 	asCDataType ActorHandleType = asCDataType::CreateObjectHandle(ActorType, false);
 	TestTrue(TEXT("CreateObjectHandle should mark the type as an object handle"), ActorHandleType.IsObjectHandle());
 	TestTrue(TEXT("Object handle should still be considered instantiable as a handle slot"), ActorHandleType.CanBeInstantiated());
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptDataTypeSizeAlignmentTest::RunTest(const FString& Parameters)

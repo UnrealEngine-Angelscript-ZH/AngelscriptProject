@@ -152,9 +152,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Extended Math helpers should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptPlatformProcessBindingsTest::RunTest(const FString& Parameters)
@@ -210,9 +210,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("PlatformProcess compat operations should behave as expected"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 bool FAngelscriptLoggingBindingsTest::RunTest(const FString& Parameters)
@@ -253,9 +253,9 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Headless-safe logging helpers should execute successfully"), Result, 1);
-	return true;
-
 	ASTEST_END_SHARE
+
+	return true;
 }
 
 #endif

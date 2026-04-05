@@ -143,9 +143,9 @@ class UScenarioComponentBeginPlay : UAngelscriptComponent
 	}
 
 	TestTrue(TEXT("Scenario component BeginPlay should set the readiness flag"), bReady);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioComponentTickTest::RunTest(const FString& Parameters)
@@ -205,9 +205,9 @@ class UScenarioComponentTick : UAngelscriptComponent
 	}
 
 	TestTrue(TEXT("Scenario component Tick should run during manual world ticking"), TickCount >= 5);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioComponentReceiveEndPlayTest::RunTest(const FString& Parameters)
@@ -266,9 +266,9 @@ class UScenarioComponentReceiveEndPlay : UAngelscriptComponent
 	}
 
 	TestTrue(TEXT("Scenario component EndPlay should run when the owning actor is destroyed"), bCleanedUp);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioComponentActorOwnerTest::RunTest(const FString& Parameters)
@@ -347,9 +347,9 @@ class UScenarioComponentActorOwner : UAngelscriptComponent
 	}
 
 	TestEqual(TEXT("Scenario component should read the owning script actor's property in BeginPlay"), ReadOwnerValue, 42);
-	return true;
-
 	ASTEST_END_SHARE_CLEAN
+
+	return true;
 }
 
 bool FAngelscriptScenarioDefaultComponentBasicTest::RunTest(const FString& Parameters)
