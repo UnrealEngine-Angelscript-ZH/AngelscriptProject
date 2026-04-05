@@ -579,30 +579,6 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 		return false;
 	}
 
-	static bool ShouldSkipBlueprintCallableFunction(const UFunction* Function)
-	{
-		static const FName NameFunctionNotInAngelscript(TEXT("NotInAngelscript"));
-		static const FName NameFunctionBlueprintInternalUseOnly(TEXT("BlueprintInternalUseOnly"));
-		static const FName NameFunctionUsableInAngelscript(TEXT("UsableInAngelscript"));
-
-		if (Function == nullptr)
-		{
-			return true;
-		}
-
-		if (Function->HasMetaData(NameFunctionNotInAngelscript))
-		{
-			return true;
-		}
-
-		if (Function->HasMetaData(NameFunctionBlueprintInternalUseOnly) && !Function->HasMetaData(NameFunctionUsableInAngelscript))
-		{
-			return true;
-		}
-
-		return false;
-	}
-
 	//TO-DO make sure the binds are written to base directory not inside another module
 	static void SaveBindModules(FString Path)
 	{
