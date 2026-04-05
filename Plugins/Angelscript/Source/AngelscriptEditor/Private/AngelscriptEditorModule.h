@@ -57,4 +57,5 @@ public:
 private:
 	void ReloadTags();
 	void RegisterToolsMenuEntries();
+	FDelegateHandle StateDumpExtensionHandle;
 };

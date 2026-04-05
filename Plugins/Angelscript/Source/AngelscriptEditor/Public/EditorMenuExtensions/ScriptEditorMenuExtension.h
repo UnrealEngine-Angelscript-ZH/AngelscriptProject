@@ -84,6 +84,15 @@ public:
 
 	static void InitializeExtensions();
 
+	struct FRegisteredExtensionSnapshot
+	{
+		EScriptEditorMenuExtensionLocation Location;
+		FName ExtensionPoint;
+		FName SectionName;
+	};
+
+	static TArray<FRegisteredExtensionSnapshot> GetRegisteredExtensionSnapshots();
+
 protected:
 
 	struct FExtenderSelection

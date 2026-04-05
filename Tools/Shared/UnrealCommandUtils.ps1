@@ -834,12 +834,40 @@ function Ensure-TargetInfoJson {
     $targetInfoPath = Join-Path $resolvedProjectRoot 'Intermediate\TargetInfo.json'
 
     if (Test-Path -LiteralPath $targetInfoPath -PathType Leaf) {
-        return [PSCustomObject]@{
-            Status         = 'Skipped'
-            TargetInfoPath = $targetInfoPath
-            DurationMs     = 0
-            Message        = 'TargetInfo.json already exists.'
+        $targetInfoMatchesProjectScope = $false
+        try {
+            $targetInfo = Get-Content -LiteralPath $targetInfoPath -Raw -Encoding UTF8 | ConvertFrom-Json
+            $targetInfoDirectory = Split-Path -Parent $targetInfoPath
+            $targetInfoTargets = @($targetInfo.Targets)
+            $targetInfoMatchesProjectScope = $targetInfoTargets.Count -gt 0
+
+            foreach ($target in $targetInfoTargets) {
+                $targetPath = [string]$target.Path
+                if ([string]::IsNullOrWhiteSpace($targetPath)) {
+                    continue
+                }
+
+                $resolvedTargetPath = [System.IO.Path]::GetFullPath((Join-Path $targetInfoDirectory $targetPath))
+                if (-not $resolvedTargetPath.StartsWith($resolvedProjectRoot, [System.StringComparison]::OrdinalIgnoreCase)) {
+                    $targetInfoMatchesProjectScope = $false
+                    break
+                }
+            }
         }
+        catch {
+            $targetInfoMatchesProjectScope = $false
+        }
+
+        if ($targetInfoMatchesProjectScope) {
+            return [PSCustomObject]@{
+                Status         = 'Skipped'
+                TargetInfoPath = $targetInfoPath
+                DurationMs     = 0
+                Message        = 'TargetInfo.json already exists and matches project scope.'
+            }
+        }
+
+        Remove-Item -LiteralPath $targetInfoPath -Force
     }
 
     $intermediateDir = Join-Path $resolvedProjectRoot 'Intermediate'
@@ -855,6 +883,8 @@ function Ensure-TargetInfoJson {
         '-Mode=QueryTargets'
         "-Project=$resolvedProjectFile"
         "-Output=$targetInfoPath"
+        '-IncludeAllTargets'
+        '-DontIncludeParentAssembly'
     )
 
     Write-Host '[prewarm] TargetInfo.json not found. Running UBT QueryTargets to generate it...' -ForegroundColor Cyan

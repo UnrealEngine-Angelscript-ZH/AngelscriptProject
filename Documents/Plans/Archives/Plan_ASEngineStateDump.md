@@ -1,5 +1,10 @@
 # AS 全插件状态 Dump
 
+归档状态：已归档（已完成）
+归档日期：2026-04-05
+完成判断：`FAngelscriptStateDump::DumpAll()`、Editor dump 扩展、`as.DumpEngineState` 控制台命令与 `Angelscript.TestModule.Dump` 4 个自动化测试已在当前 `main` 适配分支落地，并已通过标准构建与 dump 前缀回归验证；验证过程中发现并修复了 worktree 场景下 `Tools/RunTests.ps1` 预热 `TargetInfo.json` 的作用域失配问题，结构化报告现可稳定产出。
+结果摘要：本计划完成了 Runtime / Editor / Test 三侧状态 dump 导出链路，新增 27 张 CSV 表、`DumpSummary.csv` 汇总与测试模块控制台命令；同时为适配当前 `main` 补齐了 `FAngelscriptDocs` 统计 accessor、Editor 模块扩展注册点、菜单扩展快照接口与测试 include path。`ToStringTypes` 的 `NotAvailable`、`HotReloadState` 的 `PartialExport`、`CodeCoverage` 的 `Skipped` 仍保留为受 public API 与编译开关约束的预期结果，不阻塞归档。
+
 ## 背景与目标
 
 当前整个 Angelscript 插件几乎没有统一的 dump 机制。`FAngelscriptEngine` 持有大量运行时状态，绑定系统（`FAngelscriptBinds`、`FAngelscriptBindDatabase`、`FAngelscriptType`）有独立的全局注册表，StaticJIT/预编译子系统有运行时查找表和加载缓存，调试器有断点/客户端连接状态，代码覆盖率有命中计数，编辑器有热重载重绑映射和菜单扩展注册表——但开发者调试任何子系统时只能逐个打日志或在调试器里手工展开，效率极低。

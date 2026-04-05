@@ -69,6 +69,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Grou
 - 默认追加 `-Unattended -NoPause -NoSplash -NOSOUND`
 - 在非渲染模式下追加 `-NullRHI`
 - 为每次运行生成独立的 `-ABSLOG` 和 `-ReportExportPath`
+- 预热并校验当前 worktree 的 `Intermediate/TargetInfo.json`；如果发现旧缓存包含 parent assembly targets，会按当前项目作用域自动重建，避免启动阶段再次触发 `QueryTargets`
 - 对同一 worktree 启用单飞锁，防止同一 worktree 内并发跑多个 build/test
 - 在超时或异常退出时结束整个进程树
 
@@ -79,6 +80,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Grou
 ```powershell
 Tools\RunTests.ps1 -Group AngelscriptSmoke -TimeoutMs 120000
 Tools\RunTests.ps1 -TestPrefix "Angelscript.CppTests." -Label runtime-unit
+Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.Dump" -TimeoutMs 600000
 Tools\RunTests.ps1 -Group AngelscriptScenario -Render
 Tools\RunTests.ps1 -Group AngelscriptFast -- -log
 ```

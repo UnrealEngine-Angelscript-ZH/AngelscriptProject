@@ -28,5 +28,10 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptDocs
 	static const FString& GetUnrealDocumentationForProperty(int TypeId, int PropertyOffset);
 	static const FString& GetDocumentationForGlobalVariable(int GlobalVariableId);
 
+	static int32 GetUnrealDocumentationCount();
+	static int32 GetUnrealTypeDocumentationCount();
+	static int32 GetGlobalVariableDocumentationCount();
+	static int32 GetUnrealPropertyDocumentationCount();
+
 	static UFunction* LookupAngelscriptFunction(int FunctionId);
 };

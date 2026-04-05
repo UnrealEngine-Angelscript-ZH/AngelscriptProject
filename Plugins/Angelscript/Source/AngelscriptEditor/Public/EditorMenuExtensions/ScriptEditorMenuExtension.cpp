@@ -44,6 +44,22 @@ void UScriptEditorMenuExtension::InitializeExtensions()
 	}
 }
 
+TArray<UScriptEditorMenuExtension::FRegisteredExtensionSnapshot> UScriptEditorMenuExtension::GetRegisteredExtensionSnapshots()
+{
+	TArray<FRegisteredExtensionSnapshot> Result;
+	Result.Reserve(RegisteredExtensions.Num());
+	for (const FRegisteredExtender& RegisteredExtension : RegisteredExtensions)
+	{
+		Result.Add({
+			RegisteredExtension.Location,
+			RegisteredExtension.ExtensionPoint,
+			RegisteredExtension.SectionName,
+		});
+	}
+
+	return Result;
+}
+
 UWorld* UScriptEditorMenuExtension::GetWorld() const
 {
 	return (GEditor != nullptr) ? GEditor->GetEditorWorldContext().World() : nullptr;
