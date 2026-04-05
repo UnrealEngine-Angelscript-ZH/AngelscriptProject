@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using EpicGames.UHT.Types;
 using EpicGames.UHT.Utils;
 
-namespace AngelscriptUhtPlugin;
+namespace AngelscriptUHTTool;
 
 internal sealed record AngelscriptGeneratedFunctionEntry(
 	string ClassName,
@@ -122,7 +122,7 @@ internal static class AngelscriptFunctionTableCodeGenerator
 				: StringComparer.Ordinal.Compare(left.ModuleName, right.ModuleName);
 		});
 
-		Console.WriteLine("AngelscriptUhtPlugin per-module coverage diagnostics:");
+		Console.WriteLine("AngelscriptUHTTool per-module coverage diagnostics:");
 		foreach (AngelscriptModuleGenerationSummary summary in moduleSummaries)
 		{
 			Console.WriteLine(
