@@ -42,6 +42,12 @@
 
 IMPLEMENT_MODULE(FAngelscriptEditorModule, AngelscriptEditor);
 
+namespace AngelscriptEditor::Private
+{
+	void RegisterStateDumpExtension(FDelegateHandle& OutHandle);
+	void UnregisterStateDumpExtension(FDelegateHandle& InOutHandle);
+}
+
 extern void RegisterAngelscriptSourceNavigation();
 
 static FDelegateHandle GLiteralAssetPreSaveHandle;
@@ -355,6 +361,7 @@ void FAngelscriptEditorModule::StartupModule()
 	FCoreDelegates::OnPostEngineInit.AddStatic(&OnEngineInitDone);
 
 	UScriptEditorMenuExtension::InitializeExtensions();
+	AngelscriptEditor::Private::RegisterStateDumpExtension(StateDumpExtensionHandle);
 
 	// Register a directory watch on the script directory so we know when to reload
 	FDirectoryWatcherModule& DirectoryWatcherModule = FModuleManager::LoadModuleChecked<FDirectoryWatcherModule>("DirectoryWatcher");
@@ -673,6 +680,8 @@ void FAngelscriptEditorModule::ShutdownModule()
 		FCoreUObjectDelegates::OnObjectPreSave.Remove(GLiteralAssetPreSaveHandle);
 		GLiteralAssetPreSaveHandle.Reset();
 	}
+
+	AngelscriptEditor::Private::UnregisterStateDumpExtension(StateDumpExtensionHandle);
 
 	// Unregister the tool menu extension
 	UToolMenus::UnRegisterStartupCallback(this);

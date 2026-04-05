@@ -64,6 +64,7 @@
   - [13.2 Runtime 层学习测试](#132-runtime-层学习测试)
 - [14. Examples — 示例脚本编译](#14-examples--示例脚本编译)
 - [15. Template — 模板场景](#15-template--模板场景)
+- [16. Dump — 状态导出](#16-dump--状态导出)
 
 ---
 
@@ -1030,3 +1031,18 @@
 | 长时压力层 | `Angelscript.TestModule.Core.Performance.Startup` | `Saved/Automation/AngelscriptPerformance/P6_PerfStartup/Reports/index.json` | `failed=0` |
 | 长时压力层 | `Angelscript.TestModule.HotReload.Performance` | `Saved/Automation/AngelscriptPerformance/P6_PerfHotReload/Reports/index.json` | `failed=1 (BurstChurnLatency)` |
 | 产物验证层 | `Angelscript.TestModule.Core.Performance.ArtifactGeneration` | `Saved/Automation/AngelscriptPerformance/P6_PerfArtifactGeneration/Reports/index.json` | `failed=0` |
+
+---
+
+## 16. Dump — 状态导出
+
+> 源文件：`Dump/AngelscriptDumpCommand.cpp`、`Dump/AngelscriptDumpTests.cpp`
+>
+> 控制台命令：`as.DumpEngineState [OutputDir]`
+
+| 测试名 | 验证内容 |
+|--------|----------|
+| Dump.CSVWriter.Basic | `FCSVWriter` 能写出基础 header/row，并将结果保存到磁盘 |
+| Dump.CSVWriter.SpecialCharacters | `FCSVWriter` 对逗号、双引号与换行字段做正确 CSV 转义 |
+| Dump.DumpAll.EndToEnd | `FAngelscriptStateDump::DumpAll()` 会生成 Phase 1-7 约定的全部 CSV 文件 |
+| Dump.DumpAll.Summary | `DumpSummary.csv` 会为每张表写出状态与行数；当前 `ToStringTypes` / `HotReloadState` / `CodeCoverage` 的 `NotAvailable` / `PartialExport` / `Skipped` 属于受 public API 与编译开关约束的预期结果 |

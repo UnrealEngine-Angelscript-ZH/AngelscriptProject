@@ -95,6 +95,26 @@ const FString& FAngelscriptDocs::GetDocumentationForGlobalVariable(int GlobalVar
 	}
 }
 
+int32 FAngelscriptDocs::GetUnrealDocumentationCount()
+{
+	return UnrealDocumentation.Num();
+}
+
+int32 FAngelscriptDocs::GetUnrealTypeDocumentationCount()
+{
+	return UnrealTypeDocumentation.Num();
+}
+
+int32 FAngelscriptDocs::GetGlobalVariableDocumentationCount()
+{
+	return GlobalVariableDocumentation.Num();
+}
+
+int32 FAngelscriptDocs::GetUnrealPropertyDocumentationCount()
+{
+	return UnrealPropertyDocumentation.Num();
+}
+
 UFunction* FAngelscriptDocs::LookupAngelscriptFunction(int FunctionId)
 {
 	FPassedDoc* Found = UnrealDocumentation.Find(FunctionId);
