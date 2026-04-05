@@ -9,9 +9,9 @@
     <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
     <GenerateTargetFrameworkAttribute>false</GenerateTargetFrameworkAttribute>
     <Configurations>Debug;Release;Development</Configurations>
-    <RootNamespace>AngelscriptUhtPlugin</RootNamespace>
-    <AssemblyName>AngelscriptUhtPlugin</AssemblyName>
-    <OutputPath>..\..\Binaries\DotNET\UnrealBuildTool\Plugins\AngelscriptUhtPlugin\</OutputPath>
+    <RootNamespace>AngelscriptUHTTool</RootNamespace>
+    <AssemblyName>AngelscriptUHTTool</AssemblyName>
+    <OutputPath>..\..\Binaries\DotNET\UnrealBuildTool\Plugins\AngelscriptUHTTool\</OutputPath>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <DebugType>pdbonly</DebugType>
     <Nullable>enable</Nullable>
