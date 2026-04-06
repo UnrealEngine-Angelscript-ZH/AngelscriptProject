@@ -903,7 +903,7 @@ function Resolve-AgentConfiguration {
     }
 
     if (-not (Test-Path -LiteralPath $resolvedConfigPath -PathType Leaf)) {
-        throw "AgentConfig.ini was not found: $resolvedConfigPath. Run Tools\BootstrapWorktree.ps1 to initialize this worktree."
+        throw "AgentConfig.ini was not found: $resolvedConfigPath. Run Tools\Bootstrap\BootstrapWorktree.bat to initialize this worktree."
     }
 
     $config = Read-IniFile -Path $resolvedConfigPath
@@ -922,7 +922,7 @@ function Resolve-AgentConfiguration {
 
     $resolvedProjectFile = Normalize-PathValue -Path $projectFile
     if ($resolvedProjectFileCandidates -notcontains $resolvedProjectFile) {
-        throw "AgentConfig.ini [Paths] ProjectFile does not belong to project root '$resolvedProjectRoot'. Run Tools\BootstrapWorktree.ps1 for this worktree."
+        throw "AgentConfig.ini [Paths] ProjectFile does not belong to project root '$resolvedProjectRoot'. Run Tools\Bootstrap\BootstrapWorktree.bat for this worktree."
     }
 
     return [PSCustomObject]@{

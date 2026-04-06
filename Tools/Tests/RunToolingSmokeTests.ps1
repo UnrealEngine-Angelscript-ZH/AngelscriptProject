@@ -323,7 +323,7 @@ Invoke-TestCase -Name "CommandLineResolutionMapsWorktree" -Body {
 
 Invoke-TestCase -Name "BootstrapWorktreeCreatesConfigAndNormalizesProjectFile" -Body {
     $fixtureRoot = New-FixtureProjectRoot -Name "bootstrap"
-    $bootstrapScript = Join-Path $ProjectRoot 'Tools\BootstrapWorktree.ps1'
+    $bootstrapScript = Join-Path $ProjectRoot 'Tools\Bootstrap\powershell\BootstrapWorktree.ps1'
 
     & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $bootstrapScript -ProjectRoot $fixtureRoot -EngineRoot 'J:\UnrealEngine\UERelease' -NoPrewarm | Out-Null
     $exitCode = $LASTEXITCODE
@@ -362,7 +362,7 @@ Invoke-TestCase -Name "RunTestSuiteDryRunForwardsTimeout" -Body {
 
 Invoke-TestCase -Name "ResolveAgentCommandTemplatesFallsBackToBootstrapGuidance" -Body {
     $fixtureRoot = New-FixtureProjectRoot -Name 'command-templates-bootstrap'
-    $templatesScript = Join-Path $ProjectRoot 'Tools\ResolveAgentCommandTemplates.ps1'
+    $templatesScript = Join-Path $ProjectRoot 'Tools\Diagnostics\powershell\ResolveAgentCommandTemplates.ps1'
     $powerShell = Get-ConsolePowerShellPath
     $observedLines = New-Object System.Collections.Generic.List[string]
     $logPath = Join-Path $tempRoot 'command-templates-bootstrap.log'
@@ -386,7 +386,7 @@ Invoke-TestCase -Name "ResolveAgentCommandTemplatesFallsBackToBootstrapGuidance"
 }
 
 Invoke-TestCase -Name "ResolveAgentCommandTemplatesEmitsFirstClassBuildVariants" -Body {
-    $templatesScript = Join-Path $ProjectRoot 'Tools\ResolveAgentCommandTemplates.ps1'
+    $templatesScript = Join-Path $ProjectRoot 'Tools\Diagnostics\powershell\ResolveAgentCommandTemplates.ps1'
     $powerShell = Get-ConsolePowerShellPath
     $observedLines = New-Object System.Collections.Generic.List[string]
     $logPath = Join-Path $tempRoot 'command-templates-ready.log'

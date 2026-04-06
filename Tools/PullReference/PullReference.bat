@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-for %%I in ("%~dp0..") do set "PROJECT_ROOT=%%~fI"
+for %%I in ("%~dp0..\..") do set "PROJECT_ROOT=%%~fI"
 
 set "REFERENCE_KEY=%~1"
 set "TARGET_DIR=%~2"
@@ -32,6 +32,33 @@ if /I "%REFERENCE_KEY%"=="unrealcsharp" (
     goto :ValidateGit
 )
 
+if /I "%REFERENCE_KEY%"=="unlua" (
+    set "REPO_NAME=UnLua"
+    set "REPO_SSH=git@github.com:Tencent/UnLua.git"
+    set "REPO_HTTPS=https://github.com/Tencent/UnLua.git"
+    set "REPO_BRANCH=master"
+    if "%TARGET_DIR%"=="" set "TARGET_DIR=%PROJECT_ROOT%\Reference\UnLua"
+    goto :ValidateGit
+)
+
+if /I "%REFERENCE_KEY%"=="puerts" (
+    set "REPO_NAME=puerts"
+    set "REPO_SSH=git@github.com:Tencent/puerts.git"
+    set "REPO_HTTPS=https://github.com/Tencent/puerts.git"
+    set "REPO_BRANCH=master"
+    if "%TARGET_DIR%"=="" set "TARGET_DIR=%PROJECT_ROOT%\Reference\puerts"
+    goto :ValidateGit
+)
+
+if /I "%REFERENCE_KEY%"=="sluaunreal" (
+    set "REPO_NAME=sluaunreal"
+    set "REPO_SSH=git@github.com:Tencent/sluaunreal.git"
+    set "REPO_HTTPS=https://github.com/Tencent/sluaunreal.git"
+    set "REPO_BRANCH=master"
+    if "%TARGET_DIR%"=="" set "TARGET_DIR=%PROJECT_ROOT%\Reference\sluaunreal"
+    goto :ValidateGit
+)
+
 if /I "%REFERENCE_KEY%"=="hazelight" goto :Hazelight
 
 echo Unknown reference key: %REFERENCE_KEY%
@@ -42,6 +69,9 @@ goto :Usage
 echo Supported reference keys:
 echo   angelscript       - Pull AngelScript upstream v2.38.0 into Reference\angelscript-v2.38.0
 echo   unrealcsharp      - Pull UnrealCSharp into Reference\UnrealCSharp
+echo   unlua             - Pull Tencent UnLua into Reference\UnLua
+echo   puerts            - Pull Tencent puerts into Reference\puerts
+echo   sluaunreal        - Pull Tencent sluaunreal into Reference\sluaunreal
 echo   hazelight         - Local config only, read AgentConfig.ini
 exit /b 0
 
@@ -53,11 +83,14 @@ exit /b 1
 
 :Usage
 echo Usage:
-echo   Tools\PullReference.bat ^<reference-key^> [target-dir]
+echo   Tools\PullReference\PullReference.bat ^<reference-key^> [target-dir]
 echo.
 echo Examples:
 echo   Tools\PullReference.bat angelscript
 echo   Tools\PullReference.bat unrealcsharp
+echo   Tools\PullReference.bat unlua
+echo   Tools\PullReference.bat puerts
+echo   Tools\PullReference.bat sluaunreal
 echo   Tools\PullReference.bat angelscript "J:\UnrealEngine\AngelscriptProject\Reference\angelscript-v2.38.0"
 echo   Tools\PullReference.bat list
 exit /b 1

@@ -8,7 +8,7 @@
 - 现有文档命令偏向“等命令结束再看结果”，不满足“进入 UBT 后每一行实时可见”的要求。
 - 同一台机器上多个 worktree 共用一个引擎目录时，`Build.bat` 和 UBT 的互斥机制会干扰并发开发。
 
-这份文档只记录**已确认的源码事实**和本仓后续要采用的脚本化约束，供后续实现 `Tools/RunBuild.ps1`、`Tools/RunTests.ps1` 与 `Tools/Get-UbtProcess.ps1` 时直接引用。
+这份文档只记录**已确认的源码事实**和本仓后续要采用的脚本化约束，供后续实现 `Tools/RunBuild.ps1`、`Tools/RunTests.ps1` 与 `Tools/Diagnostics/powershell/Get-UbtProcess.ps1` 时直接引用。
 
 ## 已确认的源码事实
 
@@ -144,9 +144,9 @@
 - `Tools/Shared/UnrealCommandUtils.ps1`
 - `Tools/RunBuild.ps1`
 - `Tools/RunTests.ps1`
-- `Tools/Get-UbtProcess.ps1`
-- `Tools/ResolveAgentCommandTemplates.ps1`
-- `Tools/GenerateAgentConfigTemplate.bat`
+- `Tools/Diagnostics/powershell/Get-UbtProcess.ps1`
+- `Tools/Diagnostics/powershell/ResolveAgentCommandTemplates.ps1`
+- `Tools/Bootstrap/GenerateAgentConfigTemplate.bat`
 
 对应计划文档：
 
@@ -217,7 +217,7 @@ Copy-Item $src $dst
 
 ## 当前仓库状态（2026-04-04）
 
-- `Tools/Shared/UnrealCommandUtils.ps1`、`Tools/RunBuild.ps1`、`Tools/RunTests.ps1` 与 `Tools/Get-UbtProcess.ps1` 已落地。
+- `Tools/Shared/UnrealCommandUtils.ps1`、`Tools/RunBuild.ps1`、`Tools/RunTests.ps1` 与 `Tools/Diagnostics/powershell/Get-UbtProcess.ps1` 已落地。
 - `Tools/Tests/RunToolingSmokeTests.ps1` 与 `Tools/Tests/Helpers/*` 已用于验证 timeout、single-flight、流式输出、进程树清理与命令行解析。
 - 当前构建/测试脚本标准化已归档为已完成工作，后续如需调整执行约束，应直接更新脚本与 `Documents/Guides/Build.md` / `Documents/Guides/Test.md`，并视情况补新的 sibling plan。
 - `AGENTS_ZH.md`、`Documents/Guides/Build.md`、`Documents/Guides/Test.md` 这类“强制执行入口”文档暂未切换到新脚本，避免在脚本真正落地前把不存在的命令写成硬规则。

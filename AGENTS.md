@@ -10,7 +10,7 @@
 
 - The plugin is **no longer in prototype or foundation-building phase**. It has entered a maturity stage where the core runtime, editor integration, and test infrastructure are established, but external delivery entry points and several key capability closures still need attention.
 - Current baseline: `AngelscriptRuntime` / `AngelscriptEditor` / `AngelscriptTest` three-module structure is stable, with `123` `Bind_*.cpp` files, `27+` CSV state export tables, `452+` automation test definitions, `DebugServer V2` protocol, `CodeCoverage`, `StaticJIT`, and `BlueprintImpact Commandlet` all landed.
-- AngelScript base version is `2.33 + selective 2.38 compatibility`; the fork has diverged too far for a wholesale upgrade — the strategy is to selectively absorb improvements from higher versions. See `Documents/Guides/ASForkStrategy.md`.
+- AngelScript base version is `2.33 + selective 2.38 compatibility`; the fork has diverged too far for a wholesale upgrade — the strategy is to selectively absorb improvements from higher versions. See `Documents/Guides/AngelscriptForkStrategy.md`.
 - Current priority order: **known blockers & delivery baseline → onboarding assets & workflow entry points → feature parity & validation closure → AS 2.38 selective migration & long-term architecture**. See `Documents/Plans/Plan_StatusPriorityRoadmap.md` for details.
 
 ## Current Project Positioning
@@ -39,7 +39,7 @@
 - `Documents/Plans/`: Multi-phase task plan documents (47 execution Plans + 1 status overview + 1 index + 6 archived).
 - `Documents/Plans/Archives/`: Archive directory and summaries for completed or closed plans.
 - `Documents/Knowledges/`: 33+ architectural knowledge base documents.
-- `Tools/`: Local helper scripts (`RunBuild.ps1`, `RunTests.ps1`, `RunTestSuite.ps1`, `BootstrapWorktree.ps1` etc.).
+- `Tools/`: Local helper scripts — root runners (`RunBuild.ps1`, `RunTests.ps1`, `RunTestSuite.ps1`, `RunAutomationTests.ps1`/`.bat`, `GetAutomationReportSummary.ps1`), `Tools\Shared\UnrealCommandUtils.ps1`, and centralized tests under `Tools\Tests\`; grouped entry points under `Tools\Bootstrap\` (e.g. `BootstrapWorktree.bat`, `GenerateAgentConfigTemplate.bat`), `Tools\PullReference\PullReference.bat`, `Tools\Diagnostics\`, `Tools\Review\`, and `Tools\ReferenceComparison\`.
 - `Script/`: Angelscript example scripts.
 - `Reference/`: External reference repositories (not committed, local comparison use only).
 
@@ -50,16 +50,19 @@
 
 | Name | Entry & Notes |
 | --- | --- |
-| AngelScript v2.38.0 | Pull with `Tools\PullReference.bat angelscript`; defaults to `Reference\angelscript-v2.38.0`. See `Reference/README.md` |
+| AngelScript v2.38.0 | Pull with `Tools\PullReference\PullReference.bat angelscript`; defaults to `Reference\angelscript-v2.38.0`. See `Reference/README.md` |
 | Hazelight Angelscript | Obtained via `AgentConfig.ini` key `References.HazelightAngelscriptEngineRoot`. See `Reference/README.md` |
-| UnrealCSharp | Pull with `Tools\PullReference.bat unrealcsharp`; defaults to `Reference\UnrealCSharp`. See `Reference/README.md` |
+| UnrealCSharp | Pull with `Tools\PullReference\PullReference.bat unrealcsharp`; defaults to `Reference\UnrealCSharp`. See `Reference/README.md` |
+| Tencent UnLua | Pull with `Tools\PullReference\PullReference.bat unlua`; defaults to `Reference\UnLua`; use it to compare Lua reflection exposure, event overrides, and sample organization. See `Reference/README.md` |
+| Tencent puerts | Pull with `Tools\PullReference\PullReference.bat puerts`; defaults to `Reference\puerts`; use it to compare TypeScript/JavaScript runtime integration and declaration generation. See `Reference/README.md` |
+| Tencent sluaunreal | Pull with `Tools\PullReference\PullReference.bat sluaunreal`; defaults to `Reference\sluaunreal`; use it to compare Lua static export, performance trade-offs, and hot-update workflow. See `Reference/README.md` |
 
 - When adding new reference repositories, update `Reference/README.md` first, then add an index entry here.
 
 ## Local Configuration
 
 - `AgentConfig.ini` in the project root stores machine-specific paths (e.g., engine root). It is excluded via `.gitignore`.
-- On first use, run `Tools\GenerateAgentConfigTemplate.bat` to generate a template, then fill in local paths.
+- On first use, run `Tools\Bootstrap\GenerateAgentConfigTemplate.bat` to generate a template, then fill in local paths.
 - Engine paths in build and test commands should be read from `AgentConfig.ini` key `Paths.EngineRoot`.
 
 ## Build & Validation Principles
@@ -131,7 +134,7 @@
 | `Documents/Guides/TestCatalog.md` | Catalogued test baseline inventory |
 | `Documents/Guides/TestConventions.md` | Test naming and organization conventions |
 | `Documents/Guides/TechnicalDebtInventory.md` | Technical debt and live suite status |
-| `Documents/Guides/ASForkStrategy.md` | AngelScript fork evolution strategy (selective absorption, not wholesale upgrade) |
+| `Documents/Guides/AngelscriptForkStrategy.md` | AngelScript fork evolution strategy (selective absorption, not wholesale upgrade) |
 | `Documents/Guides/BindGapAuditMatrix.md` | Binding gap audit matrix |
 | `Documents/Guides/UE_Search_Guide.md` | UE knowledge lookup guide |
 | `Documents/Rules/GitCommitRule.md` | English commit conventions |

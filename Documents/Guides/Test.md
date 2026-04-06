@@ -28,19 +28,19 @@ DefaultTimeoutMs=600000
 如果当前 worktree 还没有配置，先执行：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Bootstrap\powershell\BootstrapWorktree.ps1
 ```
 
 批量补齐所有 worktree：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1 -AllRegisteredWorktrees
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Bootstrap\powershell\BootstrapWorktree.ps1 -AllRegisteredWorktrees
 ```
 
 只想拿标准命令模板时，使用：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\ResolveAgentCommandTemplates.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Diagnostics\powershell\ResolveAgentCommandTemplates.ps1
 ```
 
 ## 标准入口
@@ -234,14 +234,14 @@ J:\UnrealEngine\UERelease\Engine\Binaries\Win64\UnrealEditor-Cmd.exe <ProjectFil
 按以下顺序排查：
 
 1. 确认参数名正确，前缀用 `-TestPrefix`，不是 `-Filter`
-2. 用 `Tools\Get-UbtProcess.ps1` 检查是否有残留 UBT / Editor
+2. 用 `Tools\Diagnostics\powershell\Get-UbtProcess.ps1` 检查是否有残留 UBT / Editor
 3. 确认同一 worktree 内没有第二个 build/test 正在运行
 4. 检查当前 run 的 `RunMetadata.json`，看是否卡在 `TargetInfo` 预热、`Build.bat` 锁等待或编辑器执行阶段
 
 ## 对 AI Agent 的要求
 
 1. 先读取根目录 `AgentConfig.ini`
-2. 配置缺失或 worktree 路径不匹配时先跑 `Tools\BootstrapWorktree.ps1`
+2. 配置缺失或 worktree 路径不匹配时先跑 `Tools\Bootstrap\powershell\BootstrapWorktree.ps1`
 3. 单条测试只通过 `Tools\RunTests.ps1`
 4. suite 波次只通过 `Tools\RunTestSuite.ps1`
 5. 显式传入或继承一个不超过 `900000ms` 的超时
@@ -250,5 +250,5 @@ J:\UnrealEngine\UERelease\Engine\Binaries\Win64\UnrealEditor-Cmd.exe <ProjectFil
 ## 推荐提示词
 
 ```text
-请先读取项目根目录的 AgentConfig.ini；如果缺失或 ProjectFile 不属于当前 worktree，先执行 Tools\BootstrapWorktree.ps1。自动化测试只能通过 Tools\RunTests.ps1 或 Tools\RunTestSuite.ps1 执行，并显式带一个不超过 900000ms 的超时。不要手写 UnrealEditor-Cmd.exe 命令，也不要手写 -ABSLOG / -ReportExportPath 共享路径；日志、报告和摘要必须写入当前 run 的独立目录。除非明确需要真实渲染，否则保持默认 headless 模式。
+请先读取项目根目录的 AgentConfig.ini；如果缺失或 ProjectFile 不属于当前 worktree，先执行 Tools\Bootstrap\powershell\BootstrapWorktree.ps1。自动化测试只能通过 Tools\RunTests.ps1 或 Tools\RunTestSuite.ps1 执行，并显式带一个不超过 900000ms 的超时。不要手写 UnrealEditor-Cmd.exe 命令，也不要手写 -ABSLOG / -ReportExportPath 共享路径；日志、报告和摘要必须写入当前 run 的独立目录。除非明确需要真实渲染，否则保持默认 headless 模式。
 ```

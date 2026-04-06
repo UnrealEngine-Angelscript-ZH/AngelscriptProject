@@ -8,9 +8,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot 'Shared\UnrealCommandUtils.ps1')
+. (Join-Path $PSScriptRoot '..\..\Shared\UnrealCommandUtils.ps1')
 
-$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $filterRoot = if ($CurrentWorktreeOnly -and [string]::IsNullOrWhiteSpace($WorktreeRoot)) {
     $projectRoot
 }

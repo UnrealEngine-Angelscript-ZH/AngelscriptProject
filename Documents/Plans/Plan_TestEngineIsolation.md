@@ -52,7 +52,7 @@
 
 - `Plan_FullDeGlobalization.md`：本计划是其具体实施路径。Phase 1 的 Context Stack 直接对应该计划 Phase 2 的"显式上下文入口设计"，后续 Phase 可合并推进。
 - `Plan_TechnicalDebt.md`：已完成测试侧 helper 的 `FScopedGlobalEngineOverride` 统一和 DebugServer 收口。本计划从该基础出发继续深化。
-- `Archives/Plan_AngelscriptTestExecutionInfrastructure.md` 与 `Archives/Plan_BuildTestScriptStandardization.md`：构建/测试脚本标准化已落地，`Tools/RunBuild.ps1`、`Tools/RunTests.ps1`、`Tools/Get-UbtProcess.ps1` 与 `Tools/Tests/RunToolingSmokeTests.ps1` 已成为后续验证本计划的基础设施。
+- `Archives/Plan_AngelscriptTestExecutionInfrastructure.md` 与 `Archives/Plan_BuildTestScriptStandardization.md`：构建/测试脚本标准化已落地，`Tools/RunBuild.ps1`、`Tools/RunTests.ps1`、`Tools/Diagnostics/powershell/Get-UbtProcess.ps1` 与 `Tools/Tests/RunToolingSmokeTests.ps1` 已成为后续验证本计划的基础设施。
 
 ### 2026-04-04 主干状态同步
 

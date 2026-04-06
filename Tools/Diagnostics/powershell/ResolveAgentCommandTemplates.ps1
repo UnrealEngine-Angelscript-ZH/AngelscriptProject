@@ -14,10 +14,10 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot 'Shared\UnrealCommandUtils.ps1')
+. (Join-Path $PSScriptRoot '..\..\Shared\UnrealCommandUtils.ps1')
 
 $resolvedProjectRoot = if ([string]::IsNullOrWhiteSpace($ProjectRoot)) {
-    (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+    (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 }
 else {
     Normalize-PathValue -Path $ProjectRoot
@@ -31,11 +31,11 @@ else {
 }
 
 $powerShell = Get-ConsolePowerShellPath
-$bootstrapScript = Join-Path $resolvedProjectRoot 'Tools\BootstrapWorktree.ps1'
+$bootstrapScript = Join-Path $resolvedProjectRoot 'Tools\Bootstrap\powershell\BootstrapWorktree.ps1'
 $buildScript = Join-Path $resolvedProjectRoot 'Tools\RunBuild.ps1'
 $testScript = Join-Path $resolvedProjectRoot 'Tools\RunTests.ps1'
 $testSuiteScript = Join-Path $resolvedProjectRoot 'Tools\RunTestSuite.ps1'
-$ubtProcessScript = Join-Path $resolvedProjectRoot 'Tools\Get-UbtProcess.ps1'
+$ubtProcessScript = Join-Path $resolvedProjectRoot 'Tools\Diagnostics\powershell\Get-UbtProcess.ps1'
 
 $resolved = [ordered]@{
     Status                  = 'BootstrapRequired'

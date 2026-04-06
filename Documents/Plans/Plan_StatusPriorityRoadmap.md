@@ -38,7 +38,7 @@
    - 源码扫描规模与实际执行规模不是同一件事；后续任何 status/roadmap 都不能把三者混写成一个数字。
 
 4. **当前内部构建 / 测试 runner 与测试约定已经相当成熟，缺的不是内部工程能力，而是对外入口。**
-   - `Tools/RunBuild.ps1`、`Tools/RunTests.ps1`、`Tools/RunTestSuite.ps1` 与 `Tools/BootstrapWorktree.ps1` 已经把构建、suite 调度、超时、日志隔离、多 worktree 约束和 bootstrap 入口收口为统一流程。
+   - `Tools/RunBuild.ps1`、`Tools/RunTests.ps1`、`Tools/RunTestSuite.ps1` 与 `Tools/Bootstrap/powershell/BootstrapWorktree.ps1` 已经把构建、suite 调度、超时、日志隔离、多 worktree 约束和 bootstrap 入口收口为统一流程。
    - `Documents/Guides/Build.md` 与 `Documents/Guides/Test.md` 已明确要求只通过这些官方脚本执行；`Plugins/Angelscript/Source/AngelscriptTest/TESTING_GUIDE.md` 还把测试宏、引擎创建模式和命名约定沉淀成了成体系规范。
    - 这说明当前仓库真正欠缺的是“让外部使用者看得见、跟得上”的文档和分发入口，而不是继续补更多内部 runner。
 

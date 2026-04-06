@@ -1,7 +1,7 @@
 @echo off
 setlocal
 
-for %%I in ("%~dp0..") do set "PROJECT_ROOT=%%~fI"
+for %%I in ("%~dp0..\..") do set "PROJECT_ROOT=%%~fI"
 set "TARGET_FILE=%PROJECT_ROOT%\AgentConfig.ini"
 
 if /I not "%~1"=="--force" if exist "%TARGET_FILE%" (

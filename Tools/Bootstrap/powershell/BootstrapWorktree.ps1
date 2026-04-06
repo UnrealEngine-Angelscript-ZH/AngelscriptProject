@@ -14,7 +14,7 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-. (Join-Path $PSScriptRoot 'Shared\UnrealCommandUtils.ps1')
+. (Join-Path $PSScriptRoot '..\..\Shared\UnrealCommandUtils.ps1')
 
 function Resolve-BootstrapProjectRoot {
     param(
@@ -22,7 +22,7 @@ function Resolve-BootstrapProjectRoot {
     )
 
     if ([string]::IsNullOrWhiteSpace($ProjectRootValue)) {
-        return (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+        return (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
     }
 
     return (Resolve-Path $ProjectRootValue).Path

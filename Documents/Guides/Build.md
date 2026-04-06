@@ -34,23 +34,23 @@ DefaultTimeoutMs=600000
 如果当前 worktree 还没有 `AgentConfig.ini`，优先执行：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Bootstrap\powershell\BootstrapWorktree.ps1
 ```
 
 常用 bootstrap 方式：
 
 ```powershell
 # 初始化当前 worktree
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Bootstrap\powershell\BootstrapWorktree.ps1
 
 # 初始化所有已注册 worktree
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1 -AllRegisteredWorktrees
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Bootstrap\powershell\BootstrapWorktree.ps1 -AllRegisteredWorktrees
 
 # 显式指定引擎目录并跳过预热
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1 -EngineRoot "J:\UnrealEngine\UERelease" -NoPrewarm
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Bootstrap\powershell\BootstrapWorktree.ps1 -EngineRoot "J:\UnrealEngine\UERelease" -NoPrewarm
 ```
 
-`Tools\BootstrapWorktree.ps1` 会：
+`Tools\Bootstrap\powershell\BootstrapWorktree.ps1` 会：
 
 - 生成或规范化当前 worktree 的 `AgentConfig.ini`
 - 回填 `Build.DefaultTimeoutMs=180000` 与 `Test.DefaultTimeoutMs=600000`
@@ -60,7 +60,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.
 只想给 Agent 生成官方命令模板时，使用：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\ResolveAgentCommandTemplates.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Diagnostics\powershell\ResolveAgentCommandTemplates.ps1
 ```
 
 该脚本在配置缺失时会先返回 `BootstrapCommand`，配置正常时才返回构建与测试模板。
@@ -84,7 +84,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Labe
 - 通过 `-Log=` 把 UBT 日志重定向到当前 run 的私有目录，避免写入共享 `Log.txt`
 - 不依赖 `Build.bat` 的全局脚本锁，因此允许不同 worktree 并发构建
 
-常用命令模板也可以通过 `Tools\ResolveAgentCommandTemplates.ps1` 直接获取；当前会同时返回：
+常用命令模板也可以通过 `Tools\Diagnostics\powershell\ResolveAgentCommandTemplates.ps1` 直接获取；当前会同时返回：
 
 - `BuildCommand`
 - `NoXgeBuildCommand`
@@ -147,13 +147,13 @@ D:\Tmp\Logs\Build\<Label>\<RunId>\
 排查卡死、残留 UBT 或多 worktree 并发情况时使用：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Get-UbtProcess.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Diagnostics\powershell\Get-UbtProcess.ps1
 ```
 
 只看当前 worktree：
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Get-UbtProcess.ps1 -CurrentWorktreeOnly
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Diagnostics\powershell\Get-UbtProcess.ps1 -CurrentWorktreeOnly
 ```
 
 ## 多 worktree 故障排除
@@ -186,9 +186,9 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Labe
 
 处理顺序：
 
-1. 用 `Tools\Get-UbtProcess.ps1` 找出还在跑旧流程的 worktree
-2. 用 `Tools\BootstrapWorktree.ps1 -AllRegisteredWorktrees` 统一补齐配置
-3. 只通过 `Tools\ResolveAgentCommandTemplates.ps1` / 本文档下发构建命令
+1. 用 `Tools\Diagnostics\powershell\Get-UbtProcess.ps1` 找出还在跑旧流程的 worktree
+2. 用 `Tools\Bootstrap\powershell\BootstrapWorktree.ps1 -AllRegisteredWorktrees` 统一补齐配置
+3. 只通过 `Tools\Diagnostics\powershell\ResolveAgentCommandTemplates.ps1` / 本文档下发构建命令
 
 ### UBT 共享日志冲突
 
@@ -227,7 +227,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Labe
 ## 对 AI Agent 的要求
 
 1. 先读取根目录 `AgentConfig.ini`
-2. 配置缺失时先跑 `Tools\BootstrapWorktree.ps1`
+2. 配置缺失时先跑 `Tools\Bootstrap\powershell\BootstrapWorktree.ps1`
 3. 仅通过 `Tools\RunBuild.ps1` 执行构建
 4. 显式传入或继承一个不超过 `900000ms` 的超时
 5. 默认使用并发模式；只有确认会写引擎共享输出时才加 `-SerializeByEngine`
@@ -237,5 +237,5 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Labe
 ## 推荐提示词
 
 ```text
-请先读取项目根目录的 AgentConfig.ini；如果缺失或 ProjectFile 不属于当前 worktree，先执行 Tools\BootstrapWorktree.ps1。构建只能通过 Tools\RunBuild.ps1 进行，并显式带一个不超过 900000ms 的超时。默认保持并发模式；只有确认要写共享引擎输出时才追加 -SerializeByEngine。常用的 -NoXGE 不要再通过 ExtraArgs 透传，直接使用一等参数。不要使用 -UniqueBuildEnvironment，因为它会触发 worktree 私有的引擎级重编。日志必须实时输出，并写入当前 run 的独立目录；不要手写 Build.bat、RunUBT.bat 或 dotnet UnrealBuildTool.dll 命令。
+请先读取项目根目录的 AgentConfig.ini；如果缺失或 ProjectFile 不属于当前 worktree，先执行 Tools\Bootstrap\powershell\BootstrapWorktree.ps1。构建只能通过 Tools\RunBuild.ps1 进行，并显式带一个不超过 900000ms 的超时。默认保持并发模式；只有确认要写共享引擎输出时才追加 -SerializeByEngine。常用的 -NoXGE 不要再通过 ExtraArgs 透传，直接使用一等参数。不要使用 -UniqueBuildEnvironment，因为它会触发 worktree 私有的引擎级重编。日志必须实时输出，并写入当前 run 的独立目录；不要手写 Build.bat、RunUBT.bat 或 dotnet UnrealBuildTool.dll 命令。
 ```

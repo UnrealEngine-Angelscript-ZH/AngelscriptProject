@@ -12,7 +12,7 @@
 
 - 插件已经**不处于原型或底座搭建阶段**，而是进入了"核心运行时、编辑器集成、测试基础设施都已成型，但对外交付入口和若干关键能力闭环仍需收口"的成熟期。
 - 当前基线：`AngelscriptRuntime` / `AngelscriptEditor` / `AngelscriptTest` 三模块已稳定，`123` 个 `Bind_*.cpp`、`27+` 张 CSV 状态导出表、`452+` 个自动化测试定义、`DebugServer V2` 协议、`CodeCoverage`、`StaticJIT`、`BlueprintImpact Commandlet` 均已落地。
-- AS 基线版本为 `2.33 + 选择性 2.38 兼容`，fork 已深度分叉，整体升级不可行，策略为从高版本选择性吸收改进。详见 `Documents/Guides/ASForkStrategy.md`。
+- AS 基线版本为 `2.33 + 选择性 2.38 兼容`，fork 已深度分叉，整体升级不可行，策略为从高版本选择性吸收改进。详见 `Documents/Guides/AngelscriptForkStrategy.md`。
 - 近期优先级顺序：**已知阻塞项与交付基线 → 上手资产与工作流入口 → 功能 parity 与验证闭环 → AS 2.38 选择性迁移与长期架构**。详见 `Documents/Plans/Plan_StatusPriorityRoadmap.md`。
 
 ## 当前项目定位
@@ -39,7 +39,7 @@
 - `Documents/Plans/`：多阶段任务计划文档（47 份执行 Plan + 1 份状态总览 + 1 份索引 + 6 份已归档）。
 - `Documents/Plans/Archives/`：已完成或已关闭 Plan 的归档目录与摘要。
 - `Documents/Knowledges/`：33+ 份架构知识库文档。
-- `Tools/`：本地辅助脚本（`RunBuild.ps1`、`RunTests.ps1`、`RunTestSuite.ps1`、`BootstrapWorktree.ps1` 等）。
+- `Tools/`：本地辅助脚本 — 根目录运行器（`RunBuild.ps1`、`RunTests.ps1`、`RunTestSuite.ps1`、`RunAutomationTests.ps1`/`.bat`、`GetAutomationReportSummary.ps1`）、`Tools\Shared\UnrealCommandUtils.ps1`、集中测试在 `Tools\Tests\`；分组入口在 `Tools\Bootstrap\`（如 `BootstrapWorktree.bat`、`GenerateAgentConfigTemplate.bat`）、`Tools\PullReference\PullReference.bat`、`Tools\Diagnostics\`、`Tools\Review\`、`Tools\ReferenceComparison\`。
 - `Script/`：Angelscript 示例脚本。
 - `Reference/`：外部参考仓库（不提交，仅本地比对使用）。
 
@@ -50,16 +50,19 @@
 
 | 名称 | 入口与说明 |
 | --- | --- |
-| AngelScript v2.38.0 | 使用 `Tools\PullReference.bat angelscript` 默认拉取到 `Reference\angelscript-v2.38.0`；详情见 `Reference/README.md` |
+| AngelScript v2.38.0 | 使用 `Tools\PullReference\PullReference.bat angelscript` 默认拉取到 `Reference\angelscript-v2.38.0`；详情见 `Reference/README.md` |
 | Hazelight Angelscript | 通过 `AgentConfig.ini` 的 `References.HazelightAngelscriptEngineRoot` 获取；详情见 `Reference/README.md` |
-| UnrealCSharp | 使用 `Tools\PullReference.bat unrealcsharp` 默认拉取到 `Reference\UnrealCSharp`；详情见 `Reference/README.md` |
+| UnrealCSharp | 使用 `Tools\PullReference\PullReference.bat unrealcsharp` 默认拉取到 `Reference\UnrealCSharp`；详情见 `Reference/README.md` |
+| Tencent UnLua | 使用 `Tools\PullReference\PullReference.bat unlua` 默认拉取到 `Reference\UnLua`；用于参考 Lua 反射接入、事件覆写与示例组织；详情见 `Reference/README.md` |
+| Tencent puerts | 使用 `Tools\PullReference\PullReference.bat puerts` 默认拉取到 `Reference\puerts`；用于参考 TypeScript/JavaScript 脚本运行时与声明生成；详情见 `Reference/README.md` |
+| Tencent sluaunreal | 使用 `Tools\PullReference\PullReference.bat sluaunreal` 默认拉取到 `Reference\sluaunreal`；用于参考 Lua 静态导出、性能取舍与热更新工作流；详情见 `Reference/README.md` |
 
 - 后续新增参考仓库时，优先先更新 `Reference/README.md`，再回到本表补索引。
 
 ## 本地配置
 
 - 项目根目录的 `AgentConfig.ini` 存放本机引擎路径等配置，已被 `.gitignore` 忽略。
-- 首次使用运行 `Tools\GenerateAgentConfigTemplate.bat` 生成模板，再填入本机路径。
+- 首次使用运行 `Tools\Bootstrap\GenerateAgentConfigTemplate.bat` 生成模板，再填入本机路径。
 - 构建、测试命令中的引擎路径统一从 `AgentConfig.ini` 的 `Paths.EngineRoot` 获取。
 
 ## 构建与验证原则
@@ -128,7 +131,7 @@
 | `Documents/Guides/TestCatalog.md` | 已编目测试基线清单 |
 | `Documents/Guides/TestConventions.md` | 测试命名与组织约定 |
 | `Documents/Guides/TechnicalDebtInventory.md` | 技术债与 live suite 状态 |
-| `Documents/Guides/ASForkStrategy.md` | AngelScript Fork 演进策略（选择性吸收，非整体升级） |
+| `Documents/Guides/AngelscriptForkStrategy.md` | AngelScript Fork 演进策略（选择性吸收，非整体升级） |
 | `Documents/Guides/BindGapAuditMatrix.md` | 绑定差距审计矩阵 |
 | `Documents/Guides/UE_Search_Guide.md` | UE 知识查询指南 |
 | `Documents/Rules/GitCommitRule.md` | 英文提交规范 |
