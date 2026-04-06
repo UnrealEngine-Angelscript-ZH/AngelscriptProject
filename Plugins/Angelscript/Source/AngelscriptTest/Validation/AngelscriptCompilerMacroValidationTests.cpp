@@ -28,7 +28,7 @@ bool FAngelscriptCompilerEnumMacroValidationTest::RunTest(const FString& Paramet
 		TEXT("CompilerEnumAvailabilityMacro.as"),
 		TEXT(R"(
 UENUM(BlueprintType)
-enum class ECompilerAvailabilityState : uint16
+enum class ECompilerMacroAvailabilityState : uint16
 {
 	Alpha,
 	Beta = 4,
@@ -41,7 +41,7 @@ enum class ECompilerAvailabilityState : uint16
 		return false;
 	}
 
-	const TSharedPtr<FAngelscriptEnumDesc> EnumDesc = Engine.GetEnum(TEXT("ECompilerAvailabilityState"));
+	const TSharedPtr<FAngelscriptEnumDesc> EnumDesc = Engine.GetEnum(TEXT("ECompilerMacroAvailabilityState"));
 	if (!TestTrue(TEXT("Compiled enum metadata should be registered"), EnumDesc.IsValid()))
 	{
 		return false;
