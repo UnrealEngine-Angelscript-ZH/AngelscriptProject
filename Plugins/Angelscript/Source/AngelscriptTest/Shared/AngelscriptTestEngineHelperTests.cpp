@@ -86,8 +86,23 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptTestEngineHelperGetSharedTestEngineAliasesSharedCloneTest,
+	"Angelscript.TestModule.Shared.EngineHelper.GetSharedTestEngineAliasesSharedCloneEngine",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptTestEngineHelperGetResetSharedTestEngineResetsSharedStateTest,
+	"Angelscript.TestModule.Shared.EngineHelper.GetResetSharedTestEngineResetsSharedState",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptTestEngineHelperProductionHelperRejectsMissingProductionTest,
 	"Angelscript.TestModule.Shared.EngineHelper.ProductionHelperRejectsMissingProductionEngine",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptTestEngineHelperProductionDebuggerHelperPrefersDebuggableEngineOverScopedTestEngineTest,
+	"Angelscript.TestModule.Shared.EngineHelper.ProductionDebuggerHelperPrefersDebuggableEngineOverScopedTestEngine",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -269,6 +284,74 @@ bool FAngelscriptTestEngineHelperSharedEngineNeverAttachesToProductionTest::RunT
 		FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == PreviousGlobalEngine);
 }
 
+bool FAngelscriptTestEngineHelperGetSharedTestEngineAliasesSharedCloneTest::RunTest(const FString& Parameters)
+{
+	AngelscriptTestSupport::DestroySharedTestEngine();
+
+	ON_SCOPE_EXIT
+	{
+		AngelscriptTestSupport::DestroySharedTestEngine();
+	};
+
+	FAngelscriptEngine& FirstSharedEngine = AngelscriptTestSupport::GetSharedTestEngine();
+	FAngelscriptEngine& SecondSharedEngine = AngelscriptTestSupport::GetSharedTestEngine();
+	FAngelscriptEngine& ExplicitSharedClone = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
+
+	return TestTrue(
+		TEXT("GetSharedTestEngine should reuse the same shared engine instance across calls"),
+		&FirstSharedEngine == &SecondSharedEngine)
+		&& TestTrue(
+		TEXT("GetSharedTestEngine should alias GetOrCreateSharedCloneEngine"),
+		&FirstSharedEngine == &ExplicitSharedClone)
+		&& TestTrue(
+		TEXT("GetSharedTestEngine should install the recreated shared engine as the current scoped engine"),
+		FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == &FirstSharedEngine)
+		&& TestTrue(
+		TEXT("GetSharedTestEngine should resolve as the legacy global engine alias after recreating the shared scope"),
+		FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == &FirstSharedEngine);
+}
+
+bool FAngelscriptTestEngineHelperGetResetSharedTestEngineResetsSharedStateTest::RunTest(const FString& Parameters)
+{
+	static const FName ModuleName(TEXT("HelperGetResetSharedAlias"));
+	static const FString Filename(TEXT("HelperGetResetSharedAlias.as"));
+
+	AngelscriptTestSupport::DestroySharedTestEngine();
+	ON_SCOPE_EXIT
+	{
+		AngelscriptTestSupport::DestroySharedTestEngine();
+	};
+
+	FAngelscriptEngine& SharedEngine = AngelscriptTestSupport::GetSharedTestEngine();
+	const bool bCompiled = AngelscriptTestSupport::CompileModuleFromMemory(
+		&SharedEngine,
+		ModuleName,
+		Filename,
+		TEXT("int Entry() { return 17; }"));
+	if (!TestTrue(TEXT("GetResetSharedTestEngine regression fixture should compile before reset"), bCompiled))
+	{
+		return false;
+	}
+
+	if (!TestTrue(
+		TEXT("GetResetSharedTestEngine regression fixture should register a tracked module before reset"),
+		SharedEngine.GetModuleByModuleName(ModuleName.ToString()).IsValid()))
+	{
+		return false;
+	}
+
+	FAngelscriptEngine& ResetEngine = AngelscriptTestSupport::GetResetSharedTestEngine();
+	return TestTrue(
+		TEXT("GetResetSharedTestEngine should reuse the shared engine instance"),
+		&ResetEngine == &SharedEngine)
+		&& TestFalse(
+		TEXT("GetResetSharedTestEngine should clear tracked modules from the shared engine"),
+		ResetEngine.GetModuleByModuleName(ModuleName.ToString()).IsValid())
+		&& TestNull(
+		TEXT("GetResetSharedTestEngine should discard the backing script module"),
+		ResetEngine.GetScriptEngine()->GetModule(TCHAR_TO_UTF8(*ModuleName.ToString()), asGM_ONLY_IF_EXISTS));
+}
+
 bool FAngelscriptTestEngineHelperResetSharedEngineReleasesGeneratedComponentClassesTest::RunTest(const FString& Parameters)
 {
 	static const FName ModuleName(TEXT("HelperResetGeneratedComponent"));
@@ -381,6 +464,40 @@ bool FAngelscriptTestEngineHelperProductionHelperRejectsMissingProductionTest::R
 	return TestNull(
 		TEXT("Production-engine probe should return null when no production engine is attached"),
 		ProductionEngine);
+}
+
+bool FAngelscriptTestEngineHelperProductionDebuggerHelperPrefersDebuggableEngineOverScopedTestEngineTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine* DebuggableEngine = AngelscriptTestSupport::TryGetRunningProductionDebuggerEngine();
+	if (!TestNotNull(TEXT("Scoped production-debugger helper test requires an active debuggable production engine"), DebuggableEngine))
+	{
+		return false;
+	}
+
+	AngelscriptTestSupport::DestroySharedTestEngine();
+	FAngelscriptEngine& SharedEngine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
+	ON_SCOPE_EXIT
+	{
+		AngelscriptTestSupport::DestroySharedTestEngine();
+	};
+
+	if (!TestTrue(
+		TEXT("Shared helper should create a distinct test engine when a debuggable production engine exists"),
+		&SharedEngine != DebuggableEngine))
+	{
+		return false;
+	}
+
+	if (!TestTrue(
+		TEXT("Shared helper should become the current scoped engine while its persistent scope is active"),
+		FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == &SharedEngine))
+	{
+		return false;
+	}
+
+	return TestTrue(
+		TEXT("Production-debugger helper should still prefer the debuggable production engine over a scoped shared test engine"),
+		AngelscriptTestSupport::TryGetRunningProductionDebuggerEngine() == DebuggableEngine);
 }
 
 bool FAngelscriptTestEngineHelperResetSharedEngineDiscardsRawModulesTest::RunTest(const FString& Parameters)
