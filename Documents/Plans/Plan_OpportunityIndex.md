@@ -3,8 +3,8 @@
 本文档是对当前 Angelscript 插件所有可执行方向的系统性盘点，涵盖 AS 2.38 合入、测试增强、缺陷重构、功能增强、工具链与架构演进六大类。每个条目标注优先级、已有 Plan 状态与建议动作。
 
 **编制时间**：2026-04-05
-**当前基线**：AS 2.33.0 WIP，文档化 C++ 基线为 `275/275 PASS`，当前 live automation / full-suite 状态以测试增强章节、`Documents/Guides/TestCatalog.md` 与 `Documents/Guides/TechnicalDebtInventory.md` 为准；当前有 148 个 Bind 文件，`Documents/Plans/` 根目录含 47 份活跃 Plan、1 份索引文档与 1 份编写规则文档，`Archives/` 下另有 6 份已归档 Plan。
-**Plan 状态快照**：47 份活跃 Plan、6 份已归档完成 Plan、1 份索引文档（`Plan_OpportunityIndex.md`）、1 份编写规则文档（`Plan.md`）
+**当前基线**：AS 2.33.0 WIP，文档化 C++ 基线为 `275/275 PASS`，当前 live automation / full-suite 状态以测试增强章节、`Documents/Guides/TestCatalog.md` 与 `Documents/Guides/TechnicalDebtInventory.md` 为准；当前可直接统计到 `123` 个 `Bind_*.cpp` 与 `23` 个 bind 头文件。新增总览入口 `Plan_StatusPriorityRoadmap.md`，用于统一维护当前完成现状、Hazelight 差距与后续优先级。`Documents/Plans/` 根目录当前可见 `49` 份 `Plan_*.md`，其中包含 `47` 份执行 Plan、`1` 份状态总览 Plan（`Plan_StatusPriorityRoadmap.md`）和 `1` 份索引文档（`Plan_OpportunityIndex.md`）；`Plan.md` 作为编写规则文档单独保留，`Archives/` 下另有 `6` 份已归档 Plan。
+**Plan 状态快照**：47 份执行 Plan、1 份状态总览 Plan（`Plan_StatusPriorityRoadmap.md`）、1 份索引文档（`Plan_OpportunityIndex.md`）、1 份编写规则文档（`Plan.md`）、6 份已归档完成 Plan
 
 ---
 
@@ -49,7 +49,7 @@
 | D | 内部类单元测试 | `Plan_ASInternalClassUnitTests.md` | 未开始 |
 | E | SDK 上游测试桥接 | `Plan_ASSDKTestIntegration.md` | 部分完成，未归档（P0-P5 已落地，P3.2 因 fork 差异关闭，P6/P7 待收口） |
 | F | Native 核心测试重构 | `Plan_NativeAngelScriptCoreTestRefactor.md` | 未开始 |
-| G | Learning trace 教学测试 | `Plan_AngelscriptLearningTraceTests.md` | 部分完成，未归档（多数实现已落地，余 P4.2/P5.2/P5.4/P5.7-P5.9/P6.4） |
+| G | Learning trace 教学测试 | `Plan_AngelscriptLearningTraceTests.md` | 部分完成，未归档（`P4.2` 已按现状关闭；`P5.2/P5.4/P5.8/P5.9/P6.4` 部分实现；`P5.7` 待补） |
 | H | 调试器单元测试 | `Plan_ASDebuggerUnitTest.md` | 未开始 |
 | I | Engine Bind 与 FileWatch 验证 | `Plan_AngelscriptEngineBindAndFileWatchValidation.md` | 未开始 |
 | J | 网络复制与 RPC 验证闭环 | `Plan_NetworkReplicationTests.md` | 未开始 |

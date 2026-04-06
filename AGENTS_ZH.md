@@ -8,21 +8,40 @@
 - 当前第一目标不是继续扩展一个普通游戏工程，而是把 `Plugins/Angelscript` 整理、验证并沉淀为可独立使用的插件版本 AS 插件。
 - 当前仓库是插件开发与验证的承载工程；真正的主产物是 `Angelscript` 插件本身。
 
+## 当前项目阶段
+
+- 插件已经**不处于原型或底座搭建阶段**，而是进入了"核心运行时、编辑器集成、测试基础设施都已成型，但对外交付入口和若干关键能力闭环仍需收口"的成熟期。
+- 当前基线：`AngelscriptRuntime` / `AngelscriptEditor` / `AngelscriptTest` 三模块已稳定，`123` 个 `Bind_*.cpp`、`27+` 张 CSV 状态导出表、`452+` 个自动化测试定义、`DebugServer V2` 协议、`CodeCoverage`、`StaticJIT`、`BlueprintImpact Commandlet` 均已落地。
+- AS 基线版本为 `2.33 + 选择性 2.38 兼容`，尚未整体升级到 2.38。
+- 近期优先级顺序：**已知阻塞项与交付基线 → 上手资产与工作流入口 → 功能 parity 与验证闭环 → AS 2.38 选择性迁移与长期架构**。详见 `Documents/Plans/Plan_StatusPriorityRoadmap.md`。
+
 ## 当前项目定位
 
-- `Plugins/Angelscript/` 是核心工作区，绝大多数实现、修复、清理和测试都应优先落在这里
-- `Source/AngelscriptProject/` 仅保留宿主工程必须的最小内容，除非任务明确需要，不要把插件逻辑塞回项目模块
+- `Plugins/Angelscript/` 是核心工作区，绝大多数实现、修复、清理和测试都应优先落在这里。
+- `Source/AngelscriptProject/` 仅保留宿主工程必须的最小内容，除非任务明确需要，不要把插件逻辑塞回项目模块。
 
 ## 关键路径
 
 - `Plugins/Angelscript/Source/AngelscriptRuntime/`：运行时模块，插件核心能力优先落在这里。
-- `Plugins/Angelscript/Source/AngelscriptEditor/`：编辑器相关支持。
-- `Plugins/Angelscript/Source/AngelscriptTest/`：插件测试与验证。
-- `Documents/Guides/`：构建、测试、查询指南。
+  - `Core/`：引擎核心、绑定管理器、类型系统。
+  - `ClassGenerator/`：动态类生成、热重载、版本链。
+  - `Binds/`：123 个 `Bind_*.cpp`，覆盖引擎 API 绑定面。
+  - `Debugging/`：DebugServer V2 协议。
+  - `StaticJIT/`：静态 JIT 编译支持。
+  - `Dump/`：27+ 张 CSV 状态导出表，纯外部观察者架构。
+  - `CodeCoverage/`：代码覆盖率追踪。
+  - `FunctionLibraries/`：21+ 个脚本辅助函数库。
+- `Plugins/Angelscript/Source/AngelscriptEditor/`：编辑器相关支持（菜单扩展、热重载 UI、BlueprintImpact Commandlet）。
+- `Plugins/Angelscript/Source/AngelscriptTest/`：插件测试与验证（按 Actor/Bindings/Blueprint/Component/Debugger/HotReload/Subsystem 等主题组织）。
+- `Plugins/Angelscript/Source/AngelscriptUHTTool/`：UHT 代码生成工具链。
+- `Documents/Guides/`：构建、测试、查询指南（13 份）。
 - `Documents/Rules/`：Git 提交等规则文档。
-- `Documents/Plans/`：多阶段任务的计划文档。
+- `Documents/Plans/`：多阶段任务计划文档（47 份执行 Plan + 1 份状态总览 + 1 份索引 + 6 份已归档）。
 - `Documents/Plans/Archives/`：已完成或已关闭 Plan 的归档目录与摘要。
-- `Tools/`：本地辅助脚本。
+- `Documents/Knowledges/`：33+ 份架构知识库文档。
+- `Tools/`：本地辅助脚本（`RunBuild.ps1`、`RunTests.ps1`、`RunTestSuite.ps1`、`BootstrapWorktree.ps1` 等）。
+- `Script/`：Angelscript 示例脚本。
+- `Reference/`：外部参考仓库（不提交，仅本地比对使用）。
 
 ## 外部参考仓库
 
@@ -47,7 +66,16 @@
 
 - 构建说明统一参考 `Documents/Guides/Build.md`。
 - 测试说明统一参考 `Documents/Guides/Test.md`。
+- 状态导出入口：`FAngelscriptStateDump::DumpAll()`（`Plugins/Angelscript/Source/AngelscriptRuntime/Dump/AngelscriptStateDump.h`），控制台命令 `as.DumpEngineState`（`Plugins/Angelscript/Source/AngelscriptTest/Dump/`）。
+- 保持 dump 架构为纯外部观察者：优先通过已有 public/runtime API 读取，不要为 dump 侵入原有业务类型。
 - 若文档与当前插件化目标不一致，应先更新文档，再继续扩展实现。
+
+## 测试数字基线
+
+- 当前测试数字需区分三套口径，后续文档与 roadmap 不能混写：
+  - `275/275 PASS`：已编目 C++ 基线（`TestCatalog.md`）。
+  - `452+` 自动化测试定义：源码扫描规模。
+  - live full-suite 运行结果：以 `TechnicalDebtInventory.md` 中的实际数字为准。
 
 ## 文档维护原则
 
@@ -71,15 +99,36 @@
 - 已完成或已关闭的 Plan 从 `Documents/Plans/` 移入 `Documents/Plans/Archives/`；归档时必须补齐归档状态、归档日期、完成判断和结果摘要，并同步更新索引文档。
 - TODO 应按"插件目标"拆解，避免把旧工程遗留问题混成一个大任务。
 - 涉及重命名、模块迁移、对外 API 调整时，要同步梳理受影响文件和文档。
+- 当前活跃 Plan 的优先级与执行顺序统一由 `Documents/Plans/Plan_StatusPriorityRoadmap.md` 管理。
+- 各主题 Plan 的概况与路由统一由 `Documents/Plans/Plan_OpportunityIndex.md` 维护。
+
+## 近期已完成里程碑
+
+- ✅ 测试执行基础设施（统一 runner、group taxonomy、结构化摘要） — 已归档
+- ✅ 构建/测试脚本标准化（共享执行层、`RunBuild.ps1` / `RunTests.ps1` / `RunTestSuite.ps1`） — 已归档
+- ✅ Callfunc 死代码清理 — 已归档
+- ✅ 引擎状态导出体系（27 张 CSV 表、控制台命令、自动化回归） — 已归档
+- ✅ 测试宏优化（`BEGIN/END`、`SHARE_CLEAN/SHARE_FRESH`、group 收口） — 已归档
+- ✅ 技术债 Phase 0-6 收口 — 已归档
+- ✅ UHT 工具插件生成函数表与 legacy shard 移除 — main 已合入
+- ✅ BlueprintImpact Commandlet 与编辑器集成 — main 已合入
+- ✅ UE 5.7 绑定与调试器适配 — main 已合入
 
 ## 文档导航
 
 | 文档 | 用途 |
 | --- | --- |
 | `AGENTS.md` | 英文版总纲 |
+| `Plugins/Angelscript/AGENTS.md` | 插件内部测试分层与命名约定 |
 | `Reference/README.md` | 外部参考仓库索引与详细说明 |
+| `Documents/Plans/Plan_StatusPriorityRoadmap.md` | 当前完成现状、Hazelight 差距与优先级总览 |
+| `Documents/Plans/Plan_OpportunityIndex.md` | 所有可执行方向全景索引 |
 | `Documents/Guides/Build.md` | 构建与命令执行指南 |
 | `Documents/Guides/Test.md` | 测试指南 |
+| `Documents/Guides/TestCatalog.md` | 已编目测试基线清单 |
+| `Documents/Guides/TestConventions.md` | 测试命名与组织约定 |
+| `Documents/Guides/TechnicalDebtInventory.md` | 技术债与 live suite 状态 |
+| `Documents/Guides/BindGapAuditMatrix.md` | 绑定差距审计矩阵 |
 | `Documents/Guides/UE_Search_Guide.md` | UE 知识查询指南 |
 | `Documents/Rules/GitCommitRule.md` | 英文提交规范 |
 | `Documents/Plans/Plan.md` | Plan 文档编写规则 |

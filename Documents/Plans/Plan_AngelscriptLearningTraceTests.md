@@ -8,10 +8,12 @@
 
 **Tech Stack:** UE Automation (`IMPLEMENT_SIMPLE_AUTOMATION_TEST`)、`FAutomationTestBase::AddInfo/AddWarning/AddError`、`FAngelscriptEngine`、`FAngelscriptBinds`、`FAngelscriptClassGenerator`、`asIScriptEngine/asIScriptModule/asIScriptContext`、`AngelscriptDebugServer`、`FAngelscriptCodeCoverage`。
 
-> **当前状态（2026-04-04 复核）**：本计划并非未开始，仓库中已实际落地大部分实现。
-> - 已完成：`P0.1-P4.1`、`P4.3-P4.7`、`P5.1`、`P5.3`、`P5.5-P5.6`、`P6.1-P6.3`
-> - 待补尾项：`P4.2`、`P5.2`、`P5.4`、`P5.7-P5.9`、`P6.4`
-> - 现有实现主要集中在 `Learning/Native/` 与 `Learning/Runtime/`；`Scenario` / `Editor` 方向仍作为后续扩展与尾项承接。
+> **当前状态（2026-04-06 基于 `main` 审核）**：本计划并非未开始，`main` 上已经落地大部分 Learning Trace 实现，但状态块与尾项勾选未完全反映现状。
+> - 已完成：`P0.1-P4.2`、`P4.3-P4.7`、`P5.1`、`P5.3`、`P5.5-P5.6`、`P6.1-P6.3`
+> - 部分实现：`P5.2`、`P5.4`、`P5.8`、`P5.9`、`P6.4`
+> - 待补尾项：`P5.7`
+> - 实现偏差：原计划中一部分 `Scenario` / `Editor` 主题，当前主线实际更多落在 `Learning/Runtime/` 或既有 `Debugger/`、`Editor/`、`Examples/` 测试中，因此“有相关能力”不等于“已有独立 Learning 文件”。
+> - 审核依据：`Learning/Native/*`、`Learning/Runtime/*`、`Shared/AngelscriptLearningTrace*`、`Documents/Guides/LearningTrace.md`、`Editor/AngelscriptSourceNavigationTests.cpp`、`Debugger/AngelscriptDebuggerSmokeTests.cpp`、容器示例测试等主线文件。
 > - **归档判断**：当前**不满足归档条件**。根据 `Plan.md` 与 `Archives/README.md` 的规则，只有“已完成或已关闭”的 Plan 才能移入 `Archives/`；本计划仍保留明确未完成项与未满足的验收覆盖面。
 
 ---
@@ -369,6 +371,52 @@
   - 如果脚本故意写一个小错误，应把 `LogAngelscriptError()` 产生的 section/row/col/message 组织成教学输出，而不是只断言失败。
 - [x] **P3.1** 📦 Git 提交：`[Test/Learning] Feat: add compiler pipeline learning trace test`
 
+#### P3.1 补充：`CompileModules()` / 四阶段编译流观察细化任务
+
+> 当前 `P3.1` 已经让 Learning 测试能讲清楚 `BuildModule()` / `CompileModuleFromMemory()` / `CompileAnnotatedModuleFromMemory()` 的入口差异、`ECompileResult` 与 diagnostics，但它仍主要停留在“API 输入/输出”视角。若要把 `FAngelscriptEngine` 的真正编译总线讲透，需要把 `CompileModules()` 与 `CompileModule_Types_Stage1()` / `CompileModule_Functions_Stage2()` / `CompileModule_Code_Stage3()` / `CompileModule_Globals_Stage4()` 拆成独立课程片段，并把夹在阶段之间的 parse / layout / reload 分析半步显式输出。
+
+- [ ] **P3.1A** 为 `CompileModules()` 总编排器补一层结构化摘要
+  - 目标不是直接暴露整段 `CompileModules()` 内部状态，而是给 Learning 测试一个“总线视角”的稳定观察面：至少记录 `CompileType`、输入 module 数、参与编译的绝对/相对文件名、`OutCompiledModules` 数量、最终 `ECompileResult`、以及是否走到了 class generation / swap-in / queued full reload 分支。
+  - 优先修改 `Plugins/Angelscript/Source/AngelscriptTest/Shared/AngelscriptTestEngineHelper.h` 与 `Plugins/Angelscript/Source/AngelscriptTest/Shared/AngelscriptTestEngineHelper.cpp`，在现有 `FAngelscriptCompileTraceSummary` 基础上扩成“编译总线摘要”；只有 helper 无法稳定拿到阶段边界时，才评估最小 runtime seam。
+  - Learning 输出里要明确说明：`CompileModules()` 不是简单 `for module -> compile`，而是统一驱动首编译、热重载与预编译恢复的阶段调度器。
+- [ ] **P3.1A** 📦 Git 提交：`[Test/Learning] Chore: extend compile trace summary with CompileModules orchestration data`
+
+- [ ] **P3.1B** 为 Stage 1（Types）补独立课程片段
+  - 围绕 `CompileModule_Types_Stage1()` 增加结构化观察：临时模块名是否变成 `*_NEW_*`、导入模块数量、`CombinedDependencyHash` 是否折叠依赖、是否命中 precompiled stage1、是否写入 `AddPreClassData()` / delegate userdata tag、以及加入了多少 script sections。
+  - 重点不是复述源码，而是讲清楚 Stage 1 为什么是“模块壳 + 类型世界 + 依赖导入”的装配入口。测试应至少准备一组带 import 的模块样本，以及一组带 `UCLASS()` / delegate 的 annotated 脚本样本，让输出能同时覆盖 pre-class data 和 delegate tag 语义。
+  - 相关代码落点以 `Plugins/Angelscript/Source/AngelscriptRuntime/Core/AngelscriptEngine.cpp` 的 Stage 1 路径为主；测试落点优先继续使用 `Plugins/Angelscript/Source/AngelscriptTest/Learning/Runtime/AngelscriptLearningCompilerTraceTests.cpp`，若单文件过重再拆出 `AngelscriptLearningCompileStagesTraceTests.cpp`。
+- [ ] **P3.1B** 📦 Git 提交：`[Test/Learning] Feat: trace type-stage module assembly in compiler learning tests`
+
+- [ ] **P3.1C** 把 Stage 1 之后的 parse / type-generate 半步显式课程化
+  - 当前四阶段文档已经确认 `CompileModules()` 在 Stage 1 后还会做 `BuildParallelParseScripts()` 与 `BuildGenerateTypes()`；这两步不属于单独的 Stage 函数，但对理解“类型何时真正成立”极关键。
+  - 计划中应明确：不要把这部分偷塞进 Stage 1 的一句话说明，而是要在 Learning trace 里单独打印“脚本已装载 section”与“类型已生成可见”的边界，例如生成类型数、builder 是否进入 type generation、以及 annotated 脚本的类型何时开始可被后续函数阶段引用。
+  - 如果当前代码没有现成可读摘要，应优先通过测试侧对比 Stage 1 结束前后、Stage 2 进入前后的可见性差异来证明，而不是第一步就加大量 runtime 日志。
+- [ ] **P3.1C** 📦 Git 提交：`[Test/Learning] Feat: document parse and type-generation half-steps after stage1`
+
+- [ ] **P3.1D** 为 Stage 2（Functions）与后续 layout / reload 判定桥段补课程输出
+  - `CompileModule_Functions_Stage2()` 本身很短，但它后面紧跟的 `CollectUpdatedTypeReferences()`、`DiffForReferenceUpdate()`、`BuildLayoutClasses()`、`BuildAllocateGlobalVariables()`、`BuildLayoutFunctions()` 才是热重载语义真正分叉的地方。Learning 课程必须把这一整段看成“Stage 2 后桥段”，而不是误导用户以为 Stage 2 完就直接进 Stage 3。
+  - 输出至少覆盖：函数生成是否成功、哪些模块进入 references update、哪些模块被判成 structural change / code-only change、class/function layout 是否成功、何时分配 global variables、旧模块 bytecode 何时被替换引用。
+  - 测试样本应至少包含一组 code-only 变化与一组结构变化（例如新增 `UPROPERTY()` / 改函数签名）脚本，用于解释为什么某些输入会把 `SoftReloadOnly` 推成 `PartiallyHandled` 或 `ErrorNeedFullReload`。
+- [ ] **P3.1D** 📦 Git 提交：`[Test/Learning] Feat: trace function-stage follow-up layout and reload analysis`
+
+- [ ] **P3.1E** 为 Stage 3（Code）补 builder -> JIT 课程线
+  - 围绕 `CompileModule_Code_Stage3()` 输出 `BuildCompileCode()` 成功/失败、builder 何时被销毁、`JITCompile()` 是否执行、以及这一阶段为什么必须建立在“类型/函数/layout 已稳定”之后。
+  - 如果测试不方便直接观察 builder 生命周期，可通过结果型证据表达：Stage 3 前不可执行、Stage 3 后可 `Prepare()` / `Execute()`；必要时补一条最小 helper，把“是否走了 JIT compile 路径”折成稳定布尔摘要，而不是泄露内部指针。
+  - 这一步的重点是把“字节码可执行体真正何时落定”讲清楚，不是重复 `P2.3` 的原生 bytecode 课程。
+- [ ] **P3.1E** 📦 Git 提交：`[Test/Learning] Feat: trace code-generation and jit handoff in compiler learning tests`
+
+- [ ] **P3.1F** 为 Stage 4（Globals）补全局初始化与 coverage 映射课程线
+  - 围绕 `CompileModule_Globals_Stage4()` 讲清楚 `ResetGlobalVars(0)` 与 `CodeCoverage->MapExecutableLines(*Module)` 为什么必须最后发生，并把“全局变量真正活起来”与“可执行行映射建立完成”作为独立观察点输出。
+  - 课程样本至少要有一个依赖全局初始化的脚本，以及一个能展示 executable lines / line mapping 的多行函数脚本；这样才能把 `Globals` 阶段和后续 `P5.2` 的 line callback / coverage 课程自然接上。
+  - 若当前 `LearningCompilerTraceTests.cpp` 无法承载这部分叙事，可把它拆成“CompilePipeline”与“CompileStages”两组 Learning 测试文件，避免单文件无限增长。
+- [ ] **P3.1F** 📦 Git 提交：`[Test/Learning] Feat: trace global initialization and executable-line mapping after stage4`
+
+- [ ] **P3.1G** 把最终 `ECompileResult`、diagnostics 与 reload 后果回收成结尾课程
+  - 在阶段级观察全部补齐后，最后再统一解释 `FullyHandled` / `PartiallyHandled` / `Error` / `ErrorNeedFullReload` 各自代表什么，以及它们如何对应 `QueuedFullReloadFiles`、`PreviouslyFailedReloadFiles`、`EmitDiagnostics()`、class generation / swap-in 成败。
+  - 这一步的目标是避免 Learning 输出只讲阶段局部，却没把“为什么最终是这个 compile result”收束起来。输出应明确区分：编译错误、需要 full reload 但当前不能 full reload、soft reload 成功但仍需后续 full reload 三种情况。
+  - 相关验证既要看返回枚举，也要看 diagnostics / synthetic errors / queued reload side effects 是否与课程叙事一致。
+- [ ] **P3.1G** 📦 Git 提交：`[Test/Learning] Test: explain compile result outcomes after four-stage pipeline`
+
 - [x] **P3.2** 在 `Shared/AngelscriptTestEngineHelper.h/.cpp` 按需补轻量摘要 helper
   - 若直接在测试文件里重复读取 `Diagnostics`、`ECompileResult`、`AnalyzeReloadFromMemory()` 输出会显得散乱，可抽成少量 helper。
   - helper 只做“提取摘要”，不做新的业务层；避免把 Learning 逻辑反向侵入普通测试基础设施。
@@ -410,10 +458,10 @@
   - 输出重点是“脚本声明 -> 分析 property/method -> 生成 Unreal metadata”这条链路。
 - [x] **P4.1** 📦 Git 提交：`[Test/Learning] Feat: add class generation learning trace test`
 
-- [ ] **P4.2** 必要时补最小 class-generator seam
-  - 若现有 delegate 无法拿到教学测试需要的最基本上下文（例如新生成类名、reload 类型、枚举/结构体创建事件摘要），允许在 `AngelscriptClassGenerator.h/.cpp` 加最小测试可消费信息。
-  - 该 seam 必须默认低噪声、不可把生产日志放大到不可控。
-- [ ] **P4.2** 📦 Git 提交：`[Test/Learning] Feat: expose minimal class generation trace seams`
+- [x] **P4.2** 必要时补最小 class-generator seam（按现状关闭）
+  - `main` 复核结果显示，`P4.1` 的 `AngelscriptLearningClassGenerationTraceTests.cpp` 已经能基于现有 `FindGeneratedClass()`、`FindGeneratedFunction()`、默认对象与反射枚举完成首批课程线，当前没有证据表明还需要额外 class-generator seam 才能支撑已落地用例。
+  - 因此本项在主线现状下按“无需新增 seam”关闭；只有未来新增 Learning 用例确实拿不到现有上下文时，才重新打开并补最小 seam。
+- [x] **P4.2** 📦 Git 提交：`[Test/Learning] Chore: close conditional class-generation seam task after main-branch audit`
 
 - [x] **P4.3** 补一条 Blueprint/脚本类联动课程路径
   - 复用 `ClassGenerator/AngelscriptScriptClassCreationTests.cpp` 的模式，展示脚本父类生成后如何创建 Blueprint child，Blueprint child 又如何保留脚本 override 行为。
@@ -453,6 +501,7 @@
 - [ ] **P5.2** 创建 `Learning/AngelscriptLearningLineTraceTests.cpp`
   - 以一段多行函数脚本为例，讲清楚 line callback 何时触发、coverage 如何记录 executable line、`FindNextLineWithCode()` 如何帮助理解“哪一行是可执行代码”。
   - 如果首批不想改 runtime，可以先通过现有 `FAngelscriptCodeCoverage::MapFunction/HitLine` 和 line callback 命中后的可见副作用来组织输出；如果信息还不够，再补最小 seam。
+  - `main` 当前属于**部分实现**：`Learning/Native/AngelscriptLearningBytecodeTraceTests.cpp` 与 `Learning/Native/AngelscriptLearningDebuggerContextTraceTests.cpp` 已覆盖字节码、执行上下文和部分可执行行观察面，但还没有独立的 Learning line-trace / coverage 课程文件来把这些信息收束成单条课程线。
 - [ ] **P5.2** 📦 Git 提交：`[Test/Learning] Feat: add line callback and coverage learning trace test`
 
 - [x] **P5.3** 创建 `Learning/AngelscriptLearningUEBridgeTraceTests.cpp`
@@ -464,6 +513,7 @@
 - [ ] **P5.4** 评估并接入 DebugServer 作为第二层深度观察手段
   - 这一步不是首批必需，但建议在计划中保留：利用 `AngelscriptDebugServer` 的 callstack / variables / evaluate 能力，为后续“单步执行课程”做准备。
   - 首批可以只做 smoke：连接调试端口、请求 callstack 或 break filters、输出返回内容；不强求完整 IDE 协议课程。
+  - `main` 当前属于**部分实现**：`Plugins/Angelscript/Source/AngelscriptTest/Debugger/AngelscriptDebuggerSmokeTests.cpp` 已经有真实 DebugServer handshake / break filters smoke，但这些能力还没有被包装成 `Learning/*` 课程输出。
 - [ ] **P5.4** 📦 Git 提交：`[Test/Learning] Feat: add debugger-backed learning trace smoke test`
 
 - [x] **P5.5** 创建 `Learning/AngelscriptLearningGCTraceTests.cpp`
@@ -479,16 +529,19 @@
 - [ ] **P5.7** 创建 `Learning/AngelscriptLearningSubsystemLifecycleTraceTests.cpp`
   - 基于 `ScriptWorldSubsystem.h` / `Bind_Subsystems.cpp` 与现有 scenario，讲清楚 `ShouldCreateSubsystem()`、`Initialize()`、`PostInitialize()`、`OnWorldBeginPlay()`、`Tick()`、`Deinitialize()` 的顺序与 world-type 条件。
   - 如果当前脚本侧 subsystem 能力存在边界，也要把“不支持/需 full reload/仅特定 world type 创建”明确讲出来，作为边界课程而非忽略。
+  - `main` 复核未发现对应的 Learning 测试文件或等价课程输出；本项仍视为**未实现**。
 - [ ] **P5.7** 📦 Git 提交：`[Test/Learning] Feat: add subsystem lifecycle learning trace test`
 
 - [ ] **P5.8** 创建 `Learning/AngelscriptLearningSourceNavigationTraceTests.cpp`
   - 基于 `Editor/AngelscriptSourceNavigationTests.cpp`，讲清楚 `UASFunction` 如何保留 source file path / source line number，以及编辑器为何能导航到脚本位置。
   - 这条课程线非常适合解释“编译/生成结果里哪些元数据真正流到了 Editor”。
+  - `main` 当前属于**部分实现**：`Plugins/Angelscript/Source/AngelscriptTest/Editor/AngelscriptSourceNavigationTests.cpp` 已验证 source file path / line number / navigation 能力，但还没有独立的 `Learning/Editor/` 教学型封装。
 - [ ] **P5.8** 📦 Git 提交：`[Test/Learning] Feat: add source-navigation learning trace test`
 
 - [ ] **P5.9** 创建 `Learning/AngelscriptLearningContainerAndDebuggerValueTraceTests.cpp`
   - 基于 bindings/container debugger 相关测试，讲清楚 `TArray/TSet/TMap/TOptional/TSubclassOf` 等桥接类型在脚本、UE 类型系统和调试输出中的差异。
   - 输出重点不是所有 API，而是“为何某类桥接类型在 debugger summary 里这样显示、脚本迭代时这样表现”。
+  - `main` 当前属于**部分实现**：容器与桥接类型的行为已在 `Examples/AngelscriptScriptExampleArrayTest.cpp`、`Examples/AngelscriptScriptExampleMapTest.cpp` 等既有测试/示例中出现，debugger value 也有独立 Debugger 计划与基础设施，但尚未汇成独立 Learning trace 课程。
 - [ ] **P5.9** 📦 Git 提交：`[Test/Learning] Feat: add container and debugger-value learning trace test`
 
 ### Phase 6：文档、运行入口与验证矩阵
@@ -515,6 +568,7 @@
   - 先跑 Native 层学习测试，再跑 Compiler/ClassGeneration，再跑 Execution/UEBridge，最后跑总前缀 `Angelscript.TestModule.Learning`。
   - 每一批不仅确认通过/失败，还要抽查输出是否真的包含阶段标题、关键观测项和稳定的可读顺序。
   - 如果某个测试输出过于嘈杂或缺核心信息，应优先修输出结构，而不是继续堆更多日志。
+  - `main` 当前属于**部分实现**：单项 Learning 测试、`Shared/AngelscriptLearningTraceTests.cpp` 与阅读文档都已存在，但计划内尚无一条明确记录过的“分批矩阵验证”结果来证明全前缀输出质量已经系统复核。
 - [ ] **P6.4** 📦 Git 提交：`[Test/Learning] Test: verify educational trace test matrix`
 
 ## 推荐实施顺序
