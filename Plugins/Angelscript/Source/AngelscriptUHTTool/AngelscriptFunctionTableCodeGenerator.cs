@@ -6,7 +6,7 @@ using System.Text.RegularExpressions;
 using EpicGames.UHT.Types;
 using EpicGames.UHT.Utils;
 
-namespace AngelscriptUhtPlugin;
+namespace AngelscriptUHTTool;
 
 internal sealed record AngelscriptGeneratedFunctionEntry(
 	string ClassName,
@@ -25,6 +25,7 @@ internal sealed record AngelscriptSupportedModules(
 
 internal static class AngelscriptFunctionTableCodeGenerator
 {
+	private const int MaxEntriesPerRegistrationChunk = 256;
 	private static readonly Regex QuotedStringPattern = new("\"([^\"]+)\"", RegexOptions.Compiled);
 
 	public static int Generate(IUhtExportFactory factory)
@@ -90,13 +91,23 @@ internal static class AngelscriptFunctionTableCodeGenerator
 		}
 
 		builder.AppendLine();
+		for (int chunkStart = 0, chunkIndex = 0; chunkStart < entries.Count; chunkStart += MaxEntriesPerRegistrationChunk, chunkIndex++)
+		{
+			AppendRegistrationChunk(builder, module.ShortName, entries, chunkStart, chunkIndex);
+			builder.AppendLine();
+		}
+
 		builder.Append("AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_AS_FunctionTable_").Append(module.ShortName)
 			.AppendLine("((int32)FAngelscriptBinds::EOrder::Late + 50, []()");
 		builder.AppendLine("{");
 
-		foreach (AngelscriptGeneratedFunctionEntry entry in entries)
+		for (int chunkIndex = 0; chunkIndex * MaxEntriesPerRegistrationChunk < entries.Count; chunkIndex++)
 		{
-			builder.AppendLine(entry.BuildRegistrationLine());
+			builder.Append("\tRegister_AS_FunctionTable_")
+				.Append(module.ShortName)
+				.Append("_Chunk")
+				.Append(chunkIndex)
+				.AppendLine("();");
 		}
 
 		builder.Append("\tUE_LOG(Angelscript, Log, TEXT(\"[UHT] Registered %d generated BlueprintCallable entries for module %s\"), ")
@@ -115,6 +126,24 @@ internal static class AngelscriptFunctionTableCodeGenerator
 		outputPath = factory.MakePath($"AS_FunctionTable_{module.ShortName}", ".cpp");
 		factory.CommitOutput(outputPath, builder);
 		return true;
+	}
+
+	private static void AppendRegistrationChunk(StringBuilder builder, string moduleShortName, List<AngelscriptGeneratedFunctionEntry> entries, int chunkStart, int chunkIndex)
+	{
+		builder.Append("static void Register_AS_FunctionTable_")
+			.Append(moduleShortName)
+			.Append("_Chunk")
+			.Append(chunkIndex)
+			.AppendLine("()");
+		builder.AppendLine("{");
+
+		int chunkEnd = Math.Min(chunkStart + MaxEntriesPerRegistrationChunk, entries.Count);
+		for (int index = chunkStart; index < chunkEnd; index++)
+		{
+			builder.AppendLine(entries[index].BuildRegistrationLine());
+		}
+
+		builder.AppendLine("}");
 	}
 
 	private static AngelscriptSupportedModules LoadSupportedModules(IUhtExportFactory factory)

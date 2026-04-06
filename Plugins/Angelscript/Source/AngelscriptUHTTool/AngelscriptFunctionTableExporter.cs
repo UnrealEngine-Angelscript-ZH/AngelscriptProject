@@ -3,7 +3,7 @@ using EpicGames.UHT.Tables;
 using EpicGames.UHT.Types;
 using EpicGames.UHT.Utils;
 
-namespace AngelscriptUhtPlugin;
+namespace AngelscriptUHTTool;
 
 [UnrealHeaderTool]
 internal static class AngelscriptFunctionTableExporter
@@ -30,7 +30,7 @@ internal static class AngelscriptFunctionTableExporter
 		}
 
 		Console.WriteLine(
-			"AngelscriptUhtPlugin exporter visited {0} packages, {1} classes, {2} BlueprintCallable/Pure functions, reconstructed {3}, skipped {4}, wrote {5} module files.",
+			"AngelscriptUHTTool exporter visited {0} packages, {1} classes, {2} BlueprintCallable/Pure functions, reconstructed {3}, skipped {4}, wrote {5} module files.",
 			packageCount,
 			classCount,
 			functionCount,
