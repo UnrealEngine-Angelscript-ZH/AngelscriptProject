@@ -118,7 +118,7 @@ try {
     }
 
     $remainingAfterPrewarmMs = Get-RemainingTimeoutMs -DeadlineUtc $deadlineUtc -PhaseName 'Build.bat lock wait'
-    $buildLockWaitBudgetMs = [Math]::Min([int]($resolvedTimeoutMs / 3), [int]$remainingAfterPrewarmMs, 300000)
+    $buildLockWaitBudgetMs = [Math]::Min([Math]::Min([int]($resolvedTimeoutMs / 3), [int]$remainingAfterPrewarmMs), 300000)
     $buildLockResult = Wait-BuildBatLockRelease -EngineRoot $agentConfig.EngineRoot -TimeoutMs $buildLockWaitBudgetMs
     if ($buildLockResult.Status -eq 'TimedOut') {
         Write-Host ("[error] Build.bat global lock did not release within {0}ms: {1}" -f $buildLockResult.DurationMs, $buildLockResult.LockPath) -ForegroundColor Red
