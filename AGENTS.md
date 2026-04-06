@@ -10,7 +10,7 @@
 
 - The plugin is **no longer in prototype or foundation-building phase**. It has entered a maturity stage where the core runtime, editor integration, and test infrastructure are established, but external delivery entry points and several key capability closures still need attention.
 - Current baseline: `AngelscriptRuntime` / `AngelscriptEditor` / `AngelscriptTest` three-module structure is stable, with `123` `Bind_*.cpp` files, `27+` CSV state export tables, `452+` automation test definitions, `DebugServer V2` protocol, `CodeCoverage`, `StaticJIT`, and `BlueprintImpact Commandlet` all landed.
-- AngelScript base version is `2.33 + selective 2.38 compatibility`; not yet fully upgraded to 2.38.
+- AngelScript base version is `2.33 + selective 2.38 compatibility`; the fork has diverged too far for a wholesale upgrade — the strategy is to selectively absorb improvements from higher versions. See `Documents/Guides/ASForkStrategy.md`.
 - Current priority order: **known blockers & delivery baseline → onboarding assets & workflow entry points → feature parity & validation closure → AS 2.38 selective migration & long-term architecture**. See `Documents/Plans/Plan_StatusPriorityRoadmap.md` for details.
 
 ## Current Project Positioning
@@ -131,6 +131,7 @@
 | `Documents/Guides/TestCatalog.md` | Catalogued test baseline inventory |
 | `Documents/Guides/TestConventions.md` | Test naming and organization conventions |
 | `Documents/Guides/TechnicalDebtInventory.md` | Technical debt and live suite status |
+| `Documents/Guides/ASForkStrategy.md` | AngelScript fork evolution strategy (selective absorption, not wholesale upgrade) |
 | `Documents/Guides/BindGapAuditMatrix.md` | Binding gap audit matrix |
 | `Documents/Guides/UE_Search_Guide.md` | UE knowledge lookup guide |
 | `Documents/Rules/GitCommitRule.md` | English commit conventions |

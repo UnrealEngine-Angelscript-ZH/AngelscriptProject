@@ -12,7 +12,7 @@
 
 - 插件已经**不处于原型或底座搭建阶段**，而是进入了"核心运行时、编辑器集成、测试基础设施都已成型，但对外交付入口和若干关键能力闭环仍需收口"的成熟期。
 - 当前基线：`AngelscriptRuntime` / `AngelscriptEditor` / `AngelscriptTest` 三模块已稳定，`123` 个 `Bind_*.cpp`、`27+` 张 CSV 状态导出表、`452+` 个自动化测试定义、`DebugServer V2` 协议、`CodeCoverage`、`StaticJIT`、`BlueprintImpact Commandlet` 均已落地。
-- AS 基线版本为 `2.33 + 选择性 2.38 兼容`，尚未整体升级到 2.38。
+- AS 基线版本为 `2.33 + 选择性 2.38 兼容`，fork 已深度分叉，整体升级不可行，策略为从高版本选择性吸收改进。详见 `Documents/Guides/ASForkStrategy.md`。
 - 近期优先级顺序：**已知阻塞项与交付基线 → 上手资产与工作流入口 → 功能 parity 与验证闭环 → AS 2.38 选择性迁移与长期架构**。详见 `Documents/Plans/Plan_StatusPriorityRoadmap.md`。
 
 ## 当前项目定位
@@ -128,6 +128,7 @@
 | `Documents/Guides/TestCatalog.md` | 已编目测试基线清单 |
 | `Documents/Guides/TestConventions.md` | 测试命名与组织约定 |
 | `Documents/Guides/TechnicalDebtInventory.md` | 技术债与 live suite 状态 |
+| `Documents/Guides/ASForkStrategy.md` | AngelScript Fork 演进策略（选择性吸收，非整体升级） |
 | `Documents/Guides/BindGapAuditMatrix.md` | 绑定差距审计矩阵 |
 | `Documents/Guides/UE_Search_Guide.md` | UE 知识查询指南 |
 | `Documents/Rules/GitCommitRule.md` | 英文提交规范 |
