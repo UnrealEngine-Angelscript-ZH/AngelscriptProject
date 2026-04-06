@@ -91,6 +91,11 @@ bool FAngelscriptBinds::ShouldSkipBlueprintCallableFunction(const UFunction* Fun
 		return true;
 	}
 
+	if (!Function->HasAnyFunctionFlags(FUNC_Native))
+	{
+		return true;
+	}
+
 	if (Function->HasMetaData(NAME_Function_NotInAngelscript))
 	{
 		return true;
@@ -182,35 +187,6 @@ void FAngelscriptBinds::ResetBindState()
 {
 	GetBindState() = FAngelscriptBindState();
 }
-
-bool FAngelscriptBinds::ShouldSkipBlueprintCallableFunction(const UFunction* Function)
-{
-	if (Function == nullptr)
-	{
-		return true;
-	}
-
-	if (!Function->HasAnyFunctionFlags(FUNC_Native))
-	{
-		return true;
-	}
-
-	static const FName NAME_Function_NotInAngelscript(TEXT("NotInAngelscript"));
-	if (Function->HasMetaData(NAME_Function_NotInAngelscript))
-	{
-		return true;
-	}
-
-	static const FName NAME_Function_BlueprintInternalUseOnly(TEXT("BlueprintInternalUseOnly"));
-	static const FName NAME_Function_UsableInAngelscript(TEXT("UsableInAngelscript"));
-	if (Function->HasMetaData(NAME_Function_BlueprintInternalUseOnly) && !Function->HasMetaData(NAME_Function_UsableInAngelscript))
-	{
-		return true;
-	}
-
-	return false;
-}
-
 void FAngelscriptBinds::CallBinds()
 {
 	CallBinds(TSet<FName>());

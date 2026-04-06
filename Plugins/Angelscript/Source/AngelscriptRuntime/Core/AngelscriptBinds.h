@@ -580,8 +580,6 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 		return false;
 	}
 
-	static bool ShouldSkipBlueprintCallableFunction(const UFunction* Function);
-
 	//TO-DO make sure the binds are written to base directory not inside another module
 	static void SaveBindModules(FString Path)
 	{
