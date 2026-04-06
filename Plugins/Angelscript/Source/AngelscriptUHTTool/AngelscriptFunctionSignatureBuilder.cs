@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Text;
 using EpicGames.UHT.Types;
 
-namespace AngelscriptUhtPlugin;
+namespace AngelscriptUHTTool;
 
 internal sealed record AngelscriptFunctionSignature(
 	string OwningType,
@@ -49,7 +49,7 @@ internal static class AngelscriptFunctionSignatureBuilder
 			return true;
 		}
 
-		if (failureReason == "non-public" || failureReason == "overloaded-unresolved")
+		if (failureReason == "non-public" || failureReason == "overloaded-unresolved" || failureReason == "unexported-symbol")
 		{
 			return false;
 		}

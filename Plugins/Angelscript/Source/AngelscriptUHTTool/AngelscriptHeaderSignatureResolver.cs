@@ -5,7 +5,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using EpicGames.UHT.Types;
 
-namespace AngelscriptUhtPlugin;
+namespace AngelscriptUHTTool;
 
 internal static class AngelscriptHeaderSignatureResolver
 {
@@ -13,6 +13,7 @@ internal static class AngelscriptHeaderSignatureResolver
 
 	private static readonly Dictionary<string, string> SanitizedHeaderCache = new(StringComparer.OrdinalIgnoreCase);
 	private static readonly Regex MacroInvocationPattern = new(@"\b[A-Z_][A-Z0-9_]*\s*\([^;{}]*\)", RegexOptions.Compiled);
+	private static readonly Regex ExportTokenPattern = new(@"\b(?:[A-Z][A-Z0-9_]*_API|UE_API|RequiredAPI)\b", RegexOptions.Compiled);
 
 	public static bool TryBuild(UhtClass classObj, UhtFunction function, out AngelscriptFunctionSignature? signature, out string? failureReason)
 	{
@@ -25,7 +26,7 @@ internal static class AngelscriptHeaderSignatureResolver
 		}
 
 		string header = GetSanitizedHeader(classObj.HeaderFile.FilePath);
-		if (!TryFindClassBody(header, classObj.SourceName, out int classBodyStart, out int classBodyEnd))
+		if (!TryFindClassBody(header, classObj.SourceName, out int classBodyStart, out int classBodyEnd, out string? classDeclarationRegion))
 		{
 			failureReason = "class-range";
 			return false;
@@ -52,6 +53,14 @@ internal static class AngelscriptHeaderSignatureResolver
 			{
 				return false;
 			}
+
+			if (!HasLinkableExport(classObj, classDeclarationRegion!, candidate.Declaration))
+			{
+				signature = null;
+				failureReason = "unexported-symbol";
+				return false;
+			}
+
 			return true;
 		}
 
@@ -61,6 +70,7 @@ internal static class AngelscriptHeaderSignatureResolver
 			: "void";
 
 		List<AngelscriptFunctionSignature> exactMatches = new();
+		bool matchedUnexportedSymbol = false;
 		foreach (CandidateDeclaration candidate in publicCandidates)
 		{
 			if (!TryParseDeclaration(classObj, function, candidate.Declaration, true, out AngelscriptFunctionSignature? parsedSignature, out _))
@@ -72,6 +82,12 @@ internal static class AngelscriptHeaderSignatureResolver
 				AreTypesEquivalent(expectedParameterTypes, parsedSignature.ParameterTypes) &&
 				NormalizeTypeText(expectedReturnType) == NormalizeTypeText(parsedSignature.ReturnType))
 			{
+				if (!HasLinkableExport(classObj, classDeclarationRegion!, candidate.Declaration))
+				{
+					matchedUnexportedSymbol = true;
+					continue;
+				}
+
 				exactMatches.Add(parsedSignature);
 			}
 		}
@@ -83,8 +99,33 @@ internal static class AngelscriptHeaderSignatureResolver
 			return true;
 		}
 
-		failureReason = "overloaded-unresolved";
+		failureReason = matchedUnexportedSymbol ? "unexported-symbol" : "overloaded-unresolved";
 		return false;
+	}
+
+	private static bool HasLinkableExport(UhtClass classObj, string classDeclarationRegion, string functionDeclaration)
+	{
+		if (classObj.HeaderFile?.Module?.ShortName.Equals("AngelscriptRuntime", StringComparison.OrdinalIgnoreCase) == true)
+		{
+			return true;
+		}
+
+		if (HasExplicitExportToken(functionDeclaration))
+		{
+			return true;
+		}
+
+		if (classDeclarationRegion.Contains("MinimalAPI", StringComparison.Ordinal))
+		{
+			return false;
+		}
+
+		return HasExplicitExportToken(classDeclarationRegion);
+	}
+
+	private static bool HasExplicitExportToken(string declaration)
+	{
+		return ExportTokenPattern.IsMatch(declaration);
 	}
 
 	private static List<string> BuildExpectedParameterTypes(UhtFunction function)
@@ -221,7 +262,7 @@ internal static class AngelscriptHeaderSignatureResolver
 		return sanitizedHeader;
 	}
 
-	private static bool TryFindClassBody(string header, string className, out int classBodyStart, out int classBodyEnd)
+	private static bool TryFindClassBody(string header, string className, out int classBodyStart, out int classBodyEnd, out string? classDeclarationRegion)
 	{
 		foreach (string marker in new[] { "UCLASS(", "UINTERFACE(" })
 		{
@@ -246,6 +287,7 @@ internal static class AngelscriptHeaderSignatureResolver
 					int classEnd = FindMatchingBrace(header, braceIndex);
 					if (classEnd > braceIndex)
 					{
+						classDeclarationRegion = declarationRegion;
 						classBodyStart = braceIndex + 1;
 						classBodyEnd = classEnd;
 						return true;
@@ -256,6 +298,7 @@ internal static class AngelscriptHeaderSignatureResolver
 			}
 		}
 
+		classDeclarationRegion = null;
 		classBodyStart = -1;
 		classBodyEnd = -1;
 		return false;
@@ -420,7 +463,7 @@ internal static class AngelscriptHeaderSignatureResolver
 		List<string> keptTokens = new();
 		foreach (string token in cleaned.Split(' ', StringSplitOptions.RemoveEmptyEntries))
 		{
-			if (token.EndsWith("_API", StringComparison.Ordinal) || token == "UE_API")
+			if (token.EndsWith("_API", StringComparison.Ordinal) || token == "UE_API" || token == "RequiredAPI")
 			{
 				continue;
 			}
