@@ -31,6 +31,28 @@
 
 ## BootstrapWorktree.ps1
 
+## BlueprintImpactScanCommandlet
+
+| 项目 | 说明 |
+| --- | --- |
+| 入口位置 | `Plugins\Angelscript\Source\AngelscriptEditor\Private\BlueprintImpact\AngelscriptBlueprintImpactScanCommandlet.cpp` |
+| 主要用途 | 扫描项目中的 Blueprint 资产，并报告哪些资产受给定 Angelscript 脚本变更影响。 |
+| 依赖 | 当前 worktree 根目录 `AgentConfig.ini`、已成功初始化的 `FAngelscriptEngine`、`AssetRegistry` |
+| 典型参数 | `-ChangedScript="Foo.as;Bar.as"`、`-ChangedScriptFile="<path>"` |
+| 输出 | 日志摘要（扫描模式、变更脚本数、命中模块数、候选资产数、命中资产数、失败加载数）以及逐资产命中原因 |
+
+### 使用示例
+
+```powershell
+J:\UnrealEngine\UERelease\Engine\Binaries\Win64\UnrealEditor-Cmd.exe <ProjectFile> -run=AngelscriptBlueprintImpactScan -stdout -FullStdOutLogOutput -Unattended -NoPause -NoSplash -NullRHI
+J:\UnrealEngine\UERelease\Engine\Binaries\Win64\UnrealEditor-Cmd.exe <ProjectFile> -run=AngelscriptBlueprintImpactScan -ChangedScript="Foo.as;Bar.as" -stdout -FullStdOutLogOutput -Unattended -NoPause -NoSplash -NullRHI
+J:\UnrealEngine\UERelease\Engine\Binaries\Win64\UnrealEditor-Cmd.exe <ProjectFile> -run=AngelscriptBlueprintImpactScan -ChangedScriptFile="J:\Temp\changed-scripts.txt" -stdout -FullStdOutLogOutput -Unattended -NoPause -NoSplash -NullRHI
+```
+
+`<ProjectFile>` 应来自当前 worktree 的 `AgentConfig.ini`，不要复用其他 worktree 的 `.uproject` 路径。
+
+## GenerateAgentConfigTemplate.bat
+
 | 项目 | 说明 |
 | --- | --- |
 | 工具路径 | `Tools\BootstrapWorktree.ps1` |

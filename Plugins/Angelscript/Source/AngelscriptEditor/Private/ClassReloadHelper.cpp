@@ -1,4 +1,5 @@
 #include "ClassReloadHelper.h"
+#include "BlueprintImpact/AngelscriptBlueprintImpactScanner.h"
 #include "AngelscriptEngine.h"
 
 #include "Serialization/ArchiveReplaceObjectRef.h"
@@ -79,76 +80,69 @@ void FClassReloadHelper::FReloadState::PerformReinstance()
 				}
 			};
 
+			AngelscriptEditor::BlueprintImpact::FBlueprintImpactSymbols ImpactSymbols;
+			for (const auto& ReloadClass : ReloadClasses)
+			{
+				ImpactSymbols.Classes.Add(ReloadClass.Key);
+				ImpactSymbols.ReplacementObjects.Add(ReloadClass.Key, ReloadClass.Value);
+			}
+			for (const auto& ReloadStruct : ReloadStructs)
+			{
+				ImpactSymbols.Structs.Add(ReloadStruct.Key);
+				ImpactSymbols.ReplacementObjects.Add(ReloadStruct.Key, ReloadStruct.Value);
+			}
+			for (UEnum* ReloadEnum : ReloadEnums)
+			{
+				ImpactSymbols.Enums.Add(ReloadEnum);
+			}
+			for (const auto& ReloadDelegate : ReloadDelegates)
+			{
+				ImpactSymbols.Delegates.Add(ReloadDelegate.Key);
+				ImpactSymbols.Delegates.Add(ReloadDelegate.Value);
+			}
+			for (UDelegateFunction* NewDelegate : NewDelegates)
+			{
+				ImpactSymbols.Delegates.Add(NewDelegate);
+			}
+
 			for (TObjectIterator<UBlueprint> BlueprintIt; BlueprintIt; ++BlueprintIt)
 			{
 				UBlueprint* BP = *BlueprintIt;
+				TArray<AngelscriptEditor::BlueprintImpact::EBlueprintImpactReason> ImpactReasons;
+				const bool bHasDependency = AngelscriptEditor::BlueprintImpact::AnalyzeLoadedBlueprint(*BP, ImpactSymbols, ImpactReasons);
 
 				AllNodes.Reset();
 				FBlueprintEditorUtils::GetAllNodesOfClass(BP, AllNodes);
-
-				bool bHasDependency = false;
 				for (UK2Node* Node : AllNodes)
 				{
-					TArray<UStruct*> Dependencies;
-					if (Node->HasExternalDependencies(&Dependencies))
-					{
-						for (UStruct* Struct : Dependencies)
-						{
-							if (ReloadClasses.Contains((UClass*)Struct))
-								bHasDependency = true;
-							if (ReloadStructs.Contains((UScriptStruct*)Struct))
-								bHasDependency = true;
-
-							if (bHasDependency)
-								break;
-						}
-					}
-
 					for (auto* Pin : Node->Pins)
 					{
-						bHasDependency |= ReplacePinType(Pin->PinType);
+						ReplacePinType(Pin->PinType);
 					}
 
 					if (auto* EditableBase = Cast<UK2Node_EditablePinBase>(Node))
 					{
 						for (auto Desc : EditableBase->UserDefinedPins)
 						{
-							bHasDependency |= ReplacePinType(Desc->PinType);
-						}
-					}
-
-					if (auto* Event = Cast<UK2Node_Event>(Node))
-					{						
-						//if (auto* Function = Cast<UDelegateFunction>(Event->GetTiedSignatureFunction()))
-						if (auto* Function = Cast<UDelegateFunction>(Event->FindEventSignatureFunction()))
-						{
-							if (NewDelegates.Contains(Function) || ReloadDelegates.Contains(Function))
-							{
-								bHasDependency = true;
-							}
+							ReplacePinType(Desc->PinType);
 						}
 					}
 
 					if (auto* MacroInst = Cast<UK2Node_MacroInstance>(Node))
 					{
-						bHasDependency |= ReplacePinType(MacroInst->ResolvedWildcardType);
+						ReplacePinType(MacroInst->ResolvedWildcardType);
 					}
 				}
 
 				for (auto& Variable : BP->NewVariables)
 				{
-					bHasDependency |= ReplacePinType(Variable.VarType);
+					ReplacePinType(Variable.VarType);
 				}
 
-				// Check if the blueprint references any of our replacing classes at all
-				FArchiveReplaceObjectRef<UObject> ReplaceObjectArch(
-					BP, ClassReplaceList,
-					EArchiveReplaceObjectFlags::IgnoreOuterRef | EArchiveReplaceObjectFlags::IgnoreArchetypeRef);
-				if (ReplaceObjectArch.GetCount())
-					bHasDependency = true;
-
 				if (bHasDependency)
+				{
 					DependencyBPs.Add(BP);
+				}
 			}
 
 			for (auto& Struct : ReloadStructs)
