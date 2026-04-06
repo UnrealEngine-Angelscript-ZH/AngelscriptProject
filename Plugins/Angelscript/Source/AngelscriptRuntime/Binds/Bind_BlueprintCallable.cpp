@@ -13,8 +13,6 @@ extern void RegisterBlueprintEventByScriptName(UClass* Class, const FString& Scr
 
 // Bind a native function to angelscript, provided all
 // argument and return types are known as FAngelscriptTypes.
-static const FName NAME_Function_NotInAngelscript("NotInAngelscript");
-static const FName NAME_Function_BlueprintInternalUseOnly("BlueprintInternalUseOnly");
 void BindBlueprintCallable(
 	TSharedRef<FAngelscriptType> InType,
 	UFunction* Function,
