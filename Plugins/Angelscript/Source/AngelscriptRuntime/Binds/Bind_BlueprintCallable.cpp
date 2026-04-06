@@ -29,12 +29,7 @@ void BindBlueprintCallable(
 	if (!Function->HasAnyFunctionFlags(FUNC_Native))
 		return;
 
-	// Specifically excluded functions are not bound
-	if (Function->HasMetaData(NAME_Function_NotInAngelscript))
-		return;
-
-	// BlueprintInternalUseOnly functions are not bound
-	if (Function->HasMetaData(NAME_Function_BlueprintInternalUseOnly))
+	if (FAngelscriptBinds::ShouldSkipBlueprintCallableFunction(Function))
 		return;
 #endif
 

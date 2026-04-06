@@ -473,6 +473,7 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptBinds
 	static TArray<FName> GetAllRegisteredBindNames();
 	static TArray<FBindInfo> GetBindInfoList(const TSet<FName>& DisabledBindNames = TSet<FName>());
 	static void ResetBindState();
+	static bool ShouldSkipBlueprintCallableFunction(const UFunction* Function);
 	static TMap<FString, TArray<TObjectPtr<UClass>>>& GetRuntimeClassDB();
 #if WITH_EDITOR
 	static TMap<FString, TArray<TObjectPtr<UClass>>>& GetEditorClassDB();

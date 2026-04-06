@@ -80,6 +80,38 @@ int32& FAngelscriptBinds::GetPreviouslyBoundGlobalPropertyRef()
 	return GetBindState().PreviouslyBoundGlobalProperty;
 }
 
+bool FAngelscriptBinds::ShouldSkipBlueprintCallableFunction(const UFunction* Function)
+{
+	static const FName NAME_Function_NotInAngelscript(TEXT("NotInAngelscript"));
+	static const FName NAME_Function_BlueprintInternalUseOnly(TEXT("BlueprintInternalUseOnly"));
+	static const FName NAME_Function_UsableInAngelscript(TEXT("UsableInAngelscript"));
+
+	if (Function == nullptr)
+	{
+		return true;
+	}
+
+	if (Function->HasMetaData(NAME_Function_NotInAngelscript))
+	{
+		return true;
+	}
+
+	if (Function->HasMetaData(NAME_Function_BlueprintInternalUseOnly) && !Function->HasMetaData(NAME_Function_UsableInAngelscript))
+	{
+		return true;
+	}
+
+	if (const UClass* OwningClass = Function->GetOuterUClass())
+	{
+		if (OwningClass == UActorComponent::StaticClass() && Function->GetFName() == GET_FUNCTION_NAME_CHECKED(UActorComponent, GetOwner))
+		{
+			return true;
+		}
+	}
+
+	return false;
+}
+
 struct FBindFunction
 {
 	FName BindName;
