@@ -1,27 +1,23 @@
 # UHT 插件计划：自动生成函数调用表
 
-## 当前实现状态（2026-04-05）
+## 当前实现状态（2026-04-06，基于当前 `main` 工作树）
 
-- 已在基于当前 `main` 的新 worktree `uht-tool-mainline` 上承接 `uht-plugin-mainline` 的已提交 UHT 历史，并保持当前 main 架构兼容。
-- `AngelscriptUHTTool` 现可在 UHT 阶段执行，并为支持的 `BlueprintCallable` / `BlueprintPure` 函数生成 `AddFunctionEntry` 编译产物。
-- 生成策略已从“每模块单文件”调整为“每模块多分片”，用于规避 `Engine` 等大模块上的 `C4883` 大函数编译失败。
-- 生成过滤已收紧为“可链接 + 唯一候选”的 direct-bind 集合；对 `MinimalAPI`、未导出符号和重载/歧义候选统一回退到 `ERASE_NO_FUNCTION()`，优先保证主线可编译。
-- `Tools/RunBuild.ps1` 已显式传入 worktree-local 的 `-Log=<Saved/Build/.../UnrealBuildTool.log>`，解决多 worktree 共享 `Engine/Programs/UnrealBuildTool/Log.txt` 的锁冲突；在 `uht-tool-mainline` 上已完成真实构建验证。
-- `Plugins/Angelscript/Source/AngelscriptRuntime/FunctionCallers/FunctionCallers_*.cpp` 共 14 个历史死文件已删除。
-- `Plugins/Angelscript/Source/AngelscriptTest/Core/AngelscriptBindConfigTests.cpp` 已补充针对生成条目填充和 `AddFunctionEntry` 去重语义的回归测试。
-- 当前已获得成功的本地构建证据；`Tools/RunTests.ps1` 已在测试前自动预热 `TargetInfo.json` 并为 `UnrealEditor-Cmd` 增加 `-BUILDMACHINE`。
-- `Tools/RunTests.ps1` 现已在启动编辑器前显式等待 `Build.bat` 全局脚本锁；若锁长期被其他 worktree 占用，会快速报错并记录锁路径，而不再把整个测试超时耗在不可见的外部争用上。
-- 但当前机器上的 `Angelscript.TestModule.Engine.BindConfig` 自动化验证**尚未完全收口**：测试 run 已能正常启动编辑器，但会被系统里其他 worktree 正在运行的 `Build.bat` 全局脚本锁连带阻塞，导致在进入 `Automation RunTests` 之前超时。
-- 因此，目前可确认的状态是：**构建与 UHT exporter 生成链路已通过；自动化测试超时根因已定位为外部并发 `Build.bat` 锁争用，而不是当前 `uht-tool-mainline` 上的 UHT 编译链路失败。**
-- 已完成 Phase 5 的首批覆盖提升：
-  - `Bind_BlueprintCallable` 与 UHT generator 均已支持 `BlueprintInternalUseOnly + UsableInAngelscript` override；
-  - `Helper_FunctionSignature` 已支持函数级 `ScriptMethod`；
-  - `Helper_FunctionSignature` 已支持 `CallableWithoutWorldContext` 不再打 `asTRAIT_USES_WORLDCONTEXT`；
-  - `AngelscriptHeaderSignatureResolver` 已支持基于参数/返回类型的重载候选判定，`AngelscriptFunctionSignatureBuilder` 对重载恢复场景已恢复显式 `ERASE_FUNCTION_PTR` / `ERASE_METHOD_PTR` 生成；
-  - `Bind_BlueprintCallable` 已增加 declaration/name 级重复注册保护，避免重载恢复后与现有手写绑定冲突；
-  - Exporter 构建日志已输出模块级 coverage 诊断（如 `Engine/UMG/GameplayAbilities/UnrealEd/AIModule` 的 direct/stub/shard 统计）；
-  - `Angelscript.TestModule.Engine.BindConfig.` 前缀的进一步验证暂被外部 `Build.bat` 锁争用阻塞，需在无并发 Build.bat 占锁时重新执行并收口统计值。
-- 已追加两条 Phase 5 白名单样本恢复：`URuntimeFloatCurveMixinLibrary::GetNumKeys` 与 `URuntimeFloatCurveMixinLibrary::GetTimeRange` 已从 `ERASE_NO_FUNCTION()` 恢复为显式 `ERASE_FUNCTION_PTR(...)` direct bind；当前 `AngelscriptRuntime` 模块覆盖统计已由 `direct=247 / stubs=161` 提升到 `direct=249 / stubs=159`。
+- 当前 `main` 分支保留了 `AngelscriptUHTTool` 的 5 个核心 C# 文件，包含 exporter、分片生成器、签名构建与 header 级重载解析能力；当前主干已有可工作的 UHT 工具化骨架，而不是纯计划状态。
+- `AngelscriptFunctionTableExporter` 仍以 `UhtExporterOptions.Default | UhtExporterOptions.CompileOutput` 注册，并继续面向 `AngelscriptRuntime` 生成 `AS_FunctionTable_*.cpp`。
+- `AngelscriptFunctionTableCodeGenerator` 仍在使用“每模块多分片”策略，并保留模块级 coverage diagnostics 输出与 editor-only 模块分流逻辑。
+- `AngelscriptHeaderSignatureResolver` 与 `AngelscriptFunctionSignatureBuilder` 当前仍具备一部分 Phase 5 生成器侧增强：可基于参数/返回类型做重载候选收敛，并对少量白名单样本恢复显式 `ERASE_FUNCTION_PTR` / `ERASE_METHOD_PTR`。
+- `Plugins/Angelscript/Source/AngelscriptTest/Core/AngelscriptBindConfigTests.cpp` 当前仍保留了针对生成条目填充、`AddFunctionEntry` 去重、重载恢复以及 inline/direct-bind 样本的回归测试代码。
+- 使用 `Tools/RunBuild.ps1 -Label UhtPlanRefresh -SerializeByEngine` 在当前 `main` 上重新验证时，构建结果为成功；本轮取证没有复现此前的编译失败。
+- 但 `Plugins/Angelscript/Source/AngelscriptRuntime/FunctionCallers/FunctionCallers_*.cpp` 这 14 个历史文件在当前主干仍然存在，因此“死代码已删除”这一条不符合现状，`P4.1` 仍应视为待完成。
+- 当前 runtime 侧关键文件 `Bind_BlueprintCallable.cpp` 与 `Helper_FunctionSignature.h` 并未体现计划顶部先前声称的全部 Phase 5 元数据增强，因此这部分不能继续按“已完成”处理。
+- 本轮仅重新执行了构建验证，没有重新跑 `Angelscript.TestModule.Engine.BindConfig` 自动化测试；因此测试收口状态需要单独重跑确认，不能直接沿用旧结论。
+
+## 基于当前主干重排后的 TODO
+
+1. 先补回当前 `main` 缺失的 runtime 侧 Phase 5 能力，再继续扩大恢复范围：重点是 `Bind_BlueprintCallable.cpp` 与 `Helper_FunctionSignature.h` 的元数据语义与重复注册保护。
+2. 在 runtime 侧逻辑补齐后，重新执行 `AngelscriptBindConfig` / `Angelscript.TestModule.Engine.BindConfig.*` 相关验证，确认现有回归测试与主干代码重新一致。
+3. 在测试重新收口并确认生成链路稳定后，再推进 `P4.1` 的 `FunctionCallers_*.cpp` 清理，避免先删死代码后失去回退/对照基线。
+4. 覆盖率扩展应继续建立在“生成器侧已存在的 diagnostics + 目标样本回归测试”之上，而不是沿用旧的阶段性完成结论。
 
 ## 背景与目标
 
@@ -58,12 +54,11 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
 
 这跳过了 UE 反射系统的 `FFrame` 参数打包/解包，性能接近原生调用。
 
-**但关键问题是**：这套机制依赖 `ClassFuncMaps` 中存在函数的 `FFuncEntry`（函数指针 + Caller），而当前：
+**但关键问题是**：这套机制依赖 `ClassFuncMaps` 中存在函数的 `FFuncEntry`（函数指针 + Caller），而当前主干仍同时处于“自动生成链路已存在、runtime 收口未完成”的过渡状态：
 
-- `FunctionCallers_*.cpp`（14 个文件，曾包含 ~27000 条目）**全部被注释掉**，是死代码
-- 唯一活跃的 `AddFunctionEntry` 调用仅有 5 条（GAS 库）
-- `Bind_BlueprintCallable` 对 `ClassFuncMaps` 中找不到条目的函数**直接跳过**
-- 实际函数绑定完全依赖手写 Bind_*.cpp 文件（~120 个）中的直接注册
+- `FunctionCallers_*.cpp` 这批历史文件仍在仓库中，`P4.1` 尚未收口
+- `Bind_BlueprintCallable` 仍会跳过 `ClassFuncMaps` 中没有条目的函数
+- 当前仍同时存在手写绑定、UHT 生成链路与覆盖率扩展中的过渡逻辑，下一步重点不是“再证明链路存在”，而是把 runtime 侧规则、测试和清理顺序重新对齐
 
 ### 性能损失评估
 
@@ -72,9 +67,9 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
 | 手写绑定覆盖的函数 | 使用 `ASAutoCaller` 直接调用 | **等价——无性能损失** |
 | 未被手写绑定覆盖的 BlueprintCallable 函数 | **完全不可用**（不是慢，是没绑定） | **覆盖率差距** |
 | 通过 `asCALL_GENERIC` 注册的函数 | 经 `CallGeneric` + `asIScriptGeneric` 间接调用 | **有额外间接调用开销** |
-| Blueprint→Script 回调 | `FUNC_Native` + `UASFunctionNativeThunk` → `RuntimeCallFunction` | 已等价：仅比 Hazelight 多一次 thunk 跳转和 Cast（纳秒级） |
+| Blueprint→Script 回调 | `FUNC_Native` + `UASFunctionNativeThunk` → `RuntimeCallFunction` | 维持当前插件侧等价路径；更细的性能结论需单独量化 |
 
-**核心结论**：性能损失不在于"对等函数调用变慢"，而在于**大量 BlueprintCallable 函数因缺少函数指针条目而完全无法通过直接调用路径暴露给脚本**。Hazelight 通过 UHT 自动为所有 UFUNCTION 生成函数指针，实现了全自动覆盖。
+**当前重评估结论**：当前主干已经具备 UHT 自动生成函数条目的主干能力，但是否已经把高价值 `BlueprintCallable` 覆盖面稳定恢复到可接受状态，仍需要 runtime 侧规则补齐与回归测试重新确认，不能仅凭历史文档结论直接视为完成。
 
 ### 本计划目标
 
@@ -103,72 +98,55 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
 
 ## 分阶段执行计划
 
-### Phase 1：UHT 插件框架搭建
+### Phase 1：现有 UHT 工具骨架审计与命名收口
 
-> 目标：创建可编译运行的 UHT C# 插件骨架，验证插件加载和类型遍历能力。
+> 目标：承认当前 `main` 已存在的 `AngelscriptUHTTool` 骨架，并把“现有实现”与“剩余待办”拆开，而不是继续按从零搭建处理。
 
-- [ ] **P1.1** 创建 `AngelscriptUhtPlugin` 项目结构
-  - 在 `Plugins/Angelscript/Source/` 下创建 `AngelscriptUhtPlugin/` 目录，包含 `AngelscriptUhtPlugin.ubtplugin.csproj`
-  - 项目引用 `EpicGames.UHT`、`EpicGames.Core`、`EpicGames.Build`、`UnrealBuildTool` 的 DLL
-  - 输出路径设为 `Plugins/Angelscript/Binaries/DotNET/UnrealBuildTool/Plugins/AngelscriptUhtPlugin/`
-  - 参考 `UHT-Plugin-Capabilities-Reference.md` §4.2 的 csproj 模板
-- [ ] **P1.1** 📦 Git 提交：`[Plugin/UHT] Feat: scaffold AngelscriptUhtPlugin C# project`
+- [x] **P1.1** 当前主干已有 UHT 工具骨架
+  - `Plugins/Angelscript/Source/AngelscriptUHTTool/` 下已存在 exporter、code generator、signature builder、header resolver 等核心文件
+  - 当前待办不是再创建一个全新的空白项目，而是决定是否还需要把当前布局进一步收口为更明确的插件/模块命名
+- [ ] **P1.1** 📦 Git 提交：`[Plugin/UHT] Docs: reconcile existing UHT tool layout with plan terminology`
 
-- [ ] **P1.2** 实现最小 Exporter 骨架
-  - 创建 `AngelscriptFunctionTableExporter.cs`，注册为 `[UhtExporter]`，`Options = UhtExporterOptions.Default | UhtExporterOptions.CompileOutput`
-  - 遍历 `factory.Session.Packages` → `UhtClass` → `UhtFunction`，计数 BlueprintCallable 函数并输出到日志
-  - 验证插件在 UBT 构建时被正确加载和执行
-- [ ] **P1.2** 📦 Git 提交：`[Plugin/UHT] Feat: minimal exporter skeleton with type traversal`
+- [x] **P1.2** 最小 Exporter 骨架已存在于主干
+  - 当前 `AngelscriptFunctionTableExporter.cs` 已注册 `[UhtExporter]` 并启用 `CompileOutput`
+  - 重新评估后的重点变为：保留这条能力结论，并在后续验证里确认 exporter 输出仍与 runtime 侧预期一致
+- [ ] **P1.2** 📦 Git 提交：`[Plugin/UHT] Docs: mark exporter skeleton landed on main`
 
-### Phase 2：函数表生成器
+### Phase 2：函数表生成器现状收口
 
-> 目标：Exporter 能为所有 BlueprintCallable 函数生成正确的 `AddFunctionEntry` C++ 代码并参与编译。
+> 目标：把当前主干已经存在的 generator 能力与尚未重新验证的部分分开记录。
 
-- [ ] **P2.1** 实现 C++ 类型签名还原
-  - 从 `UhtFunction` 的参数列表（`UhtProperty` Children）还原原始 C++ 函数签名
-  - 处理 const/ref（从 `PropertyFlags` 和 MetaData 推断）、指针、TEnumAsByte、TSubclassOf 等
-  - 处理返回值类型、void 特殊情况
-  - 静态函数生成 `ERASE_FUNCTION_PTR`，实例方法生成 `ERASE_METHOD_PTR`
-  - 当前 UHT 类型系统中 `UhtProperty` 的 `PropertyExportFlags` 和 `PropertyFlags` 已包含足够信息用于还原 const/ref，无需 Hazelight 的 `EAngelscriptPropertyFlags`
-- [ ] **P2.1** 📦 Git 提交：`[Plugin/UHT] Feat: C++ type signature reconstruction from UHT types`
+- [x] **P2.1** 主干已具备类型签名还原与显式宏恢复能力
+  - 当前 `AngelscriptFunctionSignatureBuilder` / `AngelscriptHeaderSignatureResolver` 已具备签名重建、重载候选收敛与部分显式 `ERASE_*` 恢复能力
+- [ ] **P2.1** 📦 Git 提交：`[Plugin/UHT] Docs: record landed signature reconstruction capabilities`
 
-- [ ] **P2.2** 实现函数表 C++ 文件生成
-  - 按模块分片生成 `AS_FunctionTable_<ModuleName>.cpp` 文件（避免单文件过大）
-  - 每个文件包含：必要的 `#include`、`FAngelscriptBinds::AddFunctionEntry(...)` 调用
-  - include 列表从 `UhtHeaderFile` 路径生成
-  - 使用 `factory.CommitOutput()` 写入生成目录，由 `CompileOutput` 参与编译
-  - 过滤条件：`BlueprintCallable || BlueprintPure`，排除 `NotInAngelscript`、`BlueprintInternalUseOnly`、`CustomThunk`
-  - 对于 `NativeInterface` 类或包含静态数组/不支持参数的函数，生成 `ERASE_NO_FUNCTION()`
-- [ ] **P2.2** 📦 Git 提交：`[Plugin/UHT] Feat: generate AddFunctionEntry C++ files per module`
+- [x] **P2.2** 主干已具备按模块分片生成 `AS_FunctionTable_*.cpp` 的能力
+  - 当前 `AngelscriptFunctionTableCodeGenerator` 已实现分片生成、`CommitOutput()` 与 editor-only 模块处理
+- [ ] **P2.2** 📦 Git 提交：`[Plugin/UHT] Docs: record landed module sharding generator`
 
-- [ ] **P2.3** 构建集成与增量更新验证
-  - 确保生成的 C++ 文件被 AngelscriptRuntime 模块编译（可能需要在 Build.cs 中添加 generated 目录）
-  - 验证增量构建：头文件未变时不重新生成、生成内容未变时不重写文件
-  - 验证完整构建：从零开始构建时生成所有文件并编译通过
-  - 测量生成时间对总构建时间的影响
-- [ ] **P2.3** 📦 Git 提交：`[Plugin/UHT] Feat: build integration and incremental update`
+- [ ] **P2.3** 重新验证构建集成与增量更新
+  - 当前重新执行的构建已通过，但本轮因为 `Target is up to date` 没有强制重放完整 exporter 输出
+  - 下一轮需要补做“强制触发 exporter + 观察输出变化 + 重新采样 coverage diagnostics”的验证，避免把旧统计直接当成当前基线
+- [ ] **P2.3** 📦 Git 提交：`[Plugin/UHT] Feat: refresh build integration and incremental validation on main`
 
-### Phase 3：运行时集成与验证
+### Phase 3：运行时集成与验证收口
 
-> 目标：自动生成的函数表在运行时正确填充 `ClassFuncMaps`，`BindBlueprintCallable` 路径恢复工作。
+> 目标：把当前主干已经可见的测试/运行时证据，和仍需重新执行的验证动作区分开。
 
-- [ ] **P3.1** 运行时加载验证
-  - 确保 UHT 生成的 `AddFunctionEntry` 调用在模块加载时执行（可能需要 `FAngelscriptBinds::FBind` 包装，或利用全局静态初始化）
-  - 验证 `ClassFuncMaps` 在绑定阶段前已填充
-  - 打印统计：自动填充条目数 vs 手写条目数
-- [ ] **P3.1** 📦 Git 提交：`[Plugin/UHT] Feat: runtime loading and ClassFuncMaps population`
+- [ ] **P3.1** 重新确认运行时加载与 `ClassFuncMaps` 填充
+  - 当前主干保留了相关测试代码，但本轮没有重新跑 `BindConfig` 自动化验证来确认结果仍与主干一致
+  - 下一步应通过重新执行测试来确认生成条目在当前 main 上的实际填充状态
+- [ ] **P3.1** 📦 Git 提交：`[Plugin/UHT] Test: revalidate runtime loading and ClassFuncMaps population on main`
 
-- [ ] **P3.2** 与手写绑定的兼容性处理
-  - `AddFunctionEntry` 已有去重逻辑（`ClassFuncMaps.Contains` 检查），手写在先的条目不会被覆盖
-  - 确保 UHT 生成的条目在手写 Bind_*.cpp 之前注册（利用 `FAngelscriptBinds::EOrder` 或静态初始化顺序）
-  - 验证手写绑定仍能覆盖自动生成的绑定（对于需要自定义 wrapper 的函数）
-- [ ] **P3.2** 📦 Git 提交：`[Plugin/UHT] Feat: hand-written bind compatibility`
+- [ ] **P3.2** 重新确认与手写绑定的兼容性
+  - 当前测试代码仍覆盖 `AddFunctionEntry` 去重和相关兼容场景，但需要实际重跑验证
+  - runtime 侧元数据/重复注册保护逻辑仍应与这组测试一起重新收口
+- [ ] **P3.2** 📦 Git 提交：`[Plugin/UHT] Test: revalidate hand-written bind compatibility on main`
 
-- [ ] **P3.3** 功能验证测试
-  - 选取 10 个有代表性的 UE 类（`AActor`、`UWorld`、`UGameplayStatics`、`APlayerController` 等），验证其 BlueprintCallable 函数自动可用
-  - 对比 Hazelight 的覆盖列表，统计覆盖率差异
-  - 添加自动化测试：调用若干自动绑定的函数，验证参数传递和返回值正确
-- [ ] **P3.3** 📦 Git 提交：`[Plugin/UHT] Test: automated function table coverage verification`
+- [ ] **P3.3** 重新执行功能验证测试
+  - 当前已有 `BindConfig` 回归测试资产，但本轮仅完成了构建验证，没有重新完成自动化测试验收
+  - 在 runtime 侧规则补齐后，再集中跑这一批测试来决定哪些子项可以重新标记为完成
+- [ ] **P3.3** 📦 Git 提交：`[Plugin/UHT] Test: rerun automated function table coverage verification`
 
 ### Phase 4：清理与优化
 
@@ -197,14 +175,11 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
 
 > 目标：在保持当前“可编译、可测试、可回退”的前提下，系统性缩减 `ERASE_NO_FUNCTION()` 的数量，把下一批高价值候选恢复为 direct bind。
 
-#### 当前覆盖率基线（基于 2026-04-05 主线稳定版）
+#### 当前覆盖率基线（按当前主干重评估）
 
-- 当前生成结果中，`ERASE_NO_FUNCTION()` 仍约有 **5619** 个，direct bind（`ERASE_AUTO_FUNCTION_PTR` / `ERASE_AUTO_METHOD_PTR`）约有 **423** 个。
-- `ERASE_NO_FUNCTION()` 主要集中在：`Engine`、`UMG`、`GameplayAbilities`、`UnrealEd`、`AIModule`、`AssetRegistry`。
-- 这些 fallback 目前混合了三类原因：
-  1. **明确不可插件化 direct bind**：`MinimalAPI` / 未导出符号 / 非 public / interface；
-  2. **当前策略保守跳过但理论可恢复**：多重重载、静态帮助类、部分 editor-only API；
-  3. **需要更细粒度签名/可见性判定**：函数级 `*_API`、类级 `*_API`、模板/typedef 包装、重载候选精确选型。
+- 当前主干的 generator 仍保留模块级 coverage diagnostics 输出能力，但本轮构建因 `Target is up to date` 未重新打印最新统计值，因此这里不再保留旧的精确计数作为“当前基线”。
+- 可以确认的现状是：coverage 扩展能力仍依赖 generator 日志、白名单样本与 `BindConfig` 回归测试共同收口，而不是单独依赖文档中的历史统计数字。
+- 下一轮覆盖率批次开始前，应先通过一次强制触发 exporter 的构建或定向验证重新采样最新模块统计，再决定恢复优先级。
 
 - [x] **P5.1** 建立覆盖率基线与模块热点清单
   - 在 Exporter 日志或独立摘要中输出每个模块的 `direct-bind` / `ERASE_NO_FUNCTION()` 计数
@@ -222,16 +197,16 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
 
   **建议优先拆成以下可插件化子批次：**
 
-  - [x] **P5.2.a** `UsableInAngelscript` 元数据 override
+- [ ] **P5.2.a** `UsableInAngelscript` 元数据 override
     - 在 `Bind_BlueprintCallable.cpp` 中对 `BlueprintInternalUseOnly` 增加 `UsableInAngelscript` 放行逻辑
     - 目标：恢复一批当前因 `BlueprintInternalUseOnly` 被硬过滤、但脚本侧可安全暴露的节点
-  - [x] **P5.2.b** `ScriptMethod` 按函数级 mixin 支持
+- [ ] **P5.2.b** `ScriptMethod` 按函数级 mixin 支持
     - 当前本地仅支持类级 `ScriptMixin`；补齐单函数级 `ScriptMethod` 逻辑
     - 目标：恢复一批静态帮助函数的实例风格调用能力，和 Hazelight/UE 约定对齐
-  - [ ] **P5.2.c** `ScriptAllowTemporaryThis` / `CallableWithoutWorldContext` 元数据
-    - 对齐 Hazelight 已支持但本地尚未覆盖的元数据语义
-    - 目标：先扩展脚本侧行为能力，再决定这些函数是否进入 direct bind 恢复集合
-    - 当前进度：`CallableWithoutWorldContext` 已完成；`ScriptAllowTemporaryThis` 在当前代码库、UEAS2 参考和 AngelScript traits 中均无现成语义/trait，对应能力暂记为“待设计”而非强行落地
+- [ ] **P5.2.c** `ScriptAllowTemporaryThis` / `CallableWithoutWorldContext` 元数据
+  - 对齐 Hazelight 已支持但本地尚未覆盖的元数据语义
+  - 目标：先扩展脚本侧行为能力，再决定这些函数是否进入 direct bind 恢复集合
+  - 当前进度：当前 `main` 未确认 `CallableWithoutWorldContext` 的 runtime 侧 trait 抑制逻辑仍在；`ScriptAllowTemporaryThis` 在当前代码库、UEAS2 参考和 AngelScript traits 中仍无现成语义/trait，对应能力继续记为“待设计”而非强行落地
   - [x] **P5.2.d** direct-bind 候选白名单样本
     - 先在 `AngelscriptRuntime` 自身类型和少量公开运行时类中恢复一小批 direct bind
     - 每恢复一类样本，必须补对应自动化测试，避免再次引入链接错误
@@ -257,7 +232,7 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
 
 - [x] **P5.5** 下一批覆盖率验收测试
   - 为每个恢复批次至少补 1 条“表已填充”测试 + 1 条“direct bind 有效”测试
-  - 当前已验证通过的 `BindConfig` 测试作为基线，不得回归
+  - 当前已存在的 `BindConfig` 测试资产作为回归基线；是否“已验证通过”需以下一轮重跑结果为准
   - 新增测试优先覆盖：
     - 公开 runtime 类 direct bind 样本
     - 静态帮助类样本
@@ -305,8 +280,8 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
 
 | Hazelight 改动 | 影响 | 我们的应对 |
 |---------------|------|----------|
-| `FUNC_RuntimeGenerated` + ScriptCore.cpp 执行路径 | Blueprint VM 调用脚本函数的快速路径 | 已通过 `FUNC_Native` + `UASFunctionNativeThunk` 实现等价快速路径；仅 RPC 场景多一次 FFrame 栈分配（纳秒级） |
-| `ICppStructOps` 签名变更 | 脚本自定义结构体的构造/析构/复制 | 已通过 `FASStructOps` + FakeVTable 机制实现等价功能，无需引擎修改 |
+| `FUNC_RuntimeGenerated` + ScriptCore.cpp 执行路径 | Blueprint VM 调用脚本函数的快速路径 | 当前继续依赖 `FUNC_Native` + `UASFunctionNativeThunk` 路径；更细的性能/语义对比需单独验证 |
+| `ICppStructOps` 签名变更 | 脚本自定义结构体的构造/析构/复制 | 当前仍依赖插件侧 `FASStructOps` / FakeVTable 方案；与引擎改动的细节差异不在本轮重评估范围内 |
 | `FProperty::AngelscriptPropertyFlags` | 属性的 C++ 类型限定符运行时查询 | 可从元数据运行时重建，或由 UHT 插件导出到侧通道文件 |
 | `UClass` 扩展字段 | `ScriptTypePtr`、`bIsScriptClass` | 使用外部 `TMap<UClass*, FScriptClassData>` 映射 |
 
@@ -314,7 +289,7 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
 
 | 指标 | 当前状态 | 实施后预期 |
 |------|---------|----------|
-| BlueprintCallable 函数覆盖率 | ~120 个手写 Bind 文件覆盖的子集 | 所有 BlueprintCallable 函数（数千个） |
+| BlueprintCallable 函数覆盖率 | 当前仍是手写绑定 + UHT 生成链路并存的过渡状态 | 逐步扩大到尽可能高的 BlueprintCallable 覆盖面 |
 | 函数表维护工作量 | 手动添加/更新 | 零维护（自动生成） |
-| 每次调用性能 | 已绑定函数等价 Hazelight | 等价 Hazelight |
+| 每次调用性能 | 已绑定函数仍以当前 `ASAutoCaller` 路径为基础 | 继续维持接近原生的直接调用路径，并在后续需要时单独量化 |
 | 对引擎版本的依赖 | 手写绑定需要随引擎更新 | 自动适应引擎变更 |

@@ -3,8 +3,8 @@
 本文档是对当前 Angelscript 插件所有可执行方向的系统性盘点，涵盖 AS 2.38 合入、测试增强、缺陷重构、功能增强、工具链与架构演进六大类。每个条目标注优先级、已有 Plan 状态与建议动作。
 
 **编制时间**：2026-04-05
-**当前基线**：AS 2.33.0 WIP，文档化 C++ 基线为 `275/275 PASS`，当前 live automation / full-suite 状态以测试增强章节、`Documents/Guides/TestCatalog.md` 与 `Documents/Guides/TechnicalDebtInventory.md` 为准；当前有 148 个 Bind 文件，`Documents/Plans/` 根目录含 44 份活跃 Plan、1 份索引文档与 1 份编写规则文档，`Archives/` 下另有 6 份已归档 Plan。
-**Plan 状态快照**：44 份活跃 Plan、6 份已归档完成 Plan、1 份索引文档（`Plan_OpportunityIndex.md`）、1 份编写规则文档（`Plan.md`）
+**当前基线**：AS 2.33.0 WIP，文档化 C++ 基线为 `275/275 PASS`，当前 live automation / full-suite 状态以测试增强章节、`Documents/Guides/TestCatalog.md` 与 `Documents/Guides/TechnicalDebtInventory.md` 为准；当前有 148 个 Bind 文件，`Documents/Plans/` 根目录含 47 份活跃 Plan、1 份索引文档与 1 份编写规则文档，`Archives/` 下另有 6 份已归档 Plan。
+**Plan 状态快照**：47 份活跃 Plan、6 份已归档完成 Plan、1 份索引文档（`Plan_OpportunityIndex.md`）、1 份编写规则文档（`Plan.md`）
 
 ---
 
@@ -84,6 +84,7 @@
 | E | 文件系统重构 | `Plan_ScriptFileSystemRefactor.md` | 未开始 |
 | F | Hazelight Bind 模块迁移 | `Plan_HazelightBindModuleMigration.md` | 未开始 |
 | G | 新一轮技术债刷新与分流 | `Plan_TechnicalDebtRefresh.md` | 未开始（先校准 debt baseline 与 owner，再进入下一批实施） |
+| H | StructUtils 运行时边界迁移 | `Plan_StructUtilsMigration.md` | 未开始 |
 
 ### 3.2 新建议 Plan
 
@@ -136,6 +137,8 @@
 | A | DAP 调试适配器 | `Plan_DebugAdapter.md` | 未开始 |
 | B | Hazelight 能力差距盘点 | `Plan_HazelightCapabilityGap.md` | 未开始 |
 | C | 手动 Bind 函数与成员 CSV 导出 | `Plan_ManualBindCsvDump.md` | 未开始 |
+| D | AS 变更蓝图影响扫描 Commandlet | `Plan_ASBlueprintImpactScanCommandlet.md` | 未开始 |
+| E | Script 示例恢复与扩展 | `Plan_ScriptExamplesExpansion.md` | 未开始 |
 
 ### 5.2 新建议 Plan
 
@@ -198,6 +201,7 @@
 | 10 | 脚本 API 文档自动生成 | 功能 | `Plan_ScriptAPIDocGeneration` |
 | 11 | 性能基准框架 | 功能 | `Plan_PerformanceBenchmarkFramework` |
 | 12 | ThirdParty 修改追踪体系 | 架构 | `Plan_ThirdPartyModificationTracking` |
+| 13 | StructUtils 运行时边界迁移 | 重构 | `Plan_StructUtilsMigration` |
 
 ### 🟡 P3（有价值，可根据需求插入）
 
