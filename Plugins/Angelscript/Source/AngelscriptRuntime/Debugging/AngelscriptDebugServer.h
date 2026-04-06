@@ -15,11 +15,11 @@ struct FAngelscriptEngine;
 #define DEBUG_SERVER_VERSION 2
 
 // Intended to be called from the debugger Immediate window, to exit a softlock due to a spamming data breakpoint
-void ClearAllAngelscriptDataBreakpointsFromHandler();
+ANGELSCRIPTRUNTIME_API void ClearAllAngelscriptDataBreakpointsFromHandler();
 
 namespace AngelscriptDebugServer
 {
-	extern int32 DebugAdapterVersion;
+	extern ANGELSCRIPTRUNTIME_API int32 DebugAdapterVersion;
 }
 
 enum class EDebugMessageType : uint8
@@ -83,6 +83,15 @@ struct FDebugMessage
 {
 };
 
+struct FAngelscriptDebugMessageEnvelope
+{
+	EDebugMessageType MessageType = EDebugMessageType::Disconnect;
+	TArray<uint8> Body;
+};
+
+ANGELSCRIPTRUNTIME_API bool SerializeDebugMessageEnvelope(EDebugMessageType MessageType, const TArray<uint8>& Body, TArray<uint8>& OutBuffer);
+ANGELSCRIPTRUNTIME_API bool TryDeserializeDebugMessageEnvelope(TArray<uint8>& InOutBuffer, FAngelscriptDebugMessageEnvelope& OutEnvelope, bool& bOutHasEnvelope, FString* OutError = nullptr);
+
 struct FEmptyMessage : FDebugMessage
 {
 	FORCEINLINE friend FArchive& operator<<(FArchive& Ar, FEmptyMessage& Msg)
@@ -97,7 +106,7 @@ struct FStartDebuggingMessage : FDebugMessage
 	
 	FORCEINLINE friend FArchive& operator<<(FArchive& Ar, FStartDebuggingMessage& Msg)
 	{
-		if (!Ar.AtEnd())
+		if (Ar.IsSaving() || !Ar.AtEnd())
 		{
 			Ar << Msg.DebugAdapterVersion;
 		}
@@ -236,7 +245,7 @@ struct FAngelscriptBreakpoint : FDebugMessage
 			BP.Id = -1;
 		}
 
-		if (!Ar.AtEnd())
+		if (Ar.IsSaving() || !Ar.AtEnd())
 		{
 			Ar << BP.ModuleName;
 		}
@@ -254,7 +263,7 @@ struct FAngelscriptClearBreakpoints : FDebugMessage
 	{
 		Ar << BP.Filename;
 		
-		if (!Ar.AtEnd())
+		if (Ar.IsSaving() || !Ar.AtEnd())
 		{
 			Ar << BP.ModuleName;
 		}
@@ -569,7 +578,7 @@ struct FAngelscriptReplaceAssetDefinition : FDebugMessage
 	}
 };
 
-class FAngelscriptDebugServer
+class ANGELSCRIPTRUNTIME_API FAngelscriptDebugServer
 {
 	FAngelscriptEngine* OwnerEngine;
 	class FTcpListener* Listener;
@@ -644,13 +653,10 @@ public:
 		BodyWriter << Message;
 
 		TArray<uint8> Buffer;
-		FMemoryWriter Writer(Buffer);
-		// prepend a header
-		int32 MessageLength = Body.Num();
-		uint8 MessageTypeByte = (uint8)MessageType;
-		Writer << MessageLength;
-		Writer << MessageTypeByte;
-		Buffer.Append(Body);
+		if (!SerializeDebugMessageEnvelope(MessageType, Body, Buffer))
+		{
+			return;
+		}
 
 		for (auto* Client : Clients)
 		{
@@ -668,16 +674,14 @@ public:
 		FMemoryWriter BodyWriter(Body);
 		BodyWriter << Message;
 
-		FQueuedMessage& Msg = QueuedSends.FindOrAdd(Client).Emplace_GetRef();
-		TArray<uint8>& Buffer = Msg.Buffer;
-		FMemoryWriter Writer(Buffer);
+		TArray<uint8> Buffer;
+		if (!SerializeDebugMessageEnvelope(MessageType, Body, Buffer))
+		{
+			return;
+		}
 
-		// prepend a header
-		int32 MessageLength = Body.Num();
-		uint8 MessageTypeByte = (uint8)MessageType;
-		Writer << MessageLength;
-		Writer << MessageTypeByte;
-		Buffer.Append(Body);
+		FQueuedMessage& Msg = QueuedSends.FindOrAdd(Client).Emplace_GetRef();
+		Msg.Buffer = MoveTemp(Buffer);
 
 		TrySendingMessages(Client);
 	}

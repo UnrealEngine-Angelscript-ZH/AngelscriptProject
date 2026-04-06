@@ -4,6 +4,7 @@
 #include "Tickable.h"
 #include "AngelscriptEngine.h"
 #include "Subsystems/GameInstanceSubsystem.h"
+#include "AngelscriptEngine.h"
 
 #include "AngelscriptGameInstanceSubsystem.generated.h"
 
@@ -34,7 +35,8 @@ public:
 
 private:
 	friend struct FAngelscriptTickBehaviorTestAccess;
-	TUniquePtr<FAngelscriptEngine> OwnedPrimaryEngine;
+	UPROPERTY()
+	FAngelscriptEngine OwnedEngine;
 	FAngelscriptEngine* PrimaryEngine = nullptr;
 	bool bOwnsPrimaryEngine = false;
 	bool bInitialized = false;

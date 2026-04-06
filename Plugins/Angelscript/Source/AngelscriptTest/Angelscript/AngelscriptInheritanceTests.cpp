@@ -1,4 +1,5 @@
 #include "AngelscriptTestSupport.h"
+#include "Shared/AngelscriptTestMacros.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopeExit.h"
 // Test Layer: Runtime Integration
@@ -20,7 +21,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptInheritanceBasicTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	const bool bCompiled = CompileModuleFromMemory(
 		&Engine,
 		TEXT("ASInheritanceBasic"),
@@ -44,6 +46,7 @@ bool FAngelscriptInheritanceBasicTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestTrue(TEXT("Inheritance.Basic currently verifies compile and symbol registration only because executing inherited script-class instances still faults on this branch"), true);
+	ASTEST_END_SHARE
 	return true;
 }
 
@@ -54,13 +57,10 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptInheritanceInterfaceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
+	ASTEST_BEGIN_FULL
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASInheritanceInterface.as"));
-	ON_SCOPE_EXIT
-	{
-		Engine.DiscardModule(TEXT("ASInheritanceInterface"));
-		ResetSharedCloneEngine(Engine);
-	};
 	ECompileResult CompileResult = ECompileResult::FullyHandled;
 	UE_SET_LOG_VERBOSITY(Angelscript, Fatal);
 	const bool bCompiled = CompileModuleWithResult(
@@ -75,7 +75,10 @@ bool FAngelscriptInheritanceInterfaceTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	return CompileResult == ECompileResult::Error;
+	bPassed = CompileResult == ECompileResult::Error;
+	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -85,7 +88,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptInheritanceVirtualMethodTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	const bool bCompiled = CompileModuleFromMemory(
 		&Engine,
 		TEXT("ASInheritanceVirtualMethod"),
@@ -109,6 +113,7 @@ bool FAngelscriptInheritanceVirtualMethodTest::RunTest(const FString& Parameters
 		return false;
 	}
 	TestTrue(TEXT("Inheritance.VirtualMethod currently verifies compile and symbol registration only because inherited script-class dispatch still faults at runtime on this branch"), true);
+	ASTEST_END_SHARE
 	return true;
 }
 
@@ -119,13 +124,10 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptInheritanceCastOpTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
+	ASTEST_BEGIN_FULL
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASInheritanceCastOp.as"));
-	ON_SCOPE_EXIT
-	{
-		Engine.DiscardModule(TEXT("ASInheritanceCastOp"));
-		ResetSharedCloneEngine(Engine);
-	};
 	ECompileResult CompileResult = ECompileResult::FullyHandled;
 	UE_SET_LOG_VERBOSITY(Angelscript, Fatal);
 	const bool bCompiled = CompileModuleWithResult(
@@ -140,7 +142,10 @@ bool FAngelscriptInheritanceCastOpTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
-	return CompileResult == ECompileResult::Error;
+	bPassed = CompileResult == ECompileResult::Error;
+	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -150,13 +155,10 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptInheritanceMixinTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
+	ASTEST_BEGIN_FULL
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASInheritanceMixin.as"));
-	ON_SCOPE_EXIT
-	{
-		Engine.DiscardModule(TEXT("ASInheritanceMixin"));
-		ResetSharedCloneEngine(Engine);
-	};
 	ECompileResult CompileResult = ECompileResult::FullyHandled;
 	UE_SET_LOG_VERBOSITY(Angelscript, Fatal);
 	const bool bCompiled = CompileModuleWithResult(
@@ -168,7 +170,10 @@ bool FAngelscriptInheritanceMixinTest::RunTest(const FString& Parameters)
 		CompileResult);
 	UE_SET_LOG_VERBOSITY(Angelscript, Log);
 	TestFalse(TEXT("Inheritance.Mixin should remain unsupported on this branch because the parser does not accept mixin-class syntax"), bCompiled);
-	return !bCompiled;
+	bPassed = !bCompiled;
+	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 #endif

@@ -147,7 +147,7 @@ namespace
 		const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
 		TUniquePtr<FAngelscriptEngine> SourceEngine = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
 		check(SourceEngine.IsValid());
-		FScopedTestEngineGlobalScope GlobalScope(SourceEngine.Get());
+		FAngelscriptEngineScope GlobalScope(*SourceEngine);
 		FAngelscriptBindExecutionObservation::Reset();
 		const double StartTime = FPlatformTime::Seconds();
 		TUniquePtr<FAngelscriptEngine> Engine = FAngelscriptEngine::CreateForTesting(Config, Dependencies, EAngelscriptEngineCreationMode::Clone);

@@ -1,6 +1,7 @@
 #include "Angelscript/AngelscriptTestSupport.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopeExit.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 // Test Layer: Runtime Integration
 #if WITH_DEV_AUTOMATION_TESTS
@@ -20,30 +21,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionDefaultArgumentsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASFunctionDefaultArguments",
-		TEXT("int Add(int A, int B = 5) { return A + B; } int Run() { return Add(7); }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine,
+		"ASFunctionDefaultArguments",
+		TEXT("int Add(int A, int B = 5) { return A + B; } int Run() { return Add(7); }"),
+		TEXT("int Run()"),
+		Result);
 
 	TestEqual(TEXT("Default arguments should be applied when omitted"), Result, 12);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -54,30 +44,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionNamedArgumentsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASFunctionNamedArguments",
-		TEXT("int Mix(int A, int B, int C) { return A + B * 10 + C * 100; } int Run() { return Mix(C: 3, A: 1, B: 2); }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine,
+		"ASFunctionNamedArguments",
+		TEXT("int Mix(int A, int B, int C) { return A + B * 10 + C * 100; } int Run() { return Mix(C: 3, A: 1, B: 2); }"),
+		TEXT("int Run()"),
+		Result);
 
 	TestEqual(TEXT("Named arguments should bind to the intended parameters"), Result, 321);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -88,30 +67,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionPointerAndOverloadTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASFunctionPointerAndOverload",
-		TEXT("int Convert(int Value) { return Value + 1; } int Convert(float Value) { return int(Value * 3.0f); } int Run() { return Convert(4) + Convert(2.0f); }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine,
+		"ASFunctionPointerAndOverload",
+		TEXT("int Convert(int Value) { return Value + 1; } int Convert(float Value) { return int(Value * 3.0f); } int Run() { return Convert(4) + Convert(2.0f); }"),
+		TEXT("int Run()"),
+		Result);
 
 	TestEqual(TEXT("Overload resolution should choose the expected function bodies"), Result, 11);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -122,13 +90,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionPointerTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
+	ASTEST_BEGIN_FULL
+
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASFunctionPointer.as"));
-	ON_SCOPE_EXIT
-	{
-		Engine.DiscardModule(TEXT("ASFunctionPointer"));
-		ResetSharedCloneEngine(Engine);
-	};
 	ECompileResult CompileResult = ECompileResult::FullyHandled;
 	UE_SET_LOG_VERBOSITY(Angelscript, Fatal);
 	const bool bCompiled = CompileModuleWithResult(
@@ -140,7 +106,10 @@ bool FAngelscriptFunctionPointerTest::RunTest(const FString& Parameters)
 		CompileResult);
 	UE_SET_LOG_VERBOSITY(Angelscript, Log);
 	TestFalse(TEXT("Function pointer syntax should remain unsupported on the current branch"), bCompiled);
-	return !bCompiled;
+	bPassed = !bCompiled;
+	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -150,7 +119,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionConstructorTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -160,6 +131,8 @@ bool FAngelscriptFunctionConstructorTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -170,30 +143,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionDestructorTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASFunctionDestructor",
-		TEXT("class DestructorCarrier { ~DestructorCarrier() {} } int Run() { DestructorCarrier Carrier; return 1; }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine,
+		"ASFunctionDestructor",
+		TEXT("class DestructorCarrier { ~DestructorCarrier() {} } int Run() { DestructorCarrier Carrier; return 1; }"),
+		TEXT("int Run()"),
+		Result);
 
 	TestEqual(TEXT("Destructor declarations should compile and execute in local scope"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -204,13 +166,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionTemplateTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
+	ASTEST_BEGIN_FULL
+
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASFunctionTemplate.as"));
-	ON_SCOPE_EXIT
-	{
-		Engine.DiscardModule(TEXT("ASFunctionTemplate"));
-		ResetSharedCloneEngine(Engine);
-	};
 	ECompileResult CompileResult = ECompileResult::FullyHandled;
 	UE_SET_LOG_VERBOSITY(Angelscript, Fatal);
 	const bool bCompiled = CompileModuleWithResult(
@@ -222,7 +182,10 @@ bool FAngelscriptFunctionTemplateTest::RunTest(const FString& Parameters)
 		CompileResult);
 	UE_SET_LOG_VERBOSITY(Angelscript, Log);
 	TestFalse(TEXT("Template syntax should currently remain unsupported on this 2.33-based branch"), bCompiled);
-	return !bCompiled;
+	bPassed = !bCompiled;
+	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -232,13 +195,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptFunctionFactoryTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
+	ASTEST_BEGIN_FULL
+
 	const FString ScriptFilename = FPaths::Combine(FPaths::ProjectSavedDir(), TEXT("NegativeCompileIsolation"), TEXT("ASFunctionFactory.as"));
-	ON_SCOPE_EXIT
-	{
-		Engine.DiscardModule(TEXT("ASFunctionFactory"));
-		ResetSharedCloneEngine(Engine);
-	};
 	ECompileResult CompileResult = ECompileResult::FullyHandled;
 	UE_SET_LOG_VERBOSITY(Angelscript, Fatal);
 	const bool bCompiled = CompileModuleWithResult(
@@ -250,7 +211,10 @@ bool FAngelscriptFunctionFactoryTest::RunTest(const FString& Parameters)
 		CompileResult);
 	UE_SET_LOG_VERBOSITY(Angelscript, Log);
 	TestFalse(TEXT("Factory-style handle construction should remain unsupported on the current branch"), bCompiled);
-	return !bCompiled;
+	bPassed = !bCompiled;
+	ASTEST_END_FULL
+
+	return bPassed;
 }
 
 #endif

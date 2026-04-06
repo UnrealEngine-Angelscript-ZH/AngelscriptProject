@@ -1,4 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 #include "Components/ActorTestSpawner.h"
 #include "Kismet/GameplayStatics.h"
@@ -38,8 +39,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioActorPointDamageTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioActorPointDamage"));
 	ON_SCOPE_EXIT
 	{
@@ -84,13 +85,15 @@ class AScenarioActorPointDamage : AActor
 	UGameplayStatics::ApplyPointDamage(Actor, 42.0f, FVector::ForwardVector, FHitResult(), nullptr, nullptr, nullptr);
 
 	TestTrue(TEXT("Scenario point damage should route the applied damage into the script override"), FMath::IsNearlyEqual(Actor->GetActorTickInterval(), 42.0f));
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioActorRadialDamageTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioActorRadialDamage"));
 	ON_SCOPE_EXIT
 	{
@@ -149,13 +152,15 @@ class AScenarioActorRadialDamage : AActor
 	}
 
 	TestTrue(TEXT("Scenario radial damage should route the applied damage into the script override"), Actor->GetActorScale3D().Equals(FVector(24.0f, 24.0f, 24.0f), KINDA_SMALL_NUMBER));
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioActorMultiSpawnTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioActorMultiSpawn"));
 	ON_SCOPE_EXIT
 	{
@@ -215,13 +220,15 @@ class AScenarioActorMultiSpawn : AActor
 
 	TestTrue(TEXT("Scenario multi-spawn should execute BeginPlay on every spawned instance at least once"), TotalBeginPlayCount >= 3);
 	TestTrue(TEXT("Scenario multi-spawn should create distinct actor instances"), SpawnedActors[0] != SpawnedActors[1] && SpawnedActors[1] != SpawnedActors[2] && SpawnedActors[0] != SpawnedActors[2]);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioActorCrossCallTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioActorCrossCall"));
 	ON_SCOPE_EXIT
 	{
@@ -306,6 +313,8 @@ class AScenarioActorCrossCallA : AActor
 	}
 
 	TestTrue(TEXT("Scenario actor cross-call should let one spawned script actor invoke another's UFUNCTION"), CallCount >= 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 

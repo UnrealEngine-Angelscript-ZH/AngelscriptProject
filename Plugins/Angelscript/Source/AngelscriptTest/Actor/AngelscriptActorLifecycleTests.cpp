@@ -1,4 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 #include "Components/ActorTestSpawner.h"
 #include "Misc/AutomationTest.h"
@@ -42,8 +43,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioActorBeginPlayTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioActorBeginPlay"));
 	ON_SCOPE_EXIT
 	{
@@ -83,7 +84,7 @@ class AScenarioActorBeginPlay : AActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 BeginPlayCalled = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("BeginPlayCalled"), BeginPlayCalled))
@@ -92,13 +93,15 @@ class AScenarioActorBeginPlay : AActor
 	}
 
 	TestEqual(TEXT("BeginPlay should run when the script actor is spawned into the test world"), BeginPlayCalled, 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioActorTickTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioActorTick"));
 	ON_SCOPE_EXIT
 	{
@@ -142,8 +145,8 @@ class AScenarioActorTick : AActor
 	Actor->PrimaryActorTick.bCanEverTick = true;
 	Actor->SetActorTickEnabled(true);
 	Actor->RegisterAllActorTickFunctions(true, false);
-	BeginPlayActor(*Actor);
-	TickWorld(Spawner.GetWorld(), LifecycleScenarioDeltaTime, 5);
+	BeginPlayActor(Engine, *Actor);
+	TickWorld(Engine, Spawner.GetWorld(), LifecycleScenarioDeltaTime, 5);
 
 	int32 TickCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("TickCount"), TickCount))
@@ -152,13 +155,15 @@ class AScenarioActorTick : AActor
 	}
 
 	TestTrue(TEXT("Tick should execute at least once per manual world tick"), TickCount >= 5);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioActorReceiveEndPlayTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioActorReceiveEndPlay"));
 	ON_SCOPE_EXIT
 	{
@@ -199,9 +204,9 @@ class AScenarioActorReceiveEndPlay : AActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	Actor->Destroy();
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 
 	int32 EndPlayCalled = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("EndPlayCalled"), EndPlayCalled))
@@ -210,13 +215,15 @@ class AScenarioActorReceiveEndPlay : AActor
 	}
 
 	TestEqual(TEXT("ReceiveEndPlay should run when the script actor is destroyed"), EndPlayCalled, 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioActorReceiveDestroyedTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioActorReceiveDestroyed"));
 	ON_SCOPE_EXIT
 	{
@@ -257,9 +264,9 @@ class AScenarioActorReceiveDestroyed : AActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	Actor->Destroy();
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 
 	int32 DestroyedCalled = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("DestroyedCalled"), DestroyedCalled))
@@ -268,13 +275,15 @@ class AScenarioActorReceiveDestroyed : AActor
 	}
 
 	TestEqual(TEXT("ReceiveDestroyed should run when the script actor is destroyed"), DestroyedCalled, 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioActorResetTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioActorReset"));
 	ON_SCOPE_EXIT
 	{
@@ -315,7 +324,7 @@ class AScenarioActorReset : AActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	FIntProperty* ResetValueProperty = FindFProperty<FIntProperty>(Actor->GetClass(), TEXT("ResetValue"));
 	if (!TestNotNull(TEXT("Reset scenario property should exist"), ResetValueProperty))
 	{
@@ -331,6 +340,8 @@ class AScenarioActorReset : AActor
 	}
 
 	TestEqual(TEXT("Reset should route through the script override and restore the expected value"), ResetValue, 7);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 

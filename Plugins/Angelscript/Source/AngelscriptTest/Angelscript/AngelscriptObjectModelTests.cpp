@@ -1,4 +1,5 @@
 #include "Angelscript/AngelscriptTestSupport.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 // Test Layer: Runtime Integration
 #if WITH_DEV_AUTOMATION_TESTS
@@ -18,30 +19,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptObjectModelInheritanceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASObjectModelInheritance",
-		TEXT("int Run() { FIntPoint Point(3, 4); return Point.X + Point.Y; }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine,
+		"ASObjectModelInheritance",
+		TEXT("int Run() { FIntPoint Point(3, 4); return Point.X + Point.Y; }"),
+		TEXT("int Run()"),
+		Result);
 
 	TestEqual(TEXT("Value-type construction and member access should preserve field values"), Result, 7);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -52,30 +42,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptObjectModelDestructorTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASObjectModelDestructor",
-		TEXT("int Run() { FIntPoint Original(5, 6); FIntPoint Copy(Original); Copy = Copy + FIntPoint(2, 0); return Original.X * 10 + Copy.X; }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine,
+		"ASObjectModelDestructor",
+		TEXT("int Run() { FIntPoint Original(5, 6); FIntPoint Copy(Original); Copy = Copy + FIntPoint(2, 0); return Original.X * 10 + Copy.X; }"),
+		TEXT("int Run()"),
+		Result);
 
 	TestEqual(TEXT("Value-type copies should preserve the original and apply arithmetic to the copy"), Result, 57);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -86,7 +65,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptObjectBasicTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	const bool bCompiled = CompileModuleFromMemory(
 		&Engine,
 		TEXT("ASObjectBasic"),
@@ -110,6 +91,8 @@ bool FAngelscriptObjectBasicTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestTrue(TEXT("Objects.Basic currently verifies compile and symbol registration only because executing script-object methods still faults at runtime on this branch"), true);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -120,7 +103,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptObjectCompositionTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	const bool bCompiled = CompileModuleFromMemory(
 		&Engine,
 		TEXT("ASObjectComposition"),
@@ -144,6 +129,8 @@ bool FAngelscriptObjectCompositionTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestTrue(TEXT("Objects.Composition currently verifies compile and symbol registration only because nested script-object execution still faults at runtime on this branch"), true);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -165,30 +152,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptObjectZeroSizeTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASObjectZeroSize",
-		TEXT("class EmptyObject {} int Run() { EmptyObject Instance; return 1; }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine,
+		"ASObjectZeroSize",
+		TEXT("class EmptyObject {} int Run() { EmptyObject Instance; return 1; }"),
+		TEXT("int Run()"),
+		Result);
 
 	TestEqual(TEXT("Zero-size script objects should still be instantiable"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 

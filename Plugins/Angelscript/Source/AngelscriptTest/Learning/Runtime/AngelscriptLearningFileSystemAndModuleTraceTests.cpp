@@ -1,6 +1,7 @@
 #include "../../Shared/AngelscriptLearningTrace.h"
 #include "../../Shared/AngelscriptTestEngineHelper.h"
 #include "../../Shared/AngelscriptTestUtilities.h"
+#include "../../Shared/AngelscriptTestMacros.h"
 
 #include "HAL/FileManager.h"
 #include "Misc/AutomationTest.h"
@@ -48,8 +49,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptLearningFileSystemAndModuleTraceTest::RunTest(const FString& Parameters)
 {
 	CleanLearningFileSystemRoot();
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	ResetSharedCloneEngine(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	ON_SCOPE_EXIT
 	{
 		ResetSharedCloneEngine(Engine);
@@ -123,12 +124,12 @@ int BrokenEntry()
 	TArray<FAngelscriptEngine::FFilenamePair> DiscoveryWithoutEditorScripts;
 	const TArray<FString> PreviousRoots = Engine.AllRootPaths;
 	{
-		TGuardValue<bool> UseEditorScriptsGuard(FAngelscriptEngine::bUseEditorScripts, true);
+		TGuardValue<bool> UseEditorScriptsGuard(Engine.bUseEditorScripts, true);
 		Engine.AllRootPaths = {GetLearningFileSystemRoot()};
 		Engine.FindAllScriptFilenames(DiscoveryWithEditorScripts);
 	}
 	{
-		TGuardValue<bool> UseEditorScriptsGuard(FAngelscriptEngine::bUseEditorScripts, false);
+		TGuardValue<bool> UseEditorScriptsGuard(Engine.bUseEditorScripts, false);
 		Engine.AllRootPaths = {GetLearningFileSystemRoot()};
 		Engine.FindAllScriptFilenames(DiscoveryWithoutEditorScripts);
 	}
@@ -194,6 +195,8 @@ int BrokenEntry()
 		&& bContainsLookupKeyword
 		&& bContainsSkipRulesKeyword
 		&& bMinimumEventsOk;
+
+	ASTEST_END_SHARE_CLEAN
 }
 
 #endif

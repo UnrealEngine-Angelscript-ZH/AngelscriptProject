@@ -16,25 +16,25 @@ internal sealed record AngelscriptFunctionSignature(
 {
 	public string BuildEraseMacro()
 	{
-		if (!UseExplicitSignature)
+		if (UseExplicitSignature)
 		{
+			string parameterPack = ParameterTypes.Count == 0
+				? "()"
+				: $"({string.Join(", ", ParameterTypes)})";
+
+			if (IsConst && !IsStatic)
+			{
+				parameterPack += " const";
+			}
+
 			return IsStatic
-				? $"ERASE_AUTO_FUNCTION_PTR({OwningType}::{FunctionName})"
-				: $"ERASE_AUTO_METHOD_PTR({OwningType}, {FunctionName})";
-		}
-
-		string parameterPack = ParameterTypes.Count == 0
-			? "()"
-			: $"({string.Join(", ", ParameterTypes)})";
-
-		if (IsConst && !IsStatic)
-		{
-			parameterPack += " const";
+				? $"ERASE_FUNCTION_PTR({OwningType}::{FunctionName}, {parameterPack}, ERASE_ARGUMENT_PACK({ReturnType}))"
+				: $"ERASE_METHOD_PTR({OwningType}, {FunctionName}, {parameterPack}, ERASE_ARGUMENT_PACK({ReturnType}))";
 		}
 
 		return IsStatic
-			? $"ERASE_FUNCTION_PTR({OwningType}::{FunctionName}, {parameterPack}, ERASE_ARGUMENT_PACK({ReturnType}))"
-			: $"ERASE_METHOD_PTR({OwningType}, {FunctionName}, {parameterPack}, ERASE_ARGUMENT_PACK({ReturnType}))";
+			? $"ERASE_AUTO_FUNCTION_PTR({OwningType}::{FunctionName})"
+			: $"ERASE_AUTO_METHOD_PTR({OwningType}, {FunctionName})";
 	}
 }
 
@@ -49,7 +49,12 @@ internal static class AngelscriptFunctionSignatureBuilder
 			return true;
 		}
 
-		if (failureReason == "non-public" || failureReason == "overloaded-unresolved" || failureReason == "unexported-symbol")
+		if (failureReason == "non-public" || failureReason == "unexported-symbol")
+		{
+			return false;
+		}
+
+		if (failureReason == "overloaded-unresolved" && !IsWhitelistedDirectBindFallback(classObj, function))
 		{
 			return false;
 		}
@@ -93,6 +98,12 @@ internal static class AngelscriptFunctionSignatureBuilder
 
 		failureReason = null;
 		return true;
+	}
+
+	private static bool IsWhitelistedDirectBindFallback(UhtClass classObj, UhtFunction function)
+	{
+		return classObj.SourceName == "URuntimeFloatCurveMixinLibrary" &&
+			(function.SourceName == "GetNumKeys" || function.SourceName == "GetTimeRange");
 	}
 
 	private static string BuildParameterType(UhtProperty property)

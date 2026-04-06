@@ -1,0 +1,46 @@
+ASTEST TEST MACRO SYSTEM - STATUS NOTE
+======================================
+
+This file originally analyzed an abandoned `ANGELSCRIPT_*` macro family.
+It is retained only as a historical breadcrumb and should not be used as the
+source of truth for current migration work.
+
+CURRENT SOURCE OF TRUTH
+-----------------------
+
+- `Plugins/Angelscript/Source/AngelscriptTest/Shared/AngelscriptTestMacros.h`
+- `Plugins/Angelscript/Source/AngelscriptTest/TESTING_GUIDE.md`
+- `Documents/Plans/Plan_TestMacroOptimization.md`
+
+CURRENT OBSERVATIONS
+--------------------
+
+1. The active macro family is `ASTEST_*`, not `ANGELSCRIPT_TEST` or `ANGELSCRIPT_ISOLATED_TEST`.
+2. Current migration work keeps `IMPLEMENT_SIMPLE_AUTOMATION_TEST(...)` for registration and uses `ASTEST_CREATE_ENGINE_*` plus `ASTEST_BEGIN_*` / `ASTEST_END_*` inside `RunTest(...)` when that pairing is semantically safe.
+3. Existing helper names such as `GetOrCreateSharedCloneEngine()`, `AcquireCleanSharedCloneEngine()`, and `AcquireFreshSharedCloneEngine()` should be mapped carefully because their runtime semantics differ.
+4. Validation and migration decisions should be based on actual helper behavior in `AngelscriptTestUtilities.h`, not on historical helper naming.
+
+ACTIVE EXAMPLE SHAPE
+--------------------
+
+    IMPLEMENT_SIMPLE_AUTOMATION_TEST(FExampleTest, "Category.Test", Flags)
+    bool FExampleTest::RunTest(const FString& Parameters)
+    {
+        bool bPassed = false;
+        FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
+        ASTEST_BEGIN_FULL
+
+        int32 Result = 0;
+        ASTEST_COMPILE_RUN_INT(Engine,
+            "ExampleModule",
+            TEXT("int Run() { return 42; }"),
+            TEXT("int Run()"),
+            Result);
+
+        bPassed = TestEqual(TEXT("Result should be 42"), Result, 42);
+
+        ASTEST_END_FULL
+        return bPassed;
+    }
+
+Use this file only as a redirect. Do not extend the historical `ANGELSCRIPT_*` narrative further.

@@ -36,6 +36,7 @@ bool FAngelscriptClassGeneratorEmptyModuleSetupTest::RunTest(const FString& Para
 	{
 		return false;
 	}
+	FAngelscriptEngineScope EngineScope(*Engine);
 
 	TSharedRef<FAngelscriptModuleDesc> Module = MakeShared<FAngelscriptModuleDesc>();
 	Module->ModuleName = TEXT("Tests.ClassGenerator.EmptyModule");

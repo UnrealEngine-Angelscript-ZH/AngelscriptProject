@@ -25,8 +25,6 @@ FAngelscriptTypeUsage FAngelscriptTypeUsage::DefaultUsage;
 void* FAngelscriptType::TAG_UserData_Delegate = (void*)(SIZE_T*)0x1;
 void* FAngelscriptType::TAG_UserData_Multicast_Delegate = (void*)(SIZE_T*)0x2;
 
-class asITypeInfo* FAngelscriptType::ArrayTemplateTypeInfo = nullptr;
-
 FString FAngelscriptType::GetBoundClassName(UClass* Class)
 {
 	FString Name = Class->GetPrefixCPP();
@@ -34,63 +32,17 @@ FString FAngelscriptType::GetBoundClassName(UClass* Class)
 	return Name;
 }
 
-struct FAngelscriptTypeDatabase
+static FAngelscriptTypeDatabase& GetTypeDatabase()
 {
-	TArray<TSharedRef<FAngelscriptType>> RegisteredTypes;
-	TMap<FString, TSharedRef<FAngelscriptType>> TypesByAngelscriptName;
-	TMap<UClass*, TSharedRef<FAngelscriptType>> TypesByClass;
-	TMap<void*, TSharedRef<FAngelscriptType>> TypesByData;
-
-	TArray<FAngelscriptType::FTypeFinder> TypeFinders;
-	TArray<TSharedRef<FAngelscriptType>> TypesImplementingProperties;
-	TSharedPtr<FAngelscriptType> ScriptObjectType;
-	TSharedPtr<FAngelscriptType> ScriptEnumType;
-	TSharedPtr<FAngelscriptType> ScriptStructType;
-	TSharedPtr<FAngelscriptType> ScriptDelegateType;
-	TSharedPtr<FAngelscriptType> ScriptMulticastDelegateType;
-	TSharedPtr<FAngelscriptType> ScriptFloatType;
-	TSharedPtr<FAngelscriptType> ScriptDoubleType;
-	TSharedPtr<FAngelscriptType> ScriptFloatParamExtendedToDoubleType;
-	TSharedPtr<FAngelscriptType> ScriptBoolType;
-	asITypeInfo* ArrayTemplateTypeInfo = nullptr;
-};
-
-static const void* GetLegacyTypeDatabaseKey()
-{
-	static uint8 LegacyTypeDatabaseKey = 0;
-	return &LegacyTypeDatabaseKey;
-}
-
-static const void* ResolveTypeDatabaseKey(const void* StateKey = nullptr)
-{
-	if (StateKey != nullptr)
+	if (FAngelscriptEngine* Engine = FAngelscriptEngine::TryGetCurrentEngine())
 	{
-		return StateKey;
+		if (FAngelscriptTypeDatabase* DB = Engine->GetTypeDatabase())
+		{
+			return *DB;
+		}
 	}
-
-	if (const void* CurrentKey = FAngelscriptEngine::GetCurrentIsolationStateKey())
-	{
-		return CurrentKey;
-	}
-
-	return GetLegacyTypeDatabaseKey();
-}
-
-static TMap<const void*, TUniquePtr<FAngelscriptTypeDatabase>>& GetTypeDatabases()
-{
-	static TMap<const void*, TUniquePtr<FAngelscriptTypeDatabase>> TypeDatabases;
-	return TypeDatabases;
-}
-
-static FAngelscriptTypeDatabase& GetTypeDatabase(const void* StateKey = nullptr)
-{
-	TUniquePtr<FAngelscriptTypeDatabase>& Database = GetTypeDatabases().FindOrAdd(ResolveTypeDatabaseKey(StateKey));
-	if (!Database.IsValid())
-	{
-		Database = MakeUnique<FAngelscriptTypeDatabase>();
-	}
-
-	return *Database;
+	static FAngelscriptTypeDatabase LegacyDatabase;
+	return LegacyDatabase;
 }
 
 const TArray<TSharedRef<FAngelscriptType>>& FAngelscriptType::GetTypes()
@@ -149,17 +101,8 @@ void FAngelscriptType::Register(TSharedRef<FAngelscriptType> Type)
 
 void FAngelscriptType::ResetTypeDatabase()
 {
-	ResetTypeDatabaseForKey(nullptr);
-}
-
-void FAngelscriptType::ResetTypeDatabaseForKey(const void* StateKey)
-{
-	const void* ResolvedStateKey = ResolveTypeDatabaseKey(StateKey);
-	GetTypeDatabases().Remove(ResolvedStateKey);
-	if (ResolvedStateKey == ResolveTypeDatabaseKey())
-	{
-		ArrayTemplateTypeInfo = nullptr;
-	}
+	auto& Database = GetTypeDatabase();
+	Database = FAngelscriptTypeDatabase();
 }
 
 void FAngelscriptType::RegisterAlias(const FString& Alias, TSharedRef<FAngelscriptType> Type)
@@ -616,14 +559,12 @@ TSharedPtr<FAngelscriptType>& FAngelscriptType::ScriptBoolType()
 
 asITypeInfo* FAngelscriptType::GetArrayTemplateTypeInfo()
 {
-	ArrayTemplateTypeInfo = GetTypeDatabase().ArrayTemplateTypeInfo;
-	return ArrayTemplateTypeInfo;
+	return GetTypeDatabase().ArrayTemplateTypeInfo;
 }
 
 void FAngelscriptType::SetArrayTemplateTypeInfo(asITypeInfo* TypeInfo)
 {
 	GetTypeDatabase().ArrayTemplateTypeInfo = TypeInfo;
-	ArrayTemplateTypeInfo = TypeInfo;
 }
 
 FString FAngelscriptType::BuildFunctionDeclaration(const FAngelscriptTypeUsage& ReturnType, const FString& FunctionName, const TArray<FAngelscriptTypeUsage>& ArgumentTypes, const TArray<FString>& ArgumentNames, const TArray<FString>& ArgumentDefaults, bool bConstMethod)
@@ -706,7 +647,7 @@ bool FAngelscriptType::GetDebuggerValueFromFunction(asIScriptFunction* InScriptF
 			return false;
 		if (ScriptFunction->GetParamCount() == 1)
 		{
-			if (ScriptFunction->hiddenArgumentIndex != 0 || ScriptFunction->hiddenArgumentDefault != "__WorldContext")
+			if (ScriptFunction->hiddenArgumentIndex != 0 || ScriptFunction->hiddenArgumentDefault != "__WorldContext()")
 				return false;
 			else
 				bHasWorldContext = true;
@@ -768,7 +709,7 @@ bool FAngelscriptType::GetDebuggerValueFromFunction(asIScriptFunction* InScriptF
 			if (Object != nullptr)
 				Context->SetObject(Object);
 			if (bHasWorldContext)
-				Context->SetArgObject(0, FAngelscriptEngine::CurrentWorldContext);
+				Context->SetArgObject(0, FAngelscriptEngine::TryGetCurrentWorldContextObject());
 			Context->Execute();
 
 			if (ReturnValue.bIsReference)

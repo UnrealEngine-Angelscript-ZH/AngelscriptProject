@@ -6,15 +6,20 @@
 >
 > 启动 bind / watcher / 性能分层矩阵：`Documents/Guides/AngelscriptValidationMatrix.md`
 >
+> 测试分层、命名规则与典型场景：`Documents/Guides/TestConventions.md`
+>
 > 说明：这里的 `275/275 PASS` 表示**已编目基线**，不是当前源码实时扫描到的全部测试数量。实时扫描规模与新增覆盖请以 `Documents/Guides/TechnicalDebtInventory.md` 的 live inventory / verification snapshot 为准。
 >
-> 最终 closeout 口径：`P6.3` 在独立 worktree 上重新执行 `Automation RunTests Angelscript.TestModule` 后，full-suite 仍只保留 `TechnicalDebtInventory.md` 中记录的 4 个已知失败项，没有新增技术债收口相关回归。
+> 历史 closeout：`P6.3` 曾在独立 worktree 上收口到 4 个已知失败；该结果已被 `TechnicalDebtInventory.md` 第 17 节的最新回归快照覆盖。当前 live full-suite 口径与失败 owner 以 `Documents/Guides/TechnicalDebtInventory.md`、`Documents/Plans/Plan_KnownTestFailureFixes.md`、`Documents/Plans/Plan_TechnicalDebtRefresh.md` 为准。
+>
+> 当前测试债分流：zero/weak coverage 优先进入 `Documents/Plans/Plan_TestCoverageExpansion.md`；StaticJIT 专项优先进入 `Documents/Plans/Plan_StaticJITUnitTests.md`；测试层级/目录/命名规范化优先进入 `Documents/Plans/Plan_TestSystemNormalization.md` 与 `Documents/Plans/Plan_TestModuleStandardization.md`；negative tests 继续作为能力边界证据保留在对应主题中，不与已知失败混写。
 
 ---
 
 ## 目录
 
 - [1. Shared — 测试基础设施](#1-shared--测试基础设施)
+- [Native — 原生 AngelScript / ASSDK](#native--原生-angelscript--assdk)
 - [2. Core — 引擎核心](#2-core--引擎核心)
 - [3. Angelscript — 脚本引擎行为](#3-angelscript--脚本引擎行为)
   - [3.1 Core — 创建/编译/执行](#31-core--创建编译执行)
@@ -37,6 +42,7 @@
 - [9. ClassGenerator — 类生成器](#9-classgenerator--类生成器)
 - [10. FileSystem — 文件系统](#10-filesystem--文件系统)
 - [11. Editor — 编辑器](#11-editor--编辑器)
+- [11.5 Debugger — 调试器](#115-debugger--调试器)
 - [12. Themed Integration Tests — 主题化集成回归](#12-themed-integration-tests--主题化集成回归)
   - [12.1 Actor 生命周期](#121-actor-生命周期)
   - [12.2 Actor 交互](#122-actor-交互)
@@ -58,6 +64,7 @@
   - [13.2 Runtime 层学习测试](#132-runtime-层学习测试)
 - [14. Examples — 示例脚本编译](#14-examples--示例脚本编译)
 - [15. Template — 模板场景](#15-template--模板场景)
+- [16. Dump — 状态导出](#16-dump--状态导出)
 
 ---
 
@@ -79,6 +86,26 @@
 | Shared.EngineHelper.ExecutingOneTestEngineDoesNotLeakContextIntoNextTest | 两个 clone 引擎分别编译执行不同模块，结果互不串线 |
 | Shared.EngineHelper.SubsystemAttachedProductionEngineDoesNotHijackIsolatedTestEngine | 隔离引擎编译的模块不出现在共享测试引擎中 |
 | Shared.NativeScriptTestObject.Instantiate | 原生测试用 `UAngelscriptNativeScriptTestObject` 可实例化 |
+
+---
+
+## Native — 原生 AngelScript / ASSDK
+
+> 源文件：`Native/AngelscriptNativeSmokeTest.cpp`、`Native/AngelscriptNativeCompileTests.cpp`、`Native/AngelscriptNativeExecutionTests.cpp`、`Native/AngelscriptNativeExecutionAdvancedTests.cpp`、`Native/AngelscriptNativeRegistrationTests.cpp`、`Native/AngelscriptASSDKSmokeTest.cpp`、`Native/AngelscriptASSDKEngineTests.cpp`、`Native/AngelscriptASSDKExecuteTests.cpp`、`Native/AngelscriptASSDKGlobalVarTests.cpp` 以及其余 `Native/AngelscriptASSDK*Tests.cpp`
+
+| 测试前缀 | 代表源文件 | 验证内容 |
+|--------|----------|----------|
+| `Angelscript.TestModule.Native.Smoke` | `Native/AngelscriptNativeSmokeTest.cpp` | 最小原生 AngelScript 引擎创建、编译与执行烟雾 |
+| `Angelscript.TestModule.Native.Compile.*` | `Native/AngelscriptNativeCompileTests.cpp` | 纯公共 API 路径下的编译、错误消息与模块构建 |
+| `Angelscript.TestModule.Native.Execute.*` | `Native/AngelscriptNativeExecutionTests.cpp`、`Native/AngelscriptNativeExecutionAdvancedTests.cpp` | 原生上下文 Prepare / Execute、参数传递、返回值、执行状态 |
+| `Angelscript.TestModule.Native.Register.*` | `Native/AngelscriptNativeRegistrationTests.cpp` | 原生全局函数/属性/值类型注册 |
+| `Angelscript.TestModule.Native.ASSDK.Smoke` | `Native/AngelscriptASSDKSmokeTest.cpp` | ASSDK 适配层最小引擎创建、消息回调与脚本执行 |
+| `Angelscript.TestModule.Native.ASSDK.Engine.*` | `Native/AngelscriptASSDKEngineTests.cpp` | ASSDK 引擎生命周期、回调复用与基础引擎语义 |
+| `Angelscript.TestModule.Native.ASSDK.Execute.*` | `Native/AngelscriptASSDKExecuteTests.cpp` | ASSDK 回调注册、参数调用约定、cleanup 与 portability 分支 |
+| `Angelscript.TestModule.Native.ASSDK.GlobalVar.*` / `Stack.*` | `Native/AngelscriptASSDKGlobalVarTests.cpp` | 全局变量枚举/重置/删除、栈深限制与异常位置信息 |
+| `Angelscript.TestModule.Native.ASSDK.*` | 其余 `Native/AngelscriptASSDK*Tests.cpp` | 类型、对象、OOP、模块、函数、调用约定、运行时与编译器邻近回归 |
+
+> 放置规则：`Native/` 只验证 `AngelscriptInclude.h` / `angelscript.h` 暴露的公共 API，不把 `FAngelscriptEngine` 或运行时私有实现带进这一层。
 
 ---
 
@@ -280,7 +307,7 @@
 
 ## 4. Bindings — UE API 绑定
 
-> 源文件：`Bindings/` 目录下 13 个测试文件
+> 源文件：`Bindings/` 目录下 15 个测试文件
 
 ### 值类型与引擎核心
 
@@ -291,6 +318,17 @@
 | Bindings.TArrayMutationCompat | `int[]`：`FindIndex`/`AddUnique`/`Insert`/`RemoveSingle`/`Remove`/`Reset` | AngelscriptEngineBindingsTests.cpp |
 | Bindings.ForeachCompat | `int[]`/`TArray` 的 `for (x : arr)` 与 `const FVector&` 范围 for | AngelscriptEngineBindingsTests.cpp |
 | Bindings.TArrayIteratorCompat | `TArrayIterator`/`TArrayConstIterator` 可变迭代、常量遍历、别名迭代器累加 | AngelscriptEngineBindingsTests.cpp |
+
+### 全局变量与控制台
+
+| 测试名 | 验证内容 | 源文件 |
+|--------|----------|--------|
+| Bindings.GlobalVariableCompat | `CollisionProfile::BlockAllDynamic`、`FComponentQueryParams::DefaultComponentQueryParams`、`FGameplayTag::EmptyTag`、`FGameplayTagContainer::EmptyContainer`、`FGameplayTagQuery::EmptyQuery` 等命名空间全局变量可在脚本侧读值 | AngelscriptGlobalBindingsTests.cpp |
+| Bindings.ConsoleVariableCompat | `FConsoleVariable` 的 `int`/`float`/`bool`/`FString` 构造、`Get*`/`Set*` 与底层 `IConsoleManager` 值同步 | AngelscriptConsoleBindingsTests.cpp |
+| Bindings.ConsoleVariableExistingCompat | `FConsoleVariable` 以已有 C++ CVar 名构造时复用现有值，并继续把写回同步到底层 `IConsoleManager` | AngelscriptConsoleBindingsTests.cpp |
+| Bindings.ConsoleCommandCompat | 脚本侧全局 `FConsoleCommand` 可注册到 `IConsoleManager`、执行后将参数数量写回底层 CVar，并在模块丢弃后卸载 | AngelscriptConsoleBindingsTests.cpp |
+| Bindings.ConsoleCommandReplacementCompat | 相同命令名的第二次脚本注册会替换前一个命令实现，执行结果以最新注册版本为准 | AngelscriptConsoleBindingsTests.cpp |
+| Bindings.ConsoleCommandSignatureCompat | `FConsoleCommand` 绑定到错误签名的全局函数时应构造失败，且不会在 `IConsoleManager` 中留下残留命令 | AngelscriptConsoleBindingsTests.cpp |
 
 ### 容器
 
@@ -589,7 +627,7 @@
 
 ## 8. Preprocessor — 预处理器
 
-> 源文件：`Preprocessor/PreprocessorTests.cpp`
+> 源文件：`Preprocessor/AngelscriptPreprocessorTests.cpp`
 
 | 测试名 | 验证内容 |
 |--------|----------|
@@ -642,6 +680,20 @@
 | 测试名 | 验证内容 |
 |--------|----------|
 | Editor.SourceNavigation.Functions | 编译注解类后，`UASFunction` 保留源路径与行号，`FSourceCodeNavigation::CanNavigateTo*` 为真 |
+
+---
+
+## 11.5 Debugger — 调试器
+
+> 源文件：`AngelscriptRuntime/Tests/AngelscriptDebugProtocolTests.cpp`、`AngelscriptRuntime/Tests/AngelscriptDebugTransportTests.cpp`、`Debugger/AngelscriptDebuggerSmokeTests.cpp`、`Debugger/AngelscriptDebuggerBreakpointTests.cpp`、`Debugger/AngelscriptDebuggerSteppingTests.cpp`
+
+| 测试前缀 | 代表源文件 | 验证内容 |
+|--------|----------|----------|
+| `Angelscript.CppTests.Debug.Protocol.*` | `AngelscriptDebugProtocolTests.cpp` | 调试消息体 round-trip、版本字段与结构兼容 |
+| `Angelscript.CppTests.Debug.Transport.*` | `AngelscriptDebugTransportTests.cpp` | 调试 envelope 的 framing、半包、多包与错误长度处理 |
+| `Angelscript.TestModule.Debugger.Smoke.*` | `Debugger/AngelscriptDebuggerSmokeTests.cpp` | 调试会话握手、server version 返回与基础连接链路 |
+| `Angelscript.TestModule.Debugger.Breakpoint.*` | `Debugger/AngelscriptDebuggerBreakpointTests.cpp` | 断点下发、命中行号、分支忽略与继续执行行为 |
+| `Angelscript.TestModule.Debugger.Stepping.*` | `Debugger/AngelscriptDebuggerSteppingTests.cpp` | `StepIn` / `StepOver` / `StepOut` 的停止行为与调用栈变化 |
 
 ---
 
@@ -928,7 +980,7 @@
 | `Angelscript.CppTests.MultiEngine` | 创建模式与 startup owner 基础烟雾 |
 | `Angelscript.TestModule.Engine.BindConfig` | 启动 bind 配置与顺序烟雾 |
 | `Angelscript.TestModule.Shared.EngineHelper` | 引擎隔离与 scope 恢复烟雾 |
-| `Angelscript.TestModule.Core.Parity` | 生产引擎 bind 可见性 smoke |
+| `Angelscript.TestModule.Parity` | 生产引擎 bind 可见性 smoke |
 
 ### 15.2 功能正确性层
 
@@ -979,3 +1031,18 @@
 | 长时压力层 | `Angelscript.TestModule.Core.Performance.Startup` | `Saved/Automation/AngelscriptPerformance/P6_PerfStartup/Reports/index.json` | `failed=0` |
 | 长时压力层 | `Angelscript.TestModule.HotReload.Performance` | `Saved/Automation/AngelscriptPerformance/P6_PerfHotReload/Reports/index.json` | `failed=1 (BurstChurnLatency)` |
 | 产物验证层 | `Angelscript.TestModule.Core.Performance.ArtifactGeneration` | `Saved/Automation/AngelscriptPerformance/P6_PerfArtifactGeneration/Reports/index.json` | `failed=0` |
+
+---
+
+## 16. Dump — 状态导出
+
+> 源文件：`Dump/AngelscriptDumpCommand.cpp`、`Dump/AngelscriptDumpTests.cpp`
+>
+> 控制台命令：`as.DumpEngineState [OutputDir]`
+
+| 测试名 | 验证内容 |
+|--------|----------|
+| Dump.CSVWriter.Basic | `FCSVWriter` 能写出基础 header/row，并将结果保存到磁盘 |
+| Dump.CSVWriter.SpecialCharacters | `FCSVWriter` 对逗号、双引号与换行字段做正确 CSV 转义 |
+| Dump.DumpAll.EndToEnd | `FAngelscriptStateDump::DumpAll()` 会生成 Phase 1-7 约定的全部 CSV 文件 |
+| Dump.DumpAll.Summary | `DumpSummary.csv` 会为每张表写出状态与行数；当前 `ToStringTypes` / `HotReloadState` / `CodeCoverage` 的 `NotAvailable` / `PartialExport` / `Skipped` 属于受 public API 与编译开关约束的预期结果 |

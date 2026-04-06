@@ -1,4 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
@@ -21,7 +22,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioInterfaceDeclareBasicTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioInterfaceDeclareBasic"));
 	ON_SCOPE_EXIT
 	{
@@ -48,12 +50,15 @@ interface UIDamageable
 	{
 		TestTrue(TEXT("Interface class should have CLASS_Interface flag"), InterfaceClass->HasAnyClassFlags(CLASS_Interface));
 	}
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioInterfaceDeclareInheritanceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioInterfaceDeclareInheritance"));
 	ON_SCOPE_EXIT
 	{
@@ -86,6 +91,8 @@ interface UIKillableInh : UIDamageableInh
 	{
 		TestTrue(TEXT("Child interface should have CLASS_Interface flag"), ChildInterface->HasAnyClassFlags(CLASS_Interface));
 	}
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 

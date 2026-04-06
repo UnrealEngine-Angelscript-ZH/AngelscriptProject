@@ -135,11 +135,46 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_UObject_Base((int32)FAngelscri
 	UObject_.Method("void opCast(?& Address) const",
 	[](UObject* Object, void* OutAddress, int TypeId)
 	{
+		auto& Manager = FAngelscriptEngine::Get();
+		asITypeInfo* RequestedType = Manager.Engine->GetTypeInfoById(TypeId);
+		const bool bScenarioCastProbe =
+			Object != nullptr
+			&& Object->GetClass() != nullptr
+			&& Object->GetClass()->GetName().Contains(TEXT("ScenarioInterfaceCastSuccess"));
+		const bool bLogDamageableCast = RequestedType != nullptr && FCStringAnsi::Strstr(RequestedType->GetName(), "DamageableCast") != nullptr;
+		if (bScenarioCastProbe)
+		{
+			UE_LOG(
+				Angelscript,
+				Display,
+				TEXT("UObject::opCast scenario entry typeId=%d requestedType=%hs isHandle=%s outAddress=%p objectClass=%s"),
+				TypeId,
+				RequestedType != nullptr ? RequestedType->GetName() : "<null>",
+				(TypeId & asTYPEID_OBJHANDLE) != 0 ? TEXT("true") : TEXT("false"),
+				OutAddress,
+				*Object->GetClass()->GetName());
+		}
+		if (bLogDamageableCast)
+		{
+			UE_LOG(
+				Angelscript,
+				Display,
+				TEXT("UObject::opCast entry typeId=%d isHandle=%s requestedType=%hs"),
+				TypeId,
+				(TypeId & asTYPEID_OBJHANDLE) != 0 ? TEXT("true") : TEXT("false"),
+				RequestedType->GetName());
+		}
+
 		// Can't cast if it's not a handle, need to store somewhere
 		if (!(TypeId & asTYPEID_OBJHANDLE))
+		{
+			if (bLogDamageableCast)
+			{
+				UE_LOG(Angelscript, Display, TEXT("UObject::opCast rejected non-handle target typeId=%d"), TypeId);
+			}
 			return;
+		}
 
-		auto& Manager = FAngelscriptEngine::Get();
 		asCObjectType* ScriptType = (asCObjectType*)Manager.Engine->GetTypeInfoById(TypeId);
 		checkSlow(ScriptType != nullptr);
 
@@ -150,15 +185,30 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_UObject_Base((int32)FAngelscri
 		UClass* AssociatedClass = (UClass*)ScriptType->GetUserData();
 		checkSlow(AssociatedClass != nullptr);
 
+		const bool bIsA = Object->IsA(AssociatedClass);
+		const bool bAssociatedClassIsInterface = AssociatedClass->HasAnyClassFlags(CLASS_Interface);
+		const bool bImplementsInterface = bAssociatedClassIsInterface && Object->GetClass()->ImplementsInterface(AssociatedClass);
+
+		if (bAssociatedClassIsInterface)
+		{
+			UE_LOG(
+				Angelscript,
+				Display,
+				TEXT("UObject::opCast target=%s objectClass=%s isA=%s implements=%s"),
+				*AssociatedClass->GetName(),
+				*Object->GetClass()->GetName(),
+				bIsA ? TEXT("true") : TEXT("false"),
+				bImplementsInterface ? TEXT("true") : TEXT("false"));
+		}
+
 		// The cast is valid if the script type we're casting to
 		// has a UClass associated with it that is one of the
 		// parent classes of our UObject.
-		if (Object->IsA(AssociatedClass))
+		if (bIsA)
 		{
 			*(UObject**)OutAddress = Object;
 		}
-		else if (AssociatedClass->HasAnyClassFlags(CLASS_Interface)
-			&& Object->GetClass()->ImplementsInterface(AssociatedClass))
+		else if (bImplementsInterface)
 		{
 			*(UObject**)OutAddress = Object;
 		}

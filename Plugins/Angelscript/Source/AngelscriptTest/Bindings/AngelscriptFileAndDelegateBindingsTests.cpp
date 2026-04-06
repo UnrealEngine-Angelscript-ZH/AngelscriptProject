@@ -1,10 +1,12 @@
 #include "../Shared/AngelscriptTestUtilities.h"
+#include "../Shared/AngelscriptTestMacros.h"
 #include "../Shared/AngelscriptTestEngineHelper.h"
 
 #include "HAL/FileManager.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
+#include "Misc/ScopeExit.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -32,7 +34,13 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScriptDelegateBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(TEXT("ASScriptDelegateCompat"));
+	};
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -92,12 +100,20 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Script delegate compat operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptSoftPathBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(TEXT("ASSoftPathCompat"));
+	};
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -162,12 +178,15 @@ int Entry()
 	}
 
 	TestEqual(TEXT("SoftPath compat operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptSourceMetadataBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 
 	const FString Script = TEXT(R"AS(
 UCLASS()
@@ -183,6 +202,13 @@ class UBindingSourceMetadataCarrier : UObject
 	const FString ScriptDirectory = FPaths::ConvertRelativePathToFull(FPaths::ProjectDir() / TEXT("Script/Automation"));
 	IFileManager::Get().MakeDirectory(*ScriptDirectory, true);
 	const FString ScriptPath = ScriptDirectory / TEXT("RuntimeSourceMetadataBindingsTest.as");
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(TEXT("ASSourceMetadataQuery"));
+		Engine.DiscardModule(TEXT("RuntimeSourceMetadataBindingsTest"));
+		IFileManager::Get().Delete(*ScriptPath, false, true, true);
+	};
+
 	if (!TestTrue(TEXT("Write source metadata script file should succeed"), FFileHelper::SaveStringToFile(Script, *ScriptPath)))
 	{
 		return false;
@@ -191,7 +217,6 @@ class UBindingSourceMetadataCarrier : UObject
 	const bool bAnnotatedCompiled = CompileAnnotatedModuleFromMemory(&Engine, TEXT("RuntimeSourceMetadataBindingsTest"), ScriptPath, Script);
 	if (!TestTrue(TEXT("Compile annotated source metadata module should succeed"), bAnnotatedCompiled))
 	{
-		IFileManager::Get().Delete(*ScriptPath, false, true, true);
 		return false;
 	}
 
@@ -228,32 +253,37 @@ int Entry()
 	asIScriptModule* Module = BuildModule(*this, Engine, "ASSourceMetadataQuery", RuntimeScript);
 	if (Module == nullptr)
 	{
-		IFileManager::Get().Delete(*ScriptPath, false, true, true);
 		return false;
 	}
 
 	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Entry()"));
 	if (Function == nullptr)
 	{
-		IFileManager::Get().Delete(*ScriptPath, false, true, true);
 		return false;
 	}
 
 	int32 Result = 0;
 	const bool bExecuted = ExecuteIntFunction(*this, Engine, *Function, Result);
-	IFileManager::Get().Delete(*ScriptPath, false, true, true);
 	if (!TestTrue(TEXT("Execute source metadata accessor function should succeed"), bExecuted))
 	{
 		return false;
 	}
 
 	TestEqual(TEXT("Source metadata accessors should behave as expected"), Result, 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptFileHelperBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(TEXT("ASFileHelperCompat"));
+	};
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -292,6 +322,8 @@ int Entry()
 	}
 
 	TestEqual(TEXT("FileHelper compat operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 

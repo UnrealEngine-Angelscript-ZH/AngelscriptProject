@@ -1,6 +1,7 @@
 #include "../Shared/AngelscriptPerformanceTestUtils.h"
 #include "../Shared/AngelscriptTestEngineHelper.h"
 #include "../Shared/AngelscriptTestUtilities.h"
+#include "../Shared/AngelscriptTestMacros.h"
 
 #include "HAL/PlatformFileManager.h"
 #include "HAL/PlatformTime.h"
@@ -78,7 +79,9 @@ bool FAngelscriptHotReloadSoftLatencyTest::RunTest(const FString& Parameters)
 {
 	const auto Measure = [this]() -> FHotReloadPerformanceSample
 	{
-		FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+		FHotReloadPerformanceSample ReturnSample;
+		FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
+		ASTEST_BEGIN_SHARE_FRESH
 		static const FName ModuleName(TEXT("HotReloadPerformanceSoft"));
 		ResetSharedInitializedTestEngine(Engine);
 
@@ -111,7 +114,10 @@ class UHotReloadPerformanceSoft : UObject
 		CompileModuleWithResult(&Engine, ECompileType::SoftReloadOnly, ModuleName, TEXT("HotReloadPerformanceSoft.as"), ScriptV2, ReloadResult);
 		const double Elapsed = FPlatformTime::Seconds() - StartTime;
 		Engine.DiscardModule(*ModuleName.ToString());
-		return { Elapsed, ReloadResult };
+		ReturnSample = { Elapsed, ReloadResult };
+		ASTEST_END_SHARE_FRESH
+
+		return ReturnSample;
 	};
 
 	const TArray<FHotReloadPerformanceSample> Samples = CollectHotReloadSamples(Measure);
@@ -127,7 +133,9 @@ bool FAngelscriptHotReloadFullLatencyTest::RunTest(const FString& Parameters)
 {
 	const auto Measure = [this]() -> FHotReloadPerformanceSample
 	{
-		FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+		FHotReloadPerformanceSample ReturnSample;
+		FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
+		ASTEST_BEGIN_SHARE_FRESH
 		static const FName ModuleName(TEXT("HotReloadPerformanceFull"));
 		ResetSharedInitializedTestEngine(Engine);
 
@@ -157,7 +165,10 @@ class UHotReloadPerformanceFull : UObject
 		CompileModuleWithResult(&Engine, ECompileType::FullReload, ModuleName, TEXT("HotReloadPerformanceFull.as"), ScriptV2, ReloadResult);
 		const double Elapsed = FPlatformTime::Seconds() - StartTime;
 		Engine.DiscardModule(*ModuleName.ToString());
-		return { Elapsed, ReloadResult };
+		ReturnSample = { Elapsed, ReloadResult };
+		ASTEST_END_SHARE_FRESH
+
+		return ReturnSample;
 	};
 
 	const TArray<FHotReloadPerformanceSample> Samples = CollectHotReloadSamples(Measure);
@@ -175,7 +186,9 @@ bool FAngelscriptHotReloadRenameWindowLatencyTest::RunTest(const FString& Parame
 
 	const auto Measure = [this]() -> FHotReloadPerformanceSample
 	{
-		FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+		FHotReloadPerformanceSample ReturnSample;
+		FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
+		ASTEST_BEGIN_SHARE_FRESH
 		static const FName ModuleName(TEXT("HotReloadPerformanceRename"));
 		ResetSharedInitializedTestEngine(Engine);
 
@@ -205,7 +218,10 @@ class UHotReloadPerformanceRename : UObject
 		CompileModuleWithResult(&Engine, ECompileType::FullReload, ModuleName, TEXT("HotReloadPerformanceRenameNew.as"), ScriptV2, ReloadResult);
 		const double Elapsed = FPlatformTime::Seconds() - StartTime;
 		Engine.DiscardModule(*ModuleName.ToString());
-		return { Elapsed, ReloadResult };
+		ReturnSample = { Elapsed, ReloadResult };
+		ASTEST_END_SHARE_FRESH
+
+		return ReturnSample;
 	};
 
 	const TArray<FHotReloadPerformanceSample> Samples = CollectHotReloadSamples(Measure);
@@ -227,7 +243,9 @@ bool FAngelscriptHotReloadBurstChurnLatencyTest::RunTest(const FString& Paramete
 
 	const auto Measure = [this]() -> FHotReloadPerformanceSample
 	{
-		FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+		FHotReloadPerformanceSample ReturnSample;
+		FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
+		ASTEST_BEGIN_SHARE_FRESH
 		static const FName ModuleName(TEXT("HotReloadPerformanceBurst"));
 		ResetSharedInitializedTestEngine(Engine);
 
@@ -284,7 +302,10 @@ class UHotReloadPerformanceBurst : UObject
 		const ECompileResult AggregateResult = (bStepOneHandled && bStepTwoHandled && bStepThreeHandled)
 			? (StepTwo == ECompileResult::ErrorNeedFullReload || StepThree == ECompileResult::ErrorNeedFullReload ? ECompileResult::ErrorNeedFullReload : ECompileResult::FullyHandled)
 			: ECompileResult::Error;
-		return { Elapsed, AggregateResult };
+		ReturnSample = { Elapsed, AggregateResult };
+		ASTEST_END_SHARE_FRESH
+
+		return ReturnSample;
 	};
 
 	const TArray<FHotReloadPerformanceSample> Samples = CollectHotReloadSamples(Measure);

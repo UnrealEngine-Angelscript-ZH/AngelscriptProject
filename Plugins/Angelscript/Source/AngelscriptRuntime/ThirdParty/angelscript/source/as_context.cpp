@@ -193,19 +193,42 @@ asCContext::asCContext(asCScriptEngine *engine, bool holdRef)
 
 	m_engine                    = engine;
 	m_status                    = asEXECUTION_UNINITIALIZED;
+	m_doSuspend                 = false;
+	m_doAbort                   = false;
+	m_externalSuspendRequest    = false;
+	m_executeVirtualCall        = false;
 	m_stackBlockSize            = 0;
+	m_stackIndex                = 0;
 	m_originalStackPointer      = 0;
 	m_originalStackIndex        = 0;
 	m_inExceptionHandler        = false;
 	m_isStackMemoryNotAllocated = false;
 	m_needToCleanupArgs         = false;
+	m_returnIsExternal          = false;
+	m_exceptionFunction         = 0;
+	m_exceptionSectionIdx       = 0;
+	m_exceptionLine             = -1;
+	m_exceptionColumn           = 0;
 	m_exceptionWillBeCaught     = false;
 	m_currentFunction           = 0;
+	m_returnValueSize           = 0;
+	m_argumentsSize             = 0;
+	m_regs.programPointer       = 0;
+	m_regs.stackFramePointer    = 0;
+	m_regs.stackPointer         = 0;
+	m_regs.valueRegister        = 0;
 	m_regs.objectRegister       = 0;
+	m_regs.objectType           = 0;
 	m_initialFunction           = 0;
 	m_lineCallback              = nullptr;
+	m_loopDetectionCallback     = nullptr;
+	m_loopDetectionTimer        = -1.0;
+	m_loopDetectionCounter      = 0;
+	m_loopDetectionExclusionCounter = 0;
 	m_stackPopCallback			= nullptr;
 	m_exceptionCallback         = false;
+	memset(&m_exceptionCallbackFunc, 0, sizeof(m_exceptionCallbackFunc));
+	m_exceptionCallbackObj      = 0;
 	m_userData                  = 0;
 	m_regs.ctx                  = this;
 	m_regs.tld = asCThreadManager::GetLocalData();
@@ -3269,7 +3292,8 @@ void asCContext::ExecuteNext()
 				asASSERT( objType->flags & asOBJ_SCRIPT_OBJECT );
 				asASSERT( to->flags & asOBJ_SCRIPT_OBJECT );
 
-				if( objType->Implements(to) || objType->DerivesFrom(to) )
+				if( objType->Implements(to) || objType->DerivesFrom(to) ||
+					FAngelscriptEngine::CanCastScriptObjectToUnrealInterface(objType, to, obj) )
 				{
 					m_regs.objectType = 0;
 					m_regs.objectRegister = obj;

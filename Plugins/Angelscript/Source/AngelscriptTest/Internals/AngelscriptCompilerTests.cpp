@@ -1,4 +1,5 @@
 #include "Angelscript/AngelscriptTestSupport.h"
+#include "../Shared/AngelscriptTestMacros.h"
 #include "Misc/AutomationTest.h"
 
 #include "StartAngelscriptHeaders.h"
@@ -30,7 +31,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCompilerBytecodeGenerationTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	asIScriptModule* Module = AngelscriptTestSupport::BuildModule(
 		*this,
 		Engine,
@@ -51,12 +54,17 @@ bool FAngelscriptCompilerBytecodeGenerationTest::RunTest(const FString& Paramete
 	asDWORD* Bytecode = Function->GetByteCode(&BytecodeLength);
 	TestNotNull(TEXT("Compiled function should expose a bytecode buffer"), Bytecode);
 	TestTrue(TEXT("Compiled function should emit at least one bytecode instruction"), BytecodeLength > 0);
-	return Bytecode != nullptr && BytecodeLength > 0;
+	bPassed = Bytecode != nullptr && BytecodeLength > 0;
+	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 bool FAngelscriptCompilerVariableScopeTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	asIScriptModule* Module = AngelscriptTestSupport::BuildModule(
 		*this,
 		Engine,
@@ -78,12 +86,16 @@ bool FAngelscriptCompilerVariableScopeTest::RunTest(const FString& Parameters)
 	const char* FirstVarName = nullptr;
 	Function->GetVar(0, &FirstVarName, nullptr);
 	TestNotNull(TEXT("Compiler should record the first local variable name"), FirstVarName);
-	return Function->GetVarCount() >= 2;
+	bPassed = Function->GetVarCount() >= 2;
+	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 bool FAngelscriptCompilerFunctionCallTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	asIScriptModule* Module = AngelscriptTestSupport::BuildModule(
 		*this,
 		Engine,
@@ -107,12 +119,16 @@ bool FAngelscriptCompilerFunctionCallTest::RunTest(const FString& Parameters)
 	}
 
 	TestEqual(TEXT("Compiler should generate callable bytecode for function invocations"), Result, 12);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptCompilerTypeConversionTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	asIScriptModule* Module = AngelscriptTestSupport::BuildModule(
 		*this,
 		Engine,
@@ -143,7 +159,10 @@ bool FAngelscriptCompilerTypeConversionTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Compiler conversion test should prepare successfully"), PrepareResult, asSUCCESS);
 	TestEqual(TEXT("Compiler conversion test should execute successfully"), ExecuteResult, asEXECUTION_FINISHED);
 	TestTrue(TEXT("Compiler should emit a numeric conversion that preserves the value"), FMath::IsNearlyEqual(Result, 7.0f));
-	return PrepareResult == asSUCCESS && ExecuteResult == asEXECUTION_FINISHED && FMath::IsNearlyEqual(Result, 7.0f);
+	bPassed = PrepareResult == asSUCCESS && ExecuteResult == asEXECUTION_FINISHED && FMath::IsNearlyEqual(Result, 7.0f);
+	ASTEST_END_SHARE_CLEAN
+
+	return bPassed;
 }
 
 #endif

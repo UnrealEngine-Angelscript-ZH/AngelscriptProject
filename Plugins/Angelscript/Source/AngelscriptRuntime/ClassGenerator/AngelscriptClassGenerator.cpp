@@ -3899,7 +3899,7 @@ void FAngelscriptClassGenerator::DoFullReload(FModuleData& ModuleData, FEnumData
 	// Need to inform editor if we changed an existing enum
 	if (!bExistingEnum)
 	{
-		if (FAngelscriptEngine::bIsInitialCompileFinished)
+		if (FAngelscriptEngine::Get().IsInitialCompileFinished())
 			OnEnumCreated.Broadcast(Enum);
 	}
 	else if (bHasChanged)

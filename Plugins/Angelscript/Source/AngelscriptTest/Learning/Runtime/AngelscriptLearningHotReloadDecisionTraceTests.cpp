@@ -1,6 +1,7 @@
 #include "../../Shared/AngelscriptLearningTrace.h"
 #include "../../Shared/AngelscriptTestEngineHelper.h"
 #include "../../Shared/AngelscriptTestUtilities.h"
+#include "../../Shared/AngelscriptTestMacros.h"
 
 #include "ClassGenerator/AngelscriptClassGenerator.h"
 #include "Misc/AutomationTest.h"
@@ -91,7 +92,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningHotReloadDecisionTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	ResetSharedCloneEngine(Engine);
 	ON_SCOPE_EXIT
 	{
@@ -336,6 +338,8 @@ class ULearningHotReloadFunctionTarget : UObject
 		&& bContainsFullReloadRequiredKeyword
 		&& bContainsTriggerExplanationKeyword
 		&& bMinimumEventsOk;
+
+	ASTEST_END_SHARE
 }
 
 #endif

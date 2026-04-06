@@ -122,6 +122,7 @@ bool FAngelscriptRestoreRoundTripTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
+	FAngelscriptEngineScope EngineScope(*SourceEngineOwner);
 
 	FAngelscriptEngine& SourceEngine = *SourceEngineOwner;
 	ON_SCOPE_EXIT
@@ -192,6 +193,7 @@ bool FAngelscriptRestoreStripDebugInfoRoundTripTest::RunTest(const FString& Para
 	{
 		return false;
 	}
+	FAngelscriptEngineScope EngineScope(*SourceEngineOwner);
 
 	FAngelscriptEngine& SourceEngine = *SourceEngineOwner;
 	ON_SCOPE_EXIT
@@ -248,6 +250,7 @@ bool FAngelscriptRestoreEmptyStreamFailsTest::RunTest(const FString& Parameters)
 	{
 		return false;
 	}
+	FAngelscriptEngineScope EngineScope(*EngineOwner);
 
 	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(EngineOwner->GetScriptEngine());
 	asCModule* RestoredModule = CreateRestoreModule(ScriptEngine, "RestoreEmptyStream");
@@ -270,6 +273,7 @@ bool FAngelscriptRestoreTruncatedStreamFailsTest::RunTest(const FString& Paramet
 	{
 		return false;
 	}
+	FAngelscriptEngineScope EngineScope(*SourceEngineOwner);
 
 	FAngelscriptEngine& SourceEngine = *SourceEngineOwner;
 	ON_SCOPE_EXIT

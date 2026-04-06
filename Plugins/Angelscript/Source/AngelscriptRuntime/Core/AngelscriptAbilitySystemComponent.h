@@ -139,8 +139,8 @@ public:
 };
 
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FInitAbilityActorInfoDelegate, AActor*, InOwnerActor, AActor*, InAvatarActor);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityGivenDelegate, FGameplayAbilitySpec, AbilitySpec);
-DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityRemovedDelegate, FGameplayAbilitySpec, AbilitySpec);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityGivenDelegate, const FGameplayAbilitySpec&, AbilitySpec);
+DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAbilityRemovedDelegate, const FGameplayAbilitySpec&, AbilitySpec);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAttributeChangedDelegate, const FAngelscriptModifiedAttribute&, AttributeChangeData);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_OneParam(FAttributeSetRegisteredDelegate, class UAngelscriptAttributeSet*, NewAttributeSet);
 DECLARE_DYNAMIC_MULTICAST_DELEGATE_TwoParams(FOwnedTagUpdatedDelegate, const FGameplayTag&, Tag, bool, TagExists);

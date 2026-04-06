@@ -516,8 +516,10 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_InputEvents(FAngelscriptBinds:
 		BIND_EKEYS(Android_Menu);
 
 		// Virtual buttons that use other buttons depending on the platform
-		BIND_EKEYS(Virtual_Accept);
-		BIND_EKEYS(Virtual_Back);
+		static const FKey VirtualAcceptKey = EKeys::Virtual_Gamepad_Accept.GetVirtualKey();
+		static const FKey VirtualBackKey = EKeys::Virtual_Gamepad_Back.GetVirtualKey();
+		FAngelscriptBinds::BindGlobalVariable("const FKey Virtual_Accept", &VirtualAcceptKey);
+		FAngelscriptBinds::BindGlobalVariable("const FKey Virtual_Back", &VirtualBackKey);
 
 		BIND_EKEYS(Invalid);
 

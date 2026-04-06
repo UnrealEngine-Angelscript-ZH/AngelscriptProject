@@ -1,4 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 #include "Core/AngelscriptComponent.h"
 #include "Components/ActorTestSpawner.h"
@@ -71,8 +72,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioGCActorDestroyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioGCActorDestroy"));
 	ON_SCOPE_EXIT
 	{
@@ -104,21 +105,23 @@ class AScenarioGCActorDestroy : AActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	TWeakObjectPtr<AActor> WeakActor = Actor;
 	Actor->Destroy();
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 	CollectGarbage(RF_NoFlags, true);
 
 	TestTrue(TEXT("Scenario GC actor destroy should complete without leaving a live actor reference"), !WeakActor.IsValid());
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioGCComponentDestroyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioGCComponentDestroy"));
 	ON_SCOPE_EXIT
 	{
@@ -154,17 +157,19 @@ class UScenarioGCComponentDestroy : UAngelscriptComponent
 
 	TWeakObjectPtr<UActorComponent> WeakComponent = Component;
 	Component->DestroyComponent();
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 	CollectGarbage(RF_NoFlags, true);
 
 	TestTrue(TEXT("Scenario GC component destroy should complete without leaving a live component reference"), !WeakComponent.IsValid());
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioGCWorldTeardownTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioGCWorldTeardown"));
 	ON_SCOPE_EXIT
 	{
@@ -213,7 +218,7 @@ class UScenarioGCWorldTeardownComponent : UAngelscriptComponent
 		{
 			return false;
 		}
-		BeginPlayActor(*Actor);
+		BeginPlayActor(Engine, *Actor);
 
 	UActorComponent* Component = CreateGCScenarioScriptComponent(*this, *Actor, ComponentClass, TEXT("GC.WorldTeardown"));
 		if (Component == nullptr)
@@ -229,6 +234,8 @@ class UScenarioGCWorldTeardownComponent : UAngelscriptComponent
 	TestTrue(TEXT("Scenario GC world teardown should release the world after scope cleanup"), !WeakWorld.IsValid());
 	TestTrue(TEXT("Scenario GC world teardown should release spawned actors after scope cleanup"), !WeakActor.IsValid());
 	TestTrue(TEXT("Scenario GC world teardown should release spawned components after scope cleanup"), !WeakComponent.IsValid());
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 

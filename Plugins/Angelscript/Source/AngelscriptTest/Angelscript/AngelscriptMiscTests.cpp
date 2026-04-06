@@ -1,4 +1,5 @@
 #include "AngelscriptTestSupport.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 // Test Layer: Runtime Integration
 #if WITH_DEV_AUTOMATION_TESTS
@@ -12,30 +13,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptMiscNamespaceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASMiscNamespace",
-		TEXT("namespace MyNamespace { const int Value = 42; int GetValue() { return Value; } } int Test() { return MyNamespace::GetValue(); }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Test()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine,
+		"ASMiscNamespace",
+		TEXT("namespace MyNamespace { const int Value = 42; int GetValue() { return Value; } } int Test() { return MyNamespace::GetValue(); }"),
+		TEXT("int Test()"),
+		Result);
 
 	TestEqual(TEXT("Misc.Namespace should resolve namespace-qualified globals"), Result, 42);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -47,30 +37,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptMiscGlobalVarTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASMiscGlobalVar",
-		TEXT("const int GlobalValue = 42; int Test() { return GlobalValue; }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Test()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine,
+		"ASMiscGlobalVar",
+		TEXT("const int GlobalValue = 42; int Test() { return GlobalValue; }"),
+		TEXT("int Test()"),
+		Result);
 
 	TestEqual(TEXT("Misc.GlobalVar should expose compiled global state"), Result, 42);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -81,30 +60,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptMiscMultiAssignTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASMiscMultiAssign",
-		TEXT("int Test() { int A = 0, B = 0, C = 0; A = B = C = 42; return A + B + C; }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Test()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine,
+		"ASMiscMultiAssign",
+		TEXT("int Test() { int A = 0, B = 0, C = 0; A = B = C = 42; return A + B + C; }"),
+		TEXT("int Test()"),
+		Result);
 
 	TestEqual(TEXT("Misc.MultiAssign should evaluate chained assignments from right to left"), Result, 126);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -115,30 +83,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptMiscAssignTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASMiscAssign",
-		TEXT("int Test() { int Value = 10; Value += 5; Value -= 3; Value *= 2; Value /= 3; return Value; }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Test()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine,
+		"ASMiscAssign",
+		TEXT("int Test() { int Value = 10; Value += 5; Value -= 3; Value *= 2; Value /= 3; return Value; }"),
+		TEXT("int Test()"),
+		Result);
 
 	TestEqual(TEXT("Misc.Assign should apply compound assignments in sequence"), Result, 8);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -149,7 +106,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptMiscDuplicateFunctionTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
+	FAngelscriptEngineScope EngineScope(Engine);
 	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
 	if (!TestNotNull(TEXT("Misc.DuplicateFunction should expose a script engine for the isolated compile-fail probe"), ScriptEngine))
 	{
@@ -170,7 +131,10 @@ bool FAngelscriptMiscDuplicateFunctionTest::RunTest(const FString& Parameters)
 	AddExpectedErrorPlain(TEXT("A function with the same name and parameters already exists"), EAutomationExpectedErrorFlags::Contains, 0);
 	const int32 BuildResult = Module->Build();
 	TestEqual(TEXT("Misc.DuplicateFunction should reject duplicate global function declarations on the raw AngelScript path"), BuildResult, static_cast<int32>(asERROR));
-	return BuildResult == asERROR;
+	bPassed = BuildResult == asERROR;
+	ASTEST_END_SHARE
+
+	return bPassed;
 }
 
 #endif

@@ -52,6 +52,8 @@
 #include "as_bytecode.h"
 #include "as_debug.h"
 
+#include "AngelscriptEngine.h"
+
 #include <stdlib.h>
 
 BEGIN_AS_NAMESPACE
@@ -793,6 +795,8 @@ asCScriptEngine::asCScriptEngine()
 		ep.genericCallMode               = 1;         // 0 = old (pre 2.33.0) behavior where generic ignored auto handles, 1 = treat handles like in native call
 	}
 
+	initialContextStackSize = ep.initContextStackSize;
+
 	gc.engine = this;
 	tok.engine = this;
 
@@ -949,15 +953,20 @@ asCScriptEngine::~asCScriptEngine()
 	scriptTypeBehaviours.ReleaseAllFunctions();
 	functionBehaviours.ReleaseAllFunctions();
 
+	//[UE++]: Guard against cascade-freed functions during DestroyInternal.
+	// DestroyInternal may release references that cascade-free THIS function,
+	// setting scriptFunctions[n] to null. Re-check before writing engine = 0.
 	for( asUINT n = 0; n < scriptFunctions.GetLength(); n++ )
 		if( scriptFunctions[n] )
 		{
 			scriptFunctions[n]->DestroyInternal();
 
 			// Set the engine pointer to null to signal that the function is no longer part of the engine
-			scriptFunctions[n]->engine = 0;
+			if( scriptFunctions[n] )
+				scriptFunctions[n]->engine = 0;
 		}
 	scriptFunctions.SetLength(0);
+	//[UE--]
 
 	// Increase the internal ref count for these builtin object types, so the destructor is not called incorrectly
 	scriptTypeBehaviours.AddRefInternal();
@@ -5068,7 +5077,8 @@ int asCScriptEngine::RefCastObject(void *obj, asITypeInfo *fromType, asITypeInfo
 
 		// Up casts to base class or interface can be done implicitly
 		if( fromType->DerivesFrom(toType) ||
-			fromType->Implements(toType) )
+			fromType->Implements(toType) ||
+			FAngelscriptEngine::CanCastScriptObjectToUnrealInterface(fromType, toType, obj) )
 		{
 			*newPtr = obj;
 			//reinterpret_cast<asCScriptObject*>(*newPtr)->AddRef();
@@ -5080,7 +5090,8 @@ int asCScriptEngine::RefCastObject(void *obj, asITypeInfo *fromType, asITypeInfo
 			// Get the true type of the object so the explicit cast can evaluate all possibilities
 			asITypeInfo *trueType = reinterpret_cast<asCScriptObject*>(obj)->GetObjectType();
 			if (trueType->DerivesFrom(toType) ||
-				trueType->Implements(toType))
+				trueType->Implements(toType) ||
+				FAngelscriptEngine::CanCastScriptObjectToUnrealInterface(trueType, toType, obj))
 			{
 				*newPtr = obj;
 				//reinterpret_cast<asCScriptObject*>(*newPtr)->AddRef();

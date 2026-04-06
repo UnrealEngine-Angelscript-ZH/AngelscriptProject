@@ -1,5 +1,6 @@
 #include "../Shared/AngelscriptTestEngineHelper.h"
 #include "../Shared/AngelscriptTestUtilities.h"
+#include "../Shared/AngelscriptTestMacros.h"
 
 #include "ClassGenerator/AngelscriptClassGenerator.h"
 #include "Misc/AutomationTest.h"
@@ -46,8 +47,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptAnalyzeReloadNoChangeTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& EngineOwner = ASTEST_CREATE_ENGINE_SHARE();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
 class UReloadNoChangeTarget : UObject
@@ -83,13 +85,16 @@ class UReloadNoChangeTarget : UObject
 	TestEqual(TEXT("Unchanged module should remain soft reload"), ReloadRequirement, FAngelscriptClassGenerator::SoftReload);
 	TestFalse(TEXT("Unchanged module should not suggest full reload"), bWantsFullReload);
 	TestFalse(TEXT("Unchanged module should not require full reload"), bNeedsFullReload);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptAnalyzeReloadPropertyCountChangeTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& EngineOwner = ASTEST_CREATE_ENGINE_SHARE();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
 class UReloadPropertyTarget : UObject
@@ -127,13 +132,16 @@ class UReloadPropertyTarget : UObject
 
 	TestTrue(TEXT("Property count change should request a full reload path"), bWantsFullReload || bNeedsFullReload);
 	TestTrue(TEXT("Property count change should not remain soft reload"), ReloadRequirement == FAngelscriptClassGenerator::FullReloadRequired || ReloadRequirement == FAngelscriptClassGenerator::FullReloadSuggested);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptAnalyzeReloadSuperClassChangeTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& EngineOwner = ASTEST_CREATE_ENGINE_SHARE();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
 class UReloadSuperTarget : UObject
@@ -164,13 +172,16 @@ class UReloadSuperTarget : AActor
 
 	TestTrue(TEXT("Super-class change should request a full reload path"), bWantsFullReload || bNeedsFullReload);
 	TestEqual(TEXT("Super-class change should require a full reload"), ReloadRequirement, FAngelscriptClassGenerator::FullReloadRequired);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptAnalyzeReloadSoftReloadRequirementTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& EngineOwner = ASTEST_CREATE_ENGINE_SHARE();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
 class UReloadSoftRequirementTarget : UObject
@@ -212,13 +223,16 @@ class UReloadSoftRequirementTarget : UObject
 	TestEqual(TEXT("Body-only change should remain soft reload"), ReloadRequirement, FAngelscriptClassGenerator::SoftReload);
 	TestFalse(TEXT("Body-only change should not suggest full reload"), bWantsFullReload);
 	TestFalse(TEXT("Body-only change should not require full reload"), bNeedsFullReload);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptAnalyzeReloadClassAddedTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& EngineOwner = ASTEST_CREATE_ENGINE_SHARE();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
 class UExistingReloadTarget : UObject
@@ -254,13 +268,16 @@ class UNewReloadTarget : UObject
 
 	TestTrue(TEXT("Class add should request a full reload path"), bWantsFullReload || bNeedsFullReload);
 	TestEqual(TEXT("Class add should suggest a full reload"), ReloadRequirement, FAngelscriptClassGenerator::FullReloadSuggested);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptAnalyzeReloadClassRemovedTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& EngineOwner = ASTEST_CREATE_ENGINE_SHARE();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
 class UReloadSurvivorTarget : UObject
@@ -296,13 +313,16 @@ class UReloadSurvivorTarget : UObject
 
 	TestTrue(TEXT("Class remove should request a full reload path"), bWantsFullReload || bNeedsFullReload);
 	TestEqual(TEXT("Class remove should require a full reload"), ReloadRequirement, FAngelscriptClassGenerator::FullReloadRequired);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptAnalyzeReloadFunctionSignatureChangedTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& EngineOwner = GetOrCreateSharedCloneEngine();
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& EngineOwner = ASTEST_CREATE_ENGINE_SHARE();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	const FString ScriptV1 = TEXT(R"AS(
 UCLASS()
 class UReloadFunctionTarget : UObject
@@ -343,6 +363,8 @@ class UReloadFunctionTarget : UObject
 
 	TestTrue(TEXT("Function signature change should request a full reload path"), bWantsFullReload || bNeedsFullReload);
 	TestEqual(TEXT("Function signature change should require a full reload"), ReloadRequirement, FAngelscriptClassGenerator::FullReloadRequired);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 

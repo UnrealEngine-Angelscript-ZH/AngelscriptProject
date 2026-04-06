@@ -1,4 +1,5 @@
 #include "../Shared/AngelscriptTestUtilities.h"
+#include "../Shared/AngelscriptTestMacros.h"
 #include "../Shared/AngelscriptTestEngineHelper.h"
 
 #include "Misc/AutomationTest.h"
@@ -24,7 +25,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptMathExtendedBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -150,12 +152,15 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Extended Math helpers should behave as expected"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
 bool FAngelscriptPlatformProcessBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -205,6 +210,8 @@ int Entry()
 	}
 
 	TestEqual(TEXT("PlatformProcess compat operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -212,7 +219,8 @@ bool FAngelscriptLoggingBindingsTest::RunTest(const FString& Parameters)
 {
 	AddExpectedError(TEXT("Test error message"), EAutomationExpectedErrorFlags::Contains, 1);
 
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -245,6 +253,8 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Headless-safe logging helpers should execute successfully"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 

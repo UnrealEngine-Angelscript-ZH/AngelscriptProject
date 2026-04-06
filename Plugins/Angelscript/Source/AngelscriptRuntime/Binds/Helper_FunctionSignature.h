@@ -227,7 +227,7 @@ struct FAngelscriptFunctionSignature
 			{
 				if (ArgumentNames[ArgIndex] == WorldContextParam)
 				{
-					ArgumentDefaults[ArgIndex] = TEXT("__WorldContext");
+					ArgumentDefaults[ArgIndex] = TEXT("__WorldContext()");
 					WorldContextArgument = ArgIndex;
 					break;
 				}
@@ -423,7 +423,7 @@ struct FAngelscriptFunctionSignature
 				if (WorldContextArgument != -1)
 				{
 					ScriptFunction->hiddenArgumentIndex = WorldContextArgument;
-					ScriptFunction->hiddenArgumentDefault = "__WorldContext";
+					ScriptFunction->hiddenArgumentDefault = "__WorldContext()";
 #if WITH_EDITOR
 					if (!Function->HasMetaData(NAME_OptionalWorldContext))
 						ScriptFunction->traits.SetTrait(asTRAIT_USES_WORLDCONTEXT, true);

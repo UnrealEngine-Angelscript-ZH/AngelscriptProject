@@ -49,6 +49,65 @@ THIRD_PARTY_INCLUDES_END
 
 int AngelscriptDebugServer::DebugAdapterVersion = 0;
 
+bool SerializeDebugMessageEnvelope(EDebugMessageType MessageType, const TArray<uint8>& Body, TArray<uint8>& OutBuffer)
+{
+	OutBuffer.Reset();
+	FMemoryWriter Writer(OutBuffer);
+	const int32 MessageLength = static_cast<int32>(sizeof(uint8)) + Body.Num();
+	const uint8 MessageTypeByte = static_cast<uint8>(MessageType);
+	Writer << const_cast<int32&>(MessageLength);
+	Writer << const_cast<uint8&>(MessageTypeByte);
+	OutBuffer.Append(Body);
+	return true;
+}
+
+bool TryDeserializeDebugMessageEnvelope(TArray<uint8>& InOutBuffer, FAngelscriptDebugMessageEnvelope& OutEnvelope, bool& bOutHasEnvelope, FString* OutError)
+{
+	bOutHasEnvelope = false;
+	if (InOutBuffer.Num() < static_cast<int32>(sizeof(int32)))
+	{
+		return true;
+	}
+
+	TArray<uint8> HeaderBytes;
+	HeaderBytes.Append(InOutBuffer.GetData(), sizeof(int32));
+	FMemoryReader HeaderReader(HeaderBytes);
+	int32 MessageLength = 0;
+	HeaderReader << MessageLength;
+
+	if (MessageLength <= 0 || MessageLength > 1024 * 1024)
+	{
+		if (OutError != nullptr)
+		{
+			*OutError = FString::Printf(TEXT("Received debugger envelope with invalid message length %d."), MessageLength);
+		}
+		return false;
+	}
+
+	const int32 TotalEnvelopeSize = static_cast<int32>(sizeof(int32)) + MessageLength;
+	if (InOutBuffer.Num() < TotalEnvelopeSize)
+	{
+		return true;
+	}
+
+	TArray<uint8> PayloadBytes;
+	PayloadBytes.Append(InOutBuffer.GetData() + sizeof(int32), MessageLength);
+	FMemoryReader PayloadReader(PayloadBytes);
+	uint8 MessageTypeByte = static_cast<uint8>(EDebugMessageType::Disconnect);
+	PayloadReader << MessageTypeByte;
+
+	OutEnvelope.MessageType = static_cast<EDebugMessageType>(MessageTypeByte);
+	OutEnvelope.Body.Reset();
+	if (MessageLength > static_cast<int32>(sizeof(uint8)))
+	{
+		OutEnvelope.Body.Append(PayloadBytes.GetData() + sizeof(uint8), MessageLength - static_cast<int32>(sizeof(uint8)));
+	}
+
+	InOutBuffer.RemoveAt(0, TotalEnvelopeSize, EAllowShrinking::No);
+	bOutHasEnvelope = true;
+	return true;
+}
+
 namespace DataBreakpoint_Windows
 {
 #if PLATFORM_WINDOWS && WITH_AS_DEBUGSERVER
@@ -530,7 +589,8 @@ void FAngelscriptDebugServer::ProcessScriptLine(class asCContext* Context)
 			TSharedPtr<FFileBreakpoints>& ActiveBreakpoints = SectionBreakpoints.FindOrAdd(Section);
 			if (!ActiveBreakpoints.IsValid())
 			{
-				TSharedPtr<FFileBreakpoints>& BreakpointStore = Breakpoints.FindOrAdd(ANSI_TO_TCHAR(Context->m_currentFunction->module->baseModuleName.AddressOf()));
+				FString ModuleName = ANSI_TO_TCHAR(Context->m_currentFunction->module->baseModuleName.AddressOf());
+				TSharedPtr<FFileBreakpoints>& BreakpointStore = Breakpoints.FindOrAdd(ModuleName);
 				if (!BreakpointStore.IsValid())
 				{
 					BreakpointStore = MakeShared<FFileBreakpoints>();
@@ -549,6 +609,7 @@ void FAngelscriptDebugServer::ProcessScriptLine(class asCContext* Context)
 				}
 			}
 		}
+
 	}
 
 	if (!bWasIgnored && !bIsPaused)
@@ -621,7 +682,10 @@ void FAngelscriptDebugServer::PauseExecution(FStoppedMessage* StopMessage)
 
 	// Reset loop detection on context so we don't trigger timeouts during breakpoints
 	auto* Context = (asCContext*)asGetActiveContext();
-	Context->m_loopDetectionTimer = -1.0;
+	if (Context != nullptr)
+	{
+		Context->m_loopDetectionTimer = -1.0;
+	}
 
 	// Wait for the debugger to unpause
 	while (bIsPaused)
@@ -892,7 +956,6 @@ void FAngelscriptDebugServer::HandleMessage(EDebugMessageType MessageType, FArra
 	{
 		FAngelscriptBreakpoint BP;
 		*Datagram << BP;
-
 		FString OriginalFilename = BP.Filename;
 		BP.Filename = CanonizeFilename(BP.Filename);
 		
@@ -1434,7 +1497,7 @@ void FAngelscriptDebugServer::SendDebugDatabase(FSocket* Client)
 	auto* ScriptEngine = FAngelscriptEngine::Get().Engine;
 
 	FAngelscriptDebugDatabaseSettings DebugSettings;
-	DebugSettings.bAutomaticImports = FAngelscriptEngine::bUseAutomaticImportMethod;
+	DebugSettings.bAutomaticImports = FAngelscriptEngine::Get().ShouldUseAutomaticImportMethod();
 	DebugSettings.bFloatIsFloat64 = GetDefault<UAngelscriptSettings>()->bScriptFloatIsFloat64;
 	DebugSettings.bUseAngelscriptHaze = !!WITH_ANGELSCRIPT_HAZE;
 	DebugSettings.bDeprecateStaticClass = GetDefault<UAngelscriptSettings>()->StaticClassDeprecation == EAngelscriptStaticClassMode::Deprecated;

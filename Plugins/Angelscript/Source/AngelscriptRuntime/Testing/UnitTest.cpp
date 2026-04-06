@@ -63,7 +63,7 @@ void BindAdvanceTime(FAngelscriptBinds& T)
 			{
 				return;
 			}
-			UWorld* World = GEngine->GetWorldFromContextObject(FAngelscriptEngine::CurrentWorldContext, EGetWorldErrorMode::ReturnNull);
+			UWorld* World = GEngine->GetWorldFromContextObject(FAngelscriptEngine::TryGetCurrentWorldContextObject(), EGetWorldErrorMode::ReturnNull);
 			if (!World)
 			{
 				Self.Fail("Tried to advance time, but has no world");
@@ -131,7 +131,7 @@ void BindSetIsServer(FAngelscriptBinds& T)
 			{
 				return;
 			}
-			UWorld* World = GEngine->GetWorldFromContextObject(FAngelscriptEngine::CurrentWorldContext, EGetWorldErrorMode::ReturnNull);
+			UWorld* World = GEngine->GetWorldFromContextObject(FAngelscriptEngine::TryGetCurrentWorldContextObject(), EGetWorldErrorMode::ReturnNull);
 			if (!World)
 			{
 				Self.Fail("Tried to SetIsServer, but has no world");

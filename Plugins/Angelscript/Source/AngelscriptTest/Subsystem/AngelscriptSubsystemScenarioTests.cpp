@@ -1,4 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 #include "Shared/AngelscriptNativeScriptTestObject.h"
 
@@ -64,7 +65,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioWorldSubsystemLifecycleTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioWorldSubsystemLifecycle"));
 	ON_SCOPE_EXIT
 	{
@@ -103,12 +105,15 @@ class UScenarioWorldLifecycleTracker : UScriptWorldSubsystem
 	}
 
 	TestEqual(TEXT("Scenario world subsystem lifecycle should currently fail compilation on this branch"), CompileResult, ECompileResult::Error);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioWorldSubsystemTickTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioWorldSubsystemTick"));
 	ON_SCOPE_EXIT
 	{
@@ -142,12 +147,15 @@ class UScenarioWorldTicker : UScriptWorldSubsystem
 	}
 
 	TestEqual(TEXT("Scenario world subsystem tick should currently fail compilation on this branch"), CompileResult, ECompileResult::Error);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioWorldSubsystemActorAccessTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioWorldSubsystemActorAccess"));
 	ON_SCOPE_EXIT
 	{
@@ -187,12 +195,15 @@ class AScenarioWorldSubsystemActorAccessActor : AActor
 	}
 
 	TestEqual(TEXT("Scenario world subsystem actor access should currently fail compilation on this branch"), CompileResult, ECompileResult::Error);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioGameInstanceSubsystemLifecycleTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioGameInstanceSubsystemLifecycle"));
 	ON_SCOPE_EXIT
 	{
@@ -231,6 +242,8 @@ class UScenarioGameInstanceLifecycleTracker : UScriptGameInstanceSubsystem
 	}
 
 	TestEqual(TEXT("Scenario game-instance subsystem lifecycle should currently fail compilation on this branch"), CompileResult, ECompileResult::Error);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 

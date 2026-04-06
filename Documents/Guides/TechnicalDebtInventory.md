@@ -2,13 +2,25 @@
 
 > 快照提交：`ac16f3a`
 >
-> 目的：将 `Documents/Plans/Plan_TechnicalDebt.md` 中提到的 live inventory 固化为仓库内可追溯文档，避免后续执行阶段重复从零扫描。
+> 目的：保留 Angelscript 插件技术债的 live inventory、历史验证快照与当前 debt owner 入口，避免后续执行阶段重复从零扫描。
+>
+> 当前 debt routing 主入口：`Documents/Plans/Plan_TechnicalDebtRefresh.md`
 
 ## 1. 已编目基线 vs 实时扫描
 
-- `Documents/Guides/TestCatalog.md` 仍以 `275/275 PASS` 作为**已编目基线**。
-- 当前源码对 `IMPLEMENT_SIMPLE_AUTOMATION_TEST`、`IMPLEMENT_COMPLEX_AUTOMATION_TEST`、`IMPLEMENT_CUSTOM_SIMPLE_AUTOMATION_TEST`、`BEGIN_DEFINE_SPEC`、`DEFINE_SPEC` 的实时扫描命中 **324** 处定义，覆盖 **89** 个文件。
-- 这两组数字不能直接等价：前者是文档化、已整理的基线；后者是当前源码中的实时定义规模。当前差值为 **+49**，应作为后续 `TestCatalog` 同步与回归验收的起点，而不是继续把 `275` 视为源码现状总数。
+- `Documents/Guides/TestCatalog.md` 仍以 `275/275 PASS` 作为**已编目基线**，它表示“已经整理进目录文档并完成一轮 closeout 的基线”，不是当前 live suite 的总数。
+- 当前源码对 `IMPLEMENT_SIMPLE_AUTOMATION_TEST`、`IMPLEMENT_COMPLEX_AUTOMATION_TEST`、`IMPLEMENT_CUSTOM_SIMPLE_AUTOMATION_TEST`、`BEGIN_DEFINE_SPEC`、`DEFINE_SPEC` 的实时扫描命中 **324** 处定义，覆盖 **89** 个文件；这表示的是源码中自动化入口定义规模，也不等于当前 full-suite 执行总数。
+- 截至 `2026-04-04 Engine Isolation` 回归快照，`Automation RunTests Angelscript.TestModule` 的最新结果是 **443 测试 / 436 通过 / 7 失败 / 0 跳过**；这组数字才是当前 live full-suite 状态。
+- 因此这里至少存在三套需要并存维护的数字：**文档化基线**（275/275）、**源码实时定义规模**（324 定义 / 89 文件）、**最新 full-suite 结果**（443/436/7）。后续整理时不得再把其中任意一组当作另外两组的直接替代。
+
+### 当前测试债 owner 口径
+
+- **零覆盖 / 弱覆盖**：优先由 `Documents/Plans/Plan_TestCoverageExpansion.md` 承接。
+- **StaticJIT 专项零覆盖**：优先由 `Documents/Plans/Plan_StaticJITUnitTests.md` 承接，而不是继续挂在泛化测试 backlog 中。
+- **测试层级 / 目录 / 命名规范化**：优先由 `Documents/Plans/Plan_TestSystemNormalization.md` 与 `Documents/Plans/Plan_TestModuleStandardization.md` 承接。
+- **当前应通过但未通过的已知失败**：优先由 `Documents/Plans/Plan_KnownTestFailureFixes.md` 承接。
+- **negative tests（当前明确不支持、作为能力边界证据存在）**：保留在相应测试主题中作为能力边界证据，不应和 zero/weak coverage 或 known failures 混写。
+- **总分流 / owner 解释**：以 `Documents/Plans/Plan_TechnicalDebtRefresh.md` 为准。
 
 ### 当前 live inventory 热点
 
@@ -205,8 +217,8 @@
 
 ## 15. Phase 6.3 最终回归快照
 
-- 命令解析：通过 `Tools/ResolveAgentCommandTemplates.ps1` 基于 `AgentConfig.ini` 成功解析 `UnrealEditor-Cmd.exe` 的最终命令行，确认 `ProjectFile` 回退到 worktree 根 `AngelscriptProject.uproject`，`Test.DefaultTimeoutMs` 为 `600000ms`。
-- 最终回归执行：在 `technical-debt-plan` worktree 上重新执行 `Automation RunTests Angelscript.TestModule`；结果日志见 `Saved/Logs/AngelscriptProject.log`。
+- 命令解析：通过 `Tools/ResolveAgentCommandTemplates.ps1` 读取 `AgentConfig.ini` 并生成 `Tools\RunTests.ps1 -Group <group>` 的完整模板，确认 `ProjectFile` 指向 worktree 根 `AngelscriptProject.uproject`，`Test.DefaultTimeoutMs` 保持 `600000ms`。
+- 最终回归执行：在 `technical-debt-plan` worktree 上通过 `Tools\RunTests.ps1` （配合 `-Group` / `-TestPrefix`）重复 `Angelscript.TestModule` 的 automation run，日志同样记录在 `Saved/Logs/AngelscriptProject.log`。
 - 失败计数：`Saved/Logs/AngelscriptProject.log` 中 `LogAutomationController: Error: Test Completed. Result={失败}` 共 **4** 处，且 `LogAutomationCommandLine` 以 `**** TEST COMPLETE. EXIT CODE: -1 ****` 收尾，对应这 4 个失败项。
 - 最终保留失败项与 Phase 3 记录保持一致，没有新增指向本轮技术债收口改动面的回归：
   - `Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2A`
@@ -232,3 +244,44 @@
   - 多个晚段测试入口统一改为本地 `AcquireFresh*Engine()` 模式：先清 shared / stray global，再重新获取 clean shared clone，切断全量跑时从前序残留 global runtime 上 clone 的污染链。
   - `HotReload` / `Delegate` 相关 performance 与 mismatch 用例同步对齐了当前 runtime 的返回值和日志格式，避免把预期漂移误判成真实回归。
 - 这次验证也再次证明一个事实：`GAngelscriptEngine` 仍然存在并参与当前 runtime 解析路径；测试变绿不代表全局状态债务已关闭，只说明现有 helper containment 已足以稳定当前 full-suite。
+
+## 17. 2026-04-04 Engine Isolation 修复后回归快照
+
+- 背景：`Plan_TestEngineIsolation.md` 重构引入了 `FAngelscriptEngineScope` 机制和共享测试引擎 scope 自动管理，同时修复了 `asCScriptEngine::~asCScriptEngine()` 析构循环中的 TOCTOU bug。
+- 全量回归：`Automation RunTests Angelscript.TestModule`，443 测试中 **436 通过 / 7 失败 / 0 跳过**，无崩溃。
+- 相比 Phase 6.3 的 4 个已知失败，本轮变化：
+  - **已修复**：`NativeScriptHotReload.Phase2A`、`Phase2B`、`Editor.SourceNavigation.Functions`、`ScriptExamples.Actor`（这 4 个之前的失败已在中间迭代中修复或不再复现）
+  - **新增 7 个已知失败**：均为功能待补齐或测试 expectation 问题，非 crash 或回归
+
+### 已知失败项清单
+
+#### 类别 A：Testing-Full 引擎类型元数据未注册（3 个）
+
+| 测试 | 失败摘要 | 根因 |
+|------|----------|------|
+| `Engine.LastFullDestroyClearsTypeState` | `should populate type metadata while the full engine is alive` | `CreateTestingFullEngine()` 的 `InitializeForTesting()` 只做最小初始化，不执行完整绑定注册，导致 `FAngelscriptTypeDatabase` 为空 |
+| `Engine.FullDestroyAllowsCleanRecreate` | `should populate type metadata during the first epoch` | 同上 |
+| `Engine.FullDestroyAllowsAnnotatedRecreate` | `Class ARecreateAnnotatedActorA has an unknown super type AAngelscriptActor` | 同上，缺少 `AAngelscriptActor` 类型注册 |
+
+- **修复方向**：在 `InitializeForTesting()` 中补齐最小 bind replay 或按需注册核心类型元数据。属于 Bind API GAP 范畴。
+- **关联计划**：`Plan_HazelightCapabilityGap.md`
+
+#### 类别 B：Restore 序列化错误消息格式不匹配（1 个）
+
+| 测试 | 失败摘要 | 根因 |
+|------|----------|------|
+| `Internals.Restore.EmptyStreamFails` | 期望 `"Unexpected end of file"`，实际 `"Angelscript: :"` | AS 引擎对空流的错误消息格式与测试 expectation 不一致 |
+
+- **修复方向**：调整测试 expectation 以匹配实际错误消息格式，或在 Restore 路径补充更明确的错误输出。
+- **复杂度**：低
+
+#### 类别 C：预处理器 import 功能未完成（3 个）
+
+| 测试 | 失败摘要 | 根因 |
+|------|----------|------|
+| `Preprocessor.ImportParsing` | `should record the imported module name` / `import statement should be removed` | 预处理器未实现 import 语句解析和移除 |
+| `Learning.Runtime.Preprocessor` | `should record the imported module name` / `should strip the import line` | 同上 |
+| `Learning.Runtime.FileSystemAndModuleResolution` | `Discovery with editor scripts should find more files than skip-rule discovery` | 文件发现逻辑在测试环境中发现的文件数量不符预期 |
+
+- **修复方向**：补齐预处理器的 import 解析逻辑；FileSystem 测试需要审查测试环境的脚本文件布局。
+- **关联计划**：预处理器功能补齐属于 Runtime 能力完善范畴

@@ -13,6 +13,7 @@
 #include "IAutomationControllerModule.h"
 #include "Settings/LevelEditorPlaySettings.h"
 #include "UnrealEdMisc.h"
+#include "Framework/Docking/TabManager.h"
 #endif // WITH_EDITOR
 
 #include "Containers/UnrealString.h"
@@ -333,7 +334,7 @@ void ConfigureEditorForTest(FEditorState& OutOriginalState)
 		// Don't try to save the windows that get launched for integration tests. This is only a
 		// problem in headless mode. This setting needs to be false all the way to shutdown so
 		// we don't restore this one.
-		FUnrealEdMisc::Get().AllowSavingLayoutOnClose(false);
+		FGlobalTabmanager::Get()->SetCanSavePersistentLayouts(false);
 	}
 
 	// Don't trigger breakpoints on ensures since tests intentionally trigger ensures all the time.
@@ -370,7 +371,7 @@ void RestoreEditorAfterTest(const FEditorState& OriginalState)
 // Copied from AutomationCommon.cpp. This heuristic must match the one in AutomationCommon.cpp
 // for now; otherwise we have to re-implement the map loading code in there.
 // NOTE: Careful about the usage of this in client tests - this will always return the server world.
-// Use `FAngelscriptEngine::CurrentWorldContext->GetWorld();` instead to get the correct world on clients and server.
+// Use `FAngelscriptEngine::GetAmbientWorldContext()->GetWorld();` instead to get the correct world on clients and server.
 UWorld* GetTestWorld()
 {
 	const TIndirectArray<FWorldContext>& WorldContexts = GEngine->GetWorldContexts();

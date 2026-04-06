@@ -1,10 +1,14 @@
 #include "Shared/AngelscriptTestEngineHelper.h"
 
 #include "Shared/AngelscriptNativeScriptTestObject.h"
+#include "ClassGenerator/ASClass.h"
+#include "Components/ActorTestSpawner.h"
 #include "Engine/GameInstance.h"
+#include "GameFramework/Actor.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
 #include "UObject/UObjectGlobals.h"
+#include "UObject/UObjectIterator.h"
 
 // Test Layer: Runtime Integration
 #if WITH_DEV_AUTOMATION_TESTS
@@ -87,18 +91,33 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptTestEngineHelperResetSharedEngineDiscardsRawModulesTest,
+	"Angelscript.TestModule.Shared.EngineHelper.ResetSharedEngineDiscardsRawModules",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptTestEngineHelperResetSharedEngineReleasesGeneratedComponentClassesTest,
+	"Angelscript.TestModule.Shared.EngineHelper.ResetSharedEngineReleasesGeneratedComponentClasses",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptTestEngineHelperCompileRestoresScopedGlobalEngineTest,
-	"Angelscript.TestModule.Shared.EngineHelper.CompileUsesScopedGlobalEngine",
+	"Angelscript.TestModule.Shared.EngineHelper.CompileRestoresOuterCurrentEngine",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptTestEngineHelperNestedGlobalScopeRestoreTest,
-	"Angelscript.TestModule.Shared.EngineHelper.NestedGlobalEngineScopeRestoresPreviousEngine",
+	"Angelscript.TestModule.Shared.EngineHelper.NestedCurrentEngineScopeRestoresPreviousEngine",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptTestEngineHelperWorldContextScopeRestoreTest,
 	"Angelscript.TestModule.Shared.EngineHelper.WorldContextScopeRestoresPreviousContext",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptTestEngineHelperEngineScopeWorldContextRestoreTest,
+	"Angelscript.TestModule.Shared.EngineHelper.EngineScopeRestoresWorldContextAndCurrentEngine",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -233,13 +252,113 @@ class URecoveredHelperObject : UObject
 
 bool FAngelscriptTestEngineHelperSharedEngineNeverAttachesToProductionTest::RunTest(const FString& Parameters)
 {
+	FAngelscriptEngine* PreviousCurrentEngine = FAngelscriptTestEngineScopeAccess::GetCurrentEngine();
+	FAngelscriptEngine* PreviousGlobalEngine = FAngelscriptTestEngineScopeAccess::GetGlobalEngine();
 	FAngelscriptEngine& SharedEngine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	return TestTrue(
 		TEXT("Explicit shared clone helper should resolve to the shared clone engine instance"),
 		&AngelscriptTestSupport::GetOrCreateSharedCloneEngine() == &SharedEngine)
 		&& TestTrue(
 		TEXT("Clean shared clone helper should keep using the shared clone engine instance"),
-		&AngelscriptTestSupport::AcquireCleanSharedCloneEngine() == &SharedEngine);
+		&AngelscriptTestSupport::AcquireCleanSharedCloneEngine() == &SharedEngine)
+		&& TestTrue(
+		TEXT("Shared clone helper should not silently replace the current engine"),
+		FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == PreviousCurrentEngine)
+		&& TestTrue(
+		TEXT("Shared clone helper should not silently install itself as the legacy global engine"),
+		FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == PreviousGlobalEngine);
+}
+
+bool FAngelscriptTestEngineHelperResetSharedEngineReleasesGeneratedComponentClassesTest::RunTest(const FString& Parameters)
+{
+	static const FName ModuleName(TEXT("HelperResetGeneratedComponent"));
+	static const FString Filename(TEXT("HelperResetGeneratedComponent.as"));
+	static const FName GeneratedClassName(TEXT("UHelperResetGeneratedComponent"));
+
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireFreshSharedCloneEngine();
+	const bool bCompiled = AngelscriptTestSupport::CompileAnnotatedModuleFromMemory(
+		&Engine,
+		ModuleName,
+		Filename,
+		TEXT(R"AS(
+UCLASS()
+class UHelperResetGeneratedComponent : UAngelscriptComponent
+{
+	UPROPERTY()
+	int TickCount = 0;
+
+	UFUNCTION(BlueprintOverride)
+	void Tick(float DeltaSeconds)
+	{
+		TickCount += 1;
+	}
+}
+)AS"));
+	if (!TestTrue(TEXT("Generated component helper module should compile"), bCompiled))
+	{
+		return false;
+	}
+
+	UClass* GeneratedClass = AngelscriptTestSupport::FindGeneratedClass(&Engine, GeneratedClassName);
+	if (!TestNotNull(TEXT("Generated component helper class should exist before reset"), GeneratedClass))
+	{
+		return false;
+	}
+
+	FActorTestSpawner Spawner;
+	Spawner.InitializeGameSubsystems();
+
+	AActor& HostActor = Spawner.SpawnActor<AActor>();
+	UActorComponent* Component = NewObject<UActorComponent>(&HostActor, GeneratedClass);
+	if (!TestNotNull(TEXT("Generated component helper should instantiate"), Component))
+	{
+		return false;
+	}
+
+	HostActor.AddInstanceComponent(Component);
+	Component->OnComponentCreated();
+	Component->RegisterComponent();
+	Component->PrimaryComponentTick.bCanEverTick = true;
+	Component->SetComponentTickEnabled(true);
+	Component->Activate(true);
+
+	{
+		FAngelscriptEngineScope EngineScope(Engine, &HostActor);
+		HostActor.DispatchBeginPlay();
+	}
+
+	{
+		FAngelscriptEngineScope EngineScope(Engine, Component);
+		Component->TickComponent(0.016f, ELevelTick::LEVELTICK_All, &Component->PrimaryComponentTick);
+	}
+
+	AngelscriptTestSupport::ResetSharedCloneEngine(Engine);
+
+	int32 MatchingClasses = 0;
+	int32 RootedMatchingClasses = 0;
+	int32 StandaloneMatchingClasses = 0;
+	for (TObjectIterator<UASClass> It; It; ++It)
+	{
+		if (It->GetFName() != GeneratedClassName)
+		{
+			continue;
+		}
+
+		++MatchingClasses;
+		if (It->IsRooted())
+		{
+			++RootedMatchingClasses;
+		}
+		if (It->HasAnyFlags(RF_Standalone))
+		{
+			++StandaloneMatchingClasses;
+		}
+	}
+
+	TestEqual(TEXT("Generated component class should not remain alive after shared reset"), MatchingClasses, 0);
+	TestEqual(TEXT("Generated component class should not remain rooted after shared reset"), RootedMatchingClasses, 0);
+	TestEqual(TEXT("Generated component class should not remain standalone after shared reset"), StandaloneMatchingClasses, 0);
+	return MatchingClasses == 0 && RootedMatchingClasses == 0 && StandaloneMatchingClasses == 0;
 }
 
 bool FAngelscriptTestEngineHelperProductionHelperRejectsMissingProductionTest::RunTest(const FString& Parameters)
@@ -264,8 +383,58 @@ bool FAngelscriptTestEngineHelperProductionHelperRejectsMissingProductionTest::R
 		ProductionEngine);
 }
 
+bool FAngelscriptTestEngineHelperResetSharedEngineDiscardsRawModulesTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
+	ON_SCOPE_EXIT
+	{
+		AngelscriptTestSupport::ResetSharedCloneEngine(Engine);
+	};
+
+	{
+		FAngelscriptEngineScope GlobalScope(Engine);
+		asIScriptModule* Module = Engine.GetScriptEngine()->GetModule("HelperRawSharedReset", asGM_ALWAYS_CREATE);
+		if (!TestNotNull(TEXT("Raw shared-engine reset test should create a script module"), Module))
+		{
+			return false;
+		}
+
+		asIScriptFunction* Function = nullptr;
+		const int32 CompileResult = Module->CompileFunction("HelperRawSharedReset", "int Entry() { return 9; }", 0, 0, &Function);
+		if (Function != nullptr)
+		{
+			Function->Release();
+		}
+
+		if (!TestEqual(TEXT("Raw shared-engine reset test should compile successfully"), CompileResult, asSUCCESS))
+		{
+			return false;
+		}
+	}
+
+	if (!TestFalse(
+		TEXT("Raw shared-engine reset test should not populate tracked module descriptors for direct script-engine modules"),
+		Engine.GetModuleByModuleName(TEXT("HelperRawSharedReset")).IsValid()))
+	{
+		return false;
+	}
+
+	if (!TestNotNull(
+		TEXT("Raw shared-engine reset test should leave the raw module registered before helper cleanup"),
+		Engine.GetScriptEngine()->GetModule("HelperRawSharedReset", asGM_ONLY_IF_EXISTS)))
+	{
+		return false;
+	}
+
+	AngelscriptTestSupport::ResetSharedCloneEngine(Engine);
+	return TestNull(
+		TEXT("ResetSharedCloneEngine should also discard raw direct-compile script modules"),
+		Engine.GetScriptEngine()->GetModule("HelperRawSharedReset", asGM_ONLY_IF_EXISTS));
+}
+
 bool FAngelscriptTestEngineHelperCompileRestoresScopedGlobalEngineTest::RunTest(const FString& Parameters)
 {
+	FAngelscriptEngine* PreviousCurrentEngine = FAngelscriptTestEngineScopeAccess::GetCurrentEngine();
 	FAngelscriptEngine& SharedEngine = AngelscriptTestSupport::GetOrCreateSharedCloneEngine();
 	TUniquePtr<FAngelscriptEngine> IsolatedEngine = AngelscriptTestSupport::CreateIsolatedCloneEngine();
 	if (!TestNotNull(TEXT("Compile restore test should create an isolated engine"), IsolatedEngine.Get()))
@@ -273,25 +442,35 @@ bool FAngelscriptTestEngineHelperCompileRestoresScopedGlobalEngineTest::RunTest(
 		return false;
 	}
 
-	AngelscriptTestSupport::FScopedGlobalEngineOverride GlobalScope(&SharedEngine);
-	const bool bCompiled = AngelscriptTestSupport::CompileModuleFromMemory(
-		IsolatedEngine.Get(),
-		TEXT("HelperScopedGlobalRestore"),
-		TEXT("HelperScopedGlobalRestore.as"),
-		TEXT("int Entry() { return 1; }"));
-
-	if (!TestTrue(TEXT("Scoped global restore test module should compile"), bCompiled))
 	{
-		return false;
+		FAngelscriptEngineScope SharedScope(SharedEngine);
+		const bool bCompiled = AngelscriptTestSupport::CompileModuleFromMemory(
+			IsolatedEngine.Get(),
+			TEXT("HelperScopedGlobalRestore"),
+			TEXT("HelperScopedGlobalRestore.as"),
+			TEXT("int Entry() { return 1; }"));
+
+		if (!TestTrue(TEXT("Scoped current-engine restore test module should compile"), bCompiled))
+		{
+			return false;
+		}
+
+		if (!TestTrue(
+			TEXT("Compiling through helper should restore the previous scoped current engine"),
+			FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == &SharedEngine))
+		{
+			return false;
+		}
 	}
 
 	return TestTrue(
-		TEXT("Compiling through helper should restore the previous scoped global engine"),
-		FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == &SharedEngine);
+		TEXT("Leaving the outer scope should restore the previous current engine when no enclosing scoped test engine exists"),
+		FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == PreviousCurrentEngine);
 }
 
 bool FAngelscriptTestEngineHelperNestedGlobalScopeRestoreTest::RunTest(const FString& Parameters)
 {
+	FAngelscriptEngine* PreviousCurrentEngine = FAngelscriptTestEngineScopeAccess::GetCurrentEngine();
 	TUniquePtr<FAngelscriptEngine> EngineA = AngelscriptTestSupport::CreateIsolatedCloneEngine();
 	TUniquePtr<FAngelscriptEngine> EngineB = AngelscriptTestSupport::CreateIsolatedCloneEngine();
 	if (!TestNotNull(TEXT("Nested scope restore test should create engine A"), EngineA.Get())
@@ -301,33 +480,35 @@ bool FAngelscriptTestEngineHelperNestedGlobalScopeRestoreTest::RunTest(const FSt
 	}
 
 	{
-		AngelscriptTestSupport::FScopedGlobalEngineOverride ScopeA(EngineA.Get());
-		if (!TestTrue(TEXT("Outer scope should install engine A"), FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == EngineA.Get()))
+		FAngelscriptEngineScope ScopeA(*EngineA);
+		if (!TestTrue(TEXT("Outer scope should install engine A as the current engine"), FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == EngineA.Get()))
 		{
 			return false;
 		}
 
 		{
-			AngelscriptTestSupport::FScopedGlobalEngineOverride ScopeB(EngineB.Get());
-			if (!TestTrue(TEXT("Inner scope should temporarily install engine B"), FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == EngineB.Get()))
+			FAngelscriptEngineScope ScopeB(*EngineB);
+			if (!TestTrue(TEXT("Inner scope should temporarily install engine B as the current engine"), FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == EngineB.Get()))
 			{
 				return false;
 			}
 		}
 
-		if (!TestTrue(TEXT("Leaving inner scope should restore engine A"), FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == EngineA.Get()))
+		if (!TestTrue(TEXT("Leaving inner scope should restore engine A as the current engine"), FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == EngineA.Get()))
 		{
 			return false;
 		}
 	}
 
-	return true;
+	return TestTrue(
+		TEXT("Leaving the outer scope should restore the previous current engine when no enclosing scoped test engine exists"),
+		FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == PreviousCurrentEngine);
 }
 
 bool FAngelscriptTestEngineHelperWorldContextScopeRestoreTest::RunTest(const FString& Parameters)
 {
-	UObject* PreviousWorldContext = FAngelscriptEngine::CurrentWorldContext;
-	UObject* DummyContext = NewObject<UAngelscriptNativeScriptTestObject>(GetTransientPackage());
+	UObject* PreviousWorldContext = FAngelscriptEngine::GetAmbientWorldContext();
+	UObject* DummyContext = NewObject<UAngelscriptNativeScriptTestObject>();
 	if (!TestNotNull(TEXT("World context scope restore test should create a dummy context object"), DummyContext))
 	{
 		return false;
@@ -335,13 +516,48 @@ bool FAngelscriptTestEngineHelperWorldContextScopeRestoreTest::RunTest(const FSt
 
 	{
 		AngelscriptTestSupport::FScopedTestWorldContextScope WorldContextScope(DummyContext);
-		if (!TestTrue(TEXT("World context scope should install the dummy context"), FAngelscriptEngine::CurrentWorldContext == DummyContext))
+		if (!TestTrue(TEXT("World context scope should install the dummy context"), FAngelscriptEngine::GetAmbientWorldContext() == DummyContext))
 		{
 			return false;
 		}
 	}
 
-	return TestTrue(TEXT("World context scope should restore the previous context"), FAngelscriptEngine::CurrentWorldContext == PreviousWorldContext);
+	return TestTrue(TEXT("World context scope should restore the previous context"), FAngelscriptEngine::GetAmbientWorldContext() == PreviousWorldContext);
+}
+
+bool FAngelscriptTestEngineHelperEngineScopeWorldContextRestoreTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine* PreviousCurrentEngine = FAngelscriptTestEngineScopeAccess::GetCurrentEngine();
+	TUniquePtr<FAngelscriptEngine> Engine = AngelscriptTestSupport::CreateIsolatedCloneEngine();
+	UObject* PreviousWorldContext = FAngelscriptEngine::GetAmbientWorldContext();
+	UObject* DummyContext = NewObject<UAngelscriptNativeScriptTestObject>();
+	if (!TestNotNull(TEXT("Engine-scope world context test should create an isolated engine"), Engine.Get())
+		|| !TestNotNull(TEXT("Engine-scope world context test should create a dummy context object"), DummyContext))
+	{
+		return false;
+	}
+
+	{
+		FAngelscriptEngineScope EngineScope(*Engine, DummyContext);
+		if (!TestTrue(TEXT("Engine scope should install the isolated engine as current"), FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == Engine.Get()))
+		{
+			return false;
+		}
+
+		if (!TestTrue(TEXT("Engine scope should install the dummy world context"), FAngelscriptEngine::TryGetCurrentWorldContextObject() == DummyContext))
+		{
+			return false;
+		}
+	}
+
+	if (!TestTrue(
+		TEXT("Engine scope should restore the previous current engine"),
+		FAngelscriptTestEngineScopeAccess::GetCurrentEngine() == PreviousCurrentEngine))
+	{
+		return false;
+	}
+
+	return TestTrue(TEXT("Engine scope should restore the previous world context"), FAngelscriptEngine::GetAmbientWorldContext() == PreviousWorldContext);
 }
 
 bool FAngelscriptTestEngineHelperCompileSummaryPlainModuleTest::RunTest(const FString& Parameters)

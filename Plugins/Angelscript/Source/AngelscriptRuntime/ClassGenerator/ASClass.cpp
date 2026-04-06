@@ -54,8 +54,13 @@ FORCEINLINE bool CheckGameThreadExecution(UASFunction* Function)
 {
 #if !UE_BUILD_TEST && !UE_BUILD_SHIPPING
 	// During initial compile we are allowed to do gamethread stuff in other threads
-	if (!FAngelscriptEngine::bIsInitialCompileFinished)
-		return true;
+	if (FAngelscriptEngine* CurrentEngine = FAngelscriptEngine::TryGetCurrentEngine())
+	{
+		if (!CurrentEngine->IsInitialCompileFinished())
+		{
+			return true;
+		}
+	}
 
 #if WITH_EDITOR
 	auto* ConstructingObject = UASClass::GetConstructingASObject();
@@ -384,7 +389,7 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromBPVM(UASFunction* ASFuncti
 			{
 				if (bInGameThread)
 				{
-					PrevWorldContext = (UObject*)FAngelscriptEngine::CurrentWorldContext;
+					PrevWorldContext = (UObject*)FAngelscriptEngine::GetAmbientWorldContext();
 					FAngelscriptEngine::AssignWorldContext(Object);
 					bChangedWorldContext = true;
 				}
@@ -398,7 +403,7 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromBPVM(UASFunction* ASFuncti
 
 				if (bInGameThread)
 				{
-					PrevWorldContext = (UObject*)FAngelscriptEngine::CurrentWorldContext;
+					PrevWorldContext = (UObject*)FAngelscriptEngine::GetAmbientWorldContext();
 					FAngelscriptEngine::AssignWorldContext(WorldContext);
 					bChangedWorldContext = true;
 
@@ -411,7 +416,7 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromBPVM(UASFunction* ASFuncti
 
 				if (bInGameThread)
 				{
-					PrevWorldContext = (UObject*)FAngelscriptEngine::CurrentWorldContext;
+					PrevWorldContext = (UObject*)FAngelscriptEngine::GetAmbientWorldContext();
 					FAngelscriptEngine::AssignWorldContext(WorldContext);
 					bChangedWorldContext = true;
 
@@ -563,7 +568,7 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromParms(UASFunction* ASFunct
 			{
 				if (bInGameThread)
 				{
-					PrevWorldContext = (UObject*)FAngelscriptEngine::CurrentWorldContext;
+					PrevWorldContext = (UObject*)FAngelscriptEngine::GetAmbientWorldContext();
 					FAngelscriptEngine::AssignWorldContext(Object);
 					bChangedWorldContext = true;
 				}
@@ -576,7 +581,7 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromParms(UASFunction* ASFunct
 
 				if (bInGameThread)
 				{
-					PrevWorldContext = (UObject*)FAngelscriptEngine::CurrentWorldContext;
+					PrevWorldContext = (UObject*)FAngelscriptEngine::GetAmbientWorldContext();
 					FAngelscriptEngine::AssignWorldContext(WorldContext);
 					bChangedWorldContext = true;
 
@@ -589,7 +594,7 @@ static FORCEINLINE_DEBUGGABLE void AngelscriptCallFromParms(UASFunction* ASFunct
 
 				if (bInGameThread)
 				{
-					PrevWorldContext = (UObject*)FAngelscriptEngine::CurrentWorldContext;
+					PrevWorldContext = (UObject*)FAngelscriptEngine::GetAmbientWorldContext();
 					FAngelscriptEngine::AssignWorldContext(WorldContext);
 					bChangedWorldContext = true;
 
@@ -1153,14 +1158,14 @@ void UASClass::FinishConstructObject(class asIScriptObject* ScriptObject, class 
 
 		if (!bIsInTree)
 		{
-			CurrentObjectInitializers.RemoveAt(CurrentObjectInitializers.Num() - 1, 1, false);
+			CurrentObjectInitializers.RemoveAt(CurrentObjectInitializers.Num() - 1, 1, EAllowShrinking::No);
 			return;
 		}
 #endif
 
 		if (TopClass->ScriptTypePtr == ScriptType)
 		{
-			CurrentObjectInitializers.RemoveAt(CurrentObjectInitializers.Num() - 1, 1, false);
+			CurrentObjectInitializers.RemoveAt(CurrentObjectInitializers.Num() - 1, 1, EAllowShrinking::No);
 
 			// Run the defaults function now that we've finished constructing the childmost script class
 			ExecuteDefaultsFunctions(Object, TopClass);

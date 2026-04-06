@@ -57,6 +57,7 @@ private:
 	#endif
 	bool TickFallbackPrimaryEngine(float DeltaTime);
 	static bool bInitializeAngelscriptCalled;
+	static TUniquePtr<FAngelscriptEngine> OwnedPrimaryEngine;
 	FTSTicker::FDelegateHandle FallbackTickHandle;
 
 };

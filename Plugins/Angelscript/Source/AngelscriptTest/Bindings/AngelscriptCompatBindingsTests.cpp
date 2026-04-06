@@ -1,4 +1,5 @@
 #include "../Shared/AngelscriptTestUtilities.h"
+#include "../Shared/AngelscriptTestMacros.h"
 #include "../Shared/AngelscriptTestEngineHelper.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -27,7 +28,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptObjectCastCompatBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* PlainModule = BuildModule(
 		*this,
 		Engine,
@@ -127,17 +130,21 @@ class UBindingCastComponent : UActorComponent
 	}
 
 	int32 AnnotatedResult = 0;
-	if (!TestTrue(TEXT("Compat cast reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(RuntimeComponent, ReadCastCompatFunction, AnnotatedResult)))
+	if (!TestTrue(TEXT("Compat cast reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(&Engine, RuntimeComponent, ReadCastCompatFunction, AnnotatedResult)))
 	{
 		return false;
 	}
 	TestEqual(TEXT("Annotated module Cast<T> should cast native return values to generated script classes"), AnnotatedResult, 1);
-	return AnnotatedResult == 1;
+	bPassed = AnnotatedResult == 1;
+	ASTEST_END_SHARE
+
+	return bPassed;
 }
 
 bool FAngelscriptObjectEditorOnlyBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -170,12 +177,15 @@ int Entry()
 	}
 
 	TestEqual(TEXT("UObject editor-only binding should behave as expected"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
 bool FAngelscriptTimespanBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -260,12 +270,15 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Timespan compat operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
 bool FAngelscriptDateTimeBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -364,6 +377,8 @@ int Entry()
 	}
 
 	TestEqual(TEXT("DateTime compat operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 

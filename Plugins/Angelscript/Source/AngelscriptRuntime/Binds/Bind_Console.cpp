@@ -22,12 +22,28 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_ConsoleVariables((int32)FAngel
 	{
 		new(Memory) FScriptConsoleVariable<int32>(Name, DefaultValue, Help);
 	});
+	FAngelscriptBinds::SetPreviousBindNoDiscard(true);
+
+	FConsoleVariable_.Constructor("void f(const FString& Name, bool DefaultValue, const FString& Help = \"\")",
+	[](void* Memory, const FString& Name, bool DefaultValue, const FString& Help)
+	{
+		new(Memory) FScriptConsoleVariable<bool>(Name, DefaultValue, Help);
+	});
+	FAngelscriptBinds::SetPreviousBindNoDiscard(true);
 
 	FConsoleVariable_.Constructor("void f(const FString& Name, float32 DefaultValue, const FString& Help = \"\")",
 	[](void* Memory, const FString& Name, float DefaultValue, const FString& Help)
 	{
 		new(Memory) FScriptConsoleVariable<float>(Name, DefaultValue, Help);
 	});
+	FAngelscriptBinds::SetPreviousBindNoDiscard(true);
+
+	FConsoleVariable_.Constructor("void f(const FString& Name, const FString& DefaultValue, const FString& Help = \"\")",
+	[](void* Memory, const FString& Name, const FString& DefaultValue, const FString& Help)
+	{
+		new(Memory) FScriptConsoleVariable<FString>(Name, DefaultValue, Help);
+	});
+	FAngelscriptBinds::SetPreviousBindNoDiscard(true);
 
 	FConsoleVariable_.Destructor("void f()",
 	[](FScriptConsoleVariable<int32>* Memory)
@@ -39,10 +55,12 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_ConsoleVariables((int32)FAngel
 	FConsoleVariable_.Method("bool GetBool() const", &FScriptConsoleVariable<bool>::GetBool);
 	FConsoleVariable_.Method("float32 GetFloat() const", &FScriptConsoleVariable<float>::GetFloat);
 	FConsoleVariable_.Method("int GetInt() const", &FScriptConsoleVariable<int>::GetInt);
+	FConsoleVariable_.Method("FString GetString() const", &FScriptConsoleVariable<FString>::GetString);
 	
 	FConsoleVariable_.Method("void SetBool(bool InValue) const", &FScriptConsoleVariable<bool>::SetBool);
 	FConsoleVariable_.Method("void SetFloat(float32 InValue) const", &FScriptConsoleVariable<float>::SetFloat);
 	FConsoleVariable_.Method("void SetInt(int InValue) const", &FScriptConsoleVariable<int32>::SetInt);
+	FConsoleVariable_.Method("void SetString(const FString& InValue) const", &FScriptConsoleVariable<FString>::SetString);
 });
 
 struct FScriptConsoleCommand
@@ -129,6 +147,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_ConsoleCommands((int32)FAngels
 	{
 		new(Memory) FScriptConsoleCommand(Name, FunctionName.ToString());
 	});
+	FAngelscriptBinds::SetPreviousBindNoDiscard(true);
 
 	FConsoleCommand_.Destructor("void f()",
 	[](FScriptConsoleCommand* Memory)

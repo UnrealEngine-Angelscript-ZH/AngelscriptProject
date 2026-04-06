@@ -58,7 +58,6 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptType : TSharedFromThis<FAngelscriptTyp
 	static TSharedPtr<FAngelscriptType>& GetScriptMulticastDelegate();
 	static void SetScriptMulticastDelegate(TSharedPtr<FAngelscriptType> Type);
 
-	static class asITypeInfo* ArrayTemplateTypeInfo;
 	static class asITypeInfo* GetArrayTemplateTypeInfo();
 	static void SetArrayTemplateTypeInfo(class asITypeInfo* TypeInfo);
 
@@ -73,7 +72,6 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptType : TSharedFromThis<FAngelscriptTyp
 	static void Register(TSharedRef<FAngelscriptType> Type);
 
 	static void ResetTypeDatabase();
-	static void ResetTypeDatabaseForKey(const void* StateKey);
 
 	// Register an alias for a specific type
 	static void RegisterAlias(const FString& Alias, TSharedRef<FAngelscriptType> Type);
@@ -587,6 +585,27 @@ struct ANGELSCRIPTRUNTIME_API FAngelscriptTypeUsage
 			Address = *(void**)Address;
 		return *(T*)Address;
 	}
+};
+
+struct ANGELSCRIPTRUNTIME_API FAngelscriptTypeDatabase
+{
+	TArray<TSharedRef<FAngelscriptType>> RegisteredTypes;
+	TMap<FString, TSharedRef<FAngelscriptType>> TypesByAngelscriptName;
+	TMap<UClass*, TSharedRef<FAngelscriptType>> TypesByClass;
+	TMap<void*, TSharedRef<FAngelscriptType>> TypesByData;
+
+	TArray<FAngelscriptType::FTypeFinder> TypeFinders;
+	TArray<TSharedRef<FAngelscriptType>> TypesImplementingProperties;
+	TSharedPtr<FAngelscriptType> ScriptObjectType;
+	TSharedPtr<FAngelscriptType> ScriptEnumType;
+	TSharedPtr<FAngelscriptType> ScriptStructType;
+	TSharedPtr<FAngelscriptType> ScriptDelegateType;
+	TSharedPtr<FAngelscriptType> ScriptMulticastDelegateType;
+	TSharedPtr<FAngelscriptType> ScriptFloatType;
+	TSharedPtr<FAngelscriptType> ScriptDoubleType;
+	TSharedPtr<FAngelscriptType> ScriptFloatParamExtendedToDoubleType;
+	TSharedPtr<FAngelscriptType> ScriptBoolType;
+	class asITypeInfo* ArrayTemplateTypeInfo = nullptr;
 };
 
 struct FDebuggerValue

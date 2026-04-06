@@ -1,57 +1,81 @@
 # Tools
 
-## 工具列表
+## 官方入口
 
-| 工具名 | 路径 | 用途 | 常用命令 | 输出 | 备注 |
+标准入口只保留四类：
+
+- `Tools\BootstrapWorktree.ps1`：初始化或规范化当前 worktree 的 `AgentConfig.ini`
+- `Tools\ResolveAgentCommandTemplates.ps1`：生成给 AI Agent/脚本使用的官方命令模板
+- `Tools\RunBuild.ps1`：标准构建入口
+- `Tools\RunTests.ps1` / `Tools\RunTestSuite.ps1`：标准自动化测试入口
+
+其它脚本只承担诊断、摘要、兼容或自测职责，不应在新文档中取代官方入口。
+
+## 工具总览
+
+| 工具 | 路径 | 用途 | 常用命令 | 主要输出 | 备注 |
 | --- | --- | --- | --- | --- | --- |
-| GenerateAgentConfigTemplate | `Tools\GenerateAgentConfigTemplate.bat` | 在项目根目录生成本机专用的 `AgentConfig.ini` 模板，供 AI Agent 和开发者读取引擎路径、项目路径、默认构建参数与测试超时。 | `Tools\GenerateAgentConfigTemplate.bat` | 生成 `AgentConfig.ini` | 如果目标文件已存在，默认不会覆盖。 |
-| GenerateAgentConfigTemplate `--force` | `Tools\GenerateAgentConfigTemplate.bat` | 强制覆盖并重新生成 `AgentConfig.ini` 模板。 | `Tools\GenerateAgentConfigTemplate.bat --force` | 重新生成 `AgentConfig.ini` | 仅在确认需要覆盖本地配置时使用。 |
-| RunTests | `Tools\RunTests.ps1` | 一键运行 UE 自动化测试，自动读取 AgentConfig.ini，创建带时间戳输出目录，解析结果摘要。 | `.\Tools\RunTests.ps1 -TestPrefix "Angelscript"` | `Saved/Automation/<timestamp>_<Label>/test.log` + `Reports/` | 退出码 0=全通过，1=有失败。 |
-| PullReference `list` | `Tools\PullReference.bat` | 列出当前支持的外部参考仓库 key。 | `Tools\PullReference.bat list` | 输出可用 key 与说明 | 用于查看可拉取和不可拉取的参考源。 |
-| PullReference `angelscript` | `Tools\PullReference.bat` | 通过对应 SSH 克隆或同步 AngelScript 上游参考仓库。 | `Tools\PullReference.bat angelscript` | 在 `Reference\angelscript-v2.38.0` 拉取或更新仓库 | 默认同步到当前项目的 `Reference\angelscript-v2.38.0`。 |
-| PullReference `unrealcsharp` | `Tools\PullReference.bat` | 通过对应 SSH 克隆或同步 `UnrealCSharp` 参考仓库。 | `Tools\PullReference.bat unrealcsharp` | 在 `Reference\UnrealCSharp` 拉取或更新仓库 | 默认同步到当前项目的 `Reference\UnrealCSharp`。 |
-| PullReference `<key> <TargetDir>` | `Tools\PullReference.bat` | 将指定参考仓库同步到自定义目录。 | `Tools\PullReference.bat angelscript "J:\UnrealEngine\AngelscriptProject\Reference\angelscript-v2.38.0"` | 在指定目录拉取或更新仓库 | 目标目录已存在但不是 Git 仓库时会直接失败。 |
+| BootstrapWorktree | `Tools\BootstrapWorktree.ps1` | 初始化当前 worktree，规范化 `AgentConfig.ini`，并按需预热 `TargetInfo.json` | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1` | `AgentConfig.ini`、`Intermediate\TargetInfo.json` | 新 worktree 优先使用 |
+| ResolveAgentCommandTemplates | `Tools\ResolveAgentCommandTemplates.ps1` | 输出官方 build/test/bootstrap 命令模板 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\ResolveAgentCommandTemplates.ps1` | `Status=...` + 一组命令模板 | 配置缺失时先返回 `BootstrapCommand`；配置就绪时返回 `BuildCommand`、`NoXgeBuildCommand`、`SerializedBuildCommand` |
+| RunBuild | `Tools\RunBuild.ps1` | 标准 UBT 构建入口，支持多 worktree 并发与引擎级串行锁 | `Tools\RunBuild.ps1 -Label agent-build -TimeoutMs 180000` | `Saved/Build/<Label>/<RunId>/` | 自动写 `Build.log`、`UBT.log` 与 `RunMetadata.json`；内建 `-NoXGE`，并显式禁止 `-UniqueBuildEnvironment` |
+| RunTests | `Tools\RunTests.ps1` | 标准自动化测试入口，负责日志、报告、摘要与超时清理 | `Tools\RunTests.ps1 -Group AngelscriptSmoke -Label smoke -TimeoutMs 600000` | `Saved/Tests/<Label>/<RunId>/` | 自动写 `Automation.log`、`Report/`、`Summary.json` |
+| RunTestSuite | `Tools\RunTestSuite.ps1` | 按具名 suite 顺序执行一组标准测试前缀 | `Tools\RunTestSuite.ps1 -Suite Smoke -LabelPrefix smoke -TimeoutMs 600000` | 多个 `Saved/Tests/<Label>/<RunId>/` 子目录 | 只做调度，底层仍调用 `RunTests.ps1` |
+| Get-UbtProcess | `Tools\Get-UbtProcess.ps1` | 枚举本机 UBT / `Build.bat` / `RunUBT.bat` 相关进程，帮助排查争用 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Get-UbtProcess.ps1 -CurrentWorktreeOnly` | 控制台列表 | 用于定位旧流程或残留进程 |
+| GetAutomationReportSummary | `Tools\GetAutomationReportSummary.ps1` | 根据 `Report/` 与 `Automation.log` 生成轻量摘要 | `Tools\GetAutomationReportSummary.ps1 -ReportPath <dir> -LogPath <log>` | `Summary.json` 或 stdout 对象 | 用于识别假绿与失败详情 |
+| PullReference | `Tools\PullReference.bat` | 拉取或同步参考仓库 | `Tools\PullReference.bat angelscript` | `Reference\...` | 不参与默认 build/test 流程 |
+| GenerateAgentConfigTemplate | `Tools\GenerateAgentConfigTemplate.bat` | 生成本机模板版 `AgentConfig.ini` | `Tools\GenerateAgentConfigTemplate.bat` | `AgentConfig.ini` | 仍可用，但新 worktree 更推荐 `BootstrapWorktree.ps1` |
+| RunAutomationTests (legacy) | `Tools\RunAutomationTests.ps1` / `Tools\RunAutomationTests.bat` | 兼容旧脚本的过渡包装层 | 无 | 兼容旧产物布局 | 保留兼容，不作为官方入口 |
+| RunToolingSmokeTests | `Tools\Tests\RunToolingSmokeTests.ps1` | 自测 bootstrap、模板解析、输出布局、超时与进程清理 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Tests\RunToolingSmokeTests.ps1` | 控制台 PASS/FAIL | 不依赖 Pester |
+| AutomationToolSelfTests | `Tools\Tests\AutomationToolSelfTests.ps1` | 自测自动化报告摘要与 legacy runner 包装层 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Tests\AutomationToolSelfTests.ps1` | 控制台 PASS/FAIL | 主要覆盖兼容层 |
+| PolicyAuditSmokeTests | `Tools\Tests\PolicyAuditSmokeTests.ps1` | 审计 live 文档与计划中的旧入口示例，防止回退到 `Build.bat` / 直调编辑器 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Tests\PolicyAuditSmokeTests.ps1` | 控制台 PASS/FAIL | 覆盖 `Documents/Guides/`、`Documents/Plans/` 等 live 文档 |
 
-## GenerateAgentConfigTemplate.bat
+## BootstrapWorktree.ps1
 
 | 项目 | 说明 |
 | --- | --- |
-| 工具路径 | `Tools\GenerateAgentConfigTemplate.bat` |
-| 配置文件位置 | 项目根目录 `AgentConfig.ini` |
-| 主要用途 | 生成 AI Agent 使用的本地配置模板，避免在文档和脚本中写死引擎路径。 |
-| 默认行为 | 如果 `AgentConfig.ini` 已存在，则停止执行并提示使用 `--force`。 |
-| 覆盖行为 | 传入 `--force` 后允许覆盖现有 `AgentConfig.ini`。 |
-| Git 策略 | `AgentConfig.ini` 为本地机器配置，已加入 `.gitignore`，不应提交到仓库。 |
+| 工具路径 | `Tools\BootstrapWorktree.ps1` |
+| 主要用途 | 为当前 worktree 创建或规范化 `AgentConfig.ini`，并预热 `TargetInfo.json` |
+| 常用参数 | `-AllRegisteredWorktrees`、`-EngineRoot`、`-NoPrewarm`、`-Force` |
+| 推荐场景 | 新建 worktree、发现 `ProjectFile` 指向了其他 worktree、缺少默认超时配置 |
 
-## 生成内容
+示例：
 
-脚本生成的 `AgentConfig.ini` 模板包含以下配置段：
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1 -AllRegisteredWorktrees
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1 -EngineRoot "J:\UnrealEngine\UERelease" -NoPrewarm
+```
 
-| 段 | 键 | 说明 |
-| --- | --- | --- |
-| `Paths` | `EngineRoot` | 本机 Unreal Engine 根目录。 |
-| `Paths` | `ProjectFile` | 项目的 `.uproject` 绝对路径。 |
-| `Build` | `EditorTarget` | 默认构建目标，例如 `AngelscriptProjectEditor`。 |
-| `Build` | `Platform` | 默认构建平台，例如 `Win64`。 |
-| `Build` | `Configuration` | 默认构建配置，例如 `Development`。 |
-| `Build` | `Architecture` | 默认架构，例如 `x64`。 |
-| `Test` | `DefaultTimeoutMs` | 自动化测试或长时间命令的默认超时时间，单位毫秒。 |
-| `References` | `HazelightAngelscriptEngineRoot` | HazelightAngelscriptEngine 本地参考路径，需用户手动填写，仅用于对照和参考，不参与默认构建流程。 |
+## ResolveAgentCommandTemplates.ps1
 
-## 使用说明
-
-| 步骤 | 操作 |
+| 项目 | 说明 |
 | --- | --- |
-| 1 | 在项目根目录运行 `Tools\GenerateAgentConfigTemplate.bat`。 |
-| 2 | 打开生成的 `AgentConfig.ini`。 |
-| 3 | 按本机实际情况修改 `EngineRoot` 等字段。 |
-| 4 | 构建、测试或 AI Agent 执行命令前，先读取该配置文件。 |
+| 工具路径 | `Tools\ResolveAgentCommandTemplates.ps1` |
+| 主要用途 | 输出当前 worktree 的 bootstrap/build/test 官方命令模板 |
+| 输出模式 | `Status=BootstrapRequired` 或 `Status=Ready` |
+| 关键字段 | `BootstrapCommand`、`BuildCommand`、`NoXgeBuildCommand`、`SerializedBuildCommand`、`TestCommand`、`TestSuiteSmokeCommand` |
 
-## 示例
+说明：
 
-```bat
-Tools\GenerateAgentConfigTemplate.bat
-Tools\GenerateAgentConfigTemplate.bat --force
+- 当 `AgentConfig.ini` 缺失或不属于当前 worktree 时，脚本不会再把调用方导向旧入口，而是先返回 `BootstrapCommand`
+- 当配置就绪时，所有模板都显式包含超时，并且只引用官方 runner
+
+## RunBuild.ps1
+
+| 项目 | 说明 |
+| --- | --- |
+| 工具路径 | `Tools\RunBuild.ps1` |
+| 主要用途 | 通过 `dotnet + UnrealBuildTool.dll` 执行标准构建 |
+| 关键参数 | `-TimeoutMs`、`-Label`、`-LogRoot`、`-SerializeByEngine`、`-NoXGE` |
+| 默认输出 | `Saved/Build/<Label>/<RunId>/Build.log`、`UBT.log`、`RunMetadata.json` |
+| 关键保护 | worktree 单飞锁、引擎级串行锁、实时日志、超时后清理进程树 |
+
+示例：
+
+```powershell
+Tools\RunBuild.ps1 -Label agent-build -TimeoutMs 180000
+Tools\RunBuild.ps1 -Label engine-write -TimeoutMs 180000 -SerializeByEngine
+Tools\RunBuild.ps1 -Label noxge -TimeoutMs 180000 -NoXGE
 ```
 
 ## RunTests.ps1
@@ -59,86 +83,61 @@ Tools\GenerateAgentConfigTemplate.bat --force
 | 项目 | 说明 |
 | --- | --- |
 | 工具路径 | `Tools\RunTests.ps1` |
-| 主要用途 | 一键运行 UE 自动化测试，自动读取 `AgentConfig.ini`，创建带时间戳的输出目录，运行测试并解析结果摘要。 |
-| 依赖 | `AgentConfig.ini` 已配置 `Paths.EngineRoot`。 |
+| 主要用途 | 运行单条前缀或单个 automation group，并生成日志、报告、摘要 |
+| 关键参数 | `-TestPrefix`、`-Group`、`-Label`、`-OutputRoot`、`-TimeoutMs`、`-Render`、`-NoReport` |
+| 默认输出 | `Saved/Tests/<Label>/<RunId>/Automation.log`、`Report/`、`RunMetadata.json`、`Summary.json` |
+| 关键保护 | `TargetInfo.json` 预热、旧 `Build.bat` 锁防御等待、worktree 单飞锁、超时后清理进程树 |
 
-### 参数
-
-| 参数 | 类型 | 默认值 | 说明 |
-| --- | --- | --- | --- |
-| `-TestPrefix` | string | `Angelscript` | UE 自动化测试过滤前缀。 |
-| `-Label` | string | 从 TestPrefix 派生 | 输出目录中的人可读标签。 |
-| `-OutputRoot` | string | `<ProjectRoot>/Saved/Automation` | 测试输出根目录。 |
-| `-NoReport` | switch | false | 跳过 `-ReportExportPath` JSON 报告导出。 |
-
-### 输出结构
-
-每次运行创建 `<OutputRoot>/<timestamp>_<Label>/` 目录，包含：
-
-| 文件/目录 | 说明 |
-| --- | --- |
-| `test.log` | 引擎标准输出捕获 |
-| `Reports/` | UE 自动化测试 JSON 报告（除非使用 `-NoReport`） |
-
-### 结果解析
-
-脚本自动从日志中提取并打印：
-- 进程退出码
-- `GIsCriticalError` 值
-- 通过/失败测试数量（`TEST COMPLETE` 行）
-- 前 50 条失败行
-
-脚本退出码：有测试失败或进程异常退出时返回 `1`，否则返回 `0`。
-
-### 使用示例
+示例：
 
 ```powershell
-# 运行全部 Angelscript 测试
-.\Tools\RunTests.ps1
-
-# 运行特定前缀
-.\Tools\RunTests.ps1 -TestPrefix "Angelscript.CppTests.MultiEngine"
-
-# 自定义标签
-.\Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.HotReload" -Label "HotReload_Verify"
-
-# AI Agent 环境执行（带超时）
-powershell.exe -ExecutionPolicy Bypass -File "Tools\RunTests.ps1" -TestPrefix "Angelscript"
+Tools\RunTests.ps1 -Group AngelscriptSmoke -Label smoke -TimeoutMs 600000
+Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.Bindings." -Label bindings -TimeoutMs 600000
+Tools\RunTests.ps1 -Group AngelscriptScenario -Label scenario -TimeoutMs 900000 -Render
 ```
 
-## PullReference.bat
+## RunTestSuite.ps1
 
 | 项目 | 说明 |
 | --- | --- |
-| 工具路径 | `Tools\PullReference.bat` |
-| 主要用途 | 用统一入口拉取或同步当前项目使用的外部参考仓库。 |
-| 拉取方式 | 对 GitHub 来源的参考仓库，统一使用各自对应的 SSH 地址拉取到当前项目的 `Reference\` 目录。 |
-| 当前可拉取 key | `angelscript`、`unrealcsharp` |
-| 当前不可拉取 key | `hazelight` |
-| 安全策略 | 如果目标目录存在未提交改动，脚本会停止，避免覆盖本地参考修改。 |
+| 工具路径 | `Tools\RunTestSuite.ps1` |
+| 主要用途 | 顺序执行内置 suite 中的一组标准前缀 |
+| 关键参数 | `-Suite`、`-LabelPrefix`、`-TimeoutMs`、`-OutputRoot`、`-NoReport`、`-ListSuites`、`-DryRun` |
+| 输出行为 | 每个子 run 仍按 `RunTests.ps1` 生成独立输出目录 |
 
-## PullReference 使用说明
+示例：
 
-| 步骤 | 操作 |
+```powershell
+Tools\RunTestSuite.ps1 -ListSuites
+Tools\RunTestSuite.ps1 -Suite Smoke -LabelPrefix smoke -TimeoutMs 600000
+Tools\RunTestSuite.ps1 -Suite Debugger -LabelPrefix debugger -TimeoutMs 600000 -DryRun
+```
+
+## legacy 兼容层
+
+| 工具 | 说明 |
 | --- | --- |
-| 1 | 确认本机已安装 Git，并已配置 GitHub SSH Key。 |
-| 2 | 先运行 `Tools\PullReference.bat list` 查看支持的参考仓库 key。 |
-| 3 | 运行 `Tools\PullReference.bat <key>` 拉取默认目录，或传入自定义目标目录。 |
-| 4 | 如果目标目录已是 Git 仓库，脚本会按该参考源的分支或标签进行同步。 |
+| `Tools\RunAutomationTests.ps1` | 旧 PowerShell 兼容层，内部仍会转到新测试 runner |
+| `Tools\RunAutomationTests.bat` | 旧 batch 兼容层，仅做参数转发 |
 
-## PullReference 支持项
+约束：
 
-| key | 默认目录 | 远端 | 同步方式 |
-| --- | --- | --- | --- |
-| `angelscript` | `Reference\angelscript-v2.38.0` | `git@github.com:anjo76/angelscript.git` | 固定同步 `v2.38.0` 标签 |
-| `unrealcsharp` | `Reference\UnrealCSharp` | `git@github.com:crazytuzi/UnrealCSharp.git` | 固定同步 `main` 分支 |
-| `hazelight` | 读取 `AgentConfig.ini` 中 `HazelightAngelscriptEngineRoot` | - | 本地配置来源，不支持自动拉取 |
+- 这两者只用于兼容已有脚本或历史 CI
+- 新文档、新计划、新提示词不再提供它们的可执行命令示例
+- 需要标准入口时，一律回到 `RunTests.ps1` / `RunTestSuite.ps1`
 
-## PullReference 示例
+## 自测脚本
 
-```bat
-Tools\PullReference.bat list
-Tools\PullReference.bat angelscript
-Tools\PullReference.bat unrealcsharp
-Tools\PullReference.bat angelscript "J:\UnrealEngine\AngelscriptProject\Reference\angelscript-v2.38.0"
+| 脚本 | 重点覆盖 |
+| --- | --- |
+| `Tools\Tests\RunToolingSmokeTests.ps1` | bootstrap、超时预算、输出目录隔离、命令模板回退、suite 参数透传 |
+| `Tools\Tests\AutomationToolSelfTests.ps1` | `GetAutomationReportSummary.ps1` 与 legacy runner 兼容性 |
+| `Tools\Tests\PolicyAuditSmokeTests.ps1` | 文档/计划里的旧入口、错误输出路径、共享日志示例 |
+
+推荐在修改构建/测试工具后依次执行：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Tests\RunToolingSmokeTests.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Tests\AutomationToolSelfTests.ps1
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Tests\PolicyAuditSmokeTests.ps1
 ```

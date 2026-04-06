@@ -1,4 +1,5 @@
 #include "AngelscriptTestSupport.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 // Test Layer: Runtime Integration
 #if WITH_DEV_AUTOMATION_TESTS
@@ -12,7 +13,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptExecutionBasicTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -54,6 +57,8 @@ bool FAngelscriptExecutionBasicTest::RunTest(const FString& Parameters)
 	}
 
 	TestEqual(TEXT("Execution.Basic should return 42 from the value function"), Result, 42);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -64,7 +69,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptExecutionOneArgTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -104,6 +111,8 @@ bool FAngelscriptExecutionOneArgTest::RunTest(const FString& Parameters)
 
 	TestEqual(TEXT("Execution.OneArg should double the provided value"), static_cast<int32>(Context->GetReturnDWord()), 42);
 	Context->Release();
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -114,7 +123,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptExecutionTwoArgsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -155,6 +166,8 @@ bool FAngelscriptExecutionTwoArgsTest::RunTest(const FString& Parameters)
 
 	TestEqual(TEXT("Execution.TwoArgs should sum both arguments"), static_cast<int32>(Context->GetReturnDWord()), 42);
 	Context->Release();
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -165,7 +178,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptExecutionFourArgsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -208,6 +223,8 @@ bool FAngelscriptExecutionFourArgsTest::RunTest(const FString& Parameters)
 
 	TestEqual(TEXT("Execution.FourArgs should sum all arguments"), static_cast<int32>(Context->GetReturnDWord()), 42);
 	Context->Release();
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -218,7 +235,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptExecutionMixedArgsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
 	if (!TestNotNull(TEXT("Execution.MixedArgs should expose the script engine"), ScriptEngine))
 	{
@@ -294,6 +313,8 @@ bool FAngelscriptExecutionMixedArgsTest::RunTest(const FString& Parameters)
 		TestEqual(TEXT("Execution.MixedArgs should preserve the mixed-argument result"), Context->GetReturnFloat(), 42.5f, 0.001f);
 	}
 	Context->Release();
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -304,7 +325,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptExecutionContextTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	asIScriptContext* ContextA = Engine.CreateContext();
 	if (!TestNotNull(TEXT("Execution.Context should create the first context"), ContextA))
@@ -360,6 +382,8 @@ bool FAngelscriptExecutionContextTest::RunTest(const FString& Parameters)
 
 	TestEqual(TEXT("Execution.Context should report a finished state after execute"), static_cast<int32>(ContextA->GetState()), static_cast<int32>(asEXECUTION_FINISHED));
 	ContextA->Release();
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -370,7 +394,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptExecutionNestedTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -410,6 +436,8 @@ bool FAngelscriptExecutionNestedTest::RunTest(const FString& Parameters)
 
 	TestEqual(TEXT("Execution.Nested should evaluate nested calls in order"), static_cast<int32>(Context->GetReturnDWord()), 41);
 	Context->Release();
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -420,7 +448,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptExecutionDiscardTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -440,6 +470,8 @@ bool FAngelscriptExecutionDiscardTest::RunTest(const FString& Parameters)
 
 	TestTrue(TEXT("Execution.Discard should remove the tracked module after discard"), !Engine.GetModuleByModuleName(TEXT("ASExecutionDiscard")).IsValid());
 	TestFalse(TEXT("Execution.Discard should fail when discarding the same module twice"), Engine.DiscardModule(TEXT("ASExecutionDiscard")));
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -450,7 +482,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptExecutionScriptTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -491,6 +525,8 @@ bool FAngelscriptExecutionScriptTest::RunTest(const FString& Parameters)
 
 	TestEqual(TEXT("Execution.Script should sum the range inclusively"), static_cast<int32>(Context->GetReturnDWord()), 55);
 	Context->Release();
+	ASTEST_END_SHARE
+
 	return true;
 }
 

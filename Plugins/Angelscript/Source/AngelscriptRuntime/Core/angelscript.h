@@ -46,6 +46,11 @@
 #include <stdint.h>
 #endif
 
+#ifdef _MSC_VER
+#pragma warning(push)
+#pragma warning(disable : 4191)
+#endif
+
 #ifdef AS_USE_NAMESPACE
  #define BEGIN_AS_NAMESPACE namespace AngelScript {
  #define END_AS_NAMESPACE }
@@ -2065,5 +2070,9 @@ const asSBCInfo asBCInfo[256] =
 
 
 END_AS_NAMESPACE
+
+#ifdef _MSC_VER
+#pragma warning(pop)
+#endif
 
 #endif

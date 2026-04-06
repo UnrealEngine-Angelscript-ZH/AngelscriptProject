@@ -96,9 +96,9 @@ namespace AngelscriptTestSupport
 			}
 
 			TArray<TSharedRef<FAngelscriptModuleDesc>> CompiledModules;
-			TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
+			TGuardValue<bool> AutomaticImportGuard(Engine->bUseAutomaticImportMethod, false);
 			FScopedAutomaticImportsOverride AutomaticImportsOverride(Engine->GetScriptEngine());
-			FScopedTestEngineGlobalScope GlobalScope(Engine);
+			FAngelscriptEngineScope EngineScope(*Engine);
 			if (bSuppressCompileErrorLogs)
 			{
 				UE_SET_LOG_VERBOSITY(Angelscript, Fatal);
@@ -151,9 +151,9 @@ namespace AngelscriptTestSupport
 			ModulesToCompile.Add(ModuleDesc);
 
 			TArray<TSharedRef<FAngelscriptModuleDesc>> CompiledModules;
-			TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
+			TGuardValue<bool> AutomaticImportGuard(Engine->bUseAutomaticImportMethod, false);
 			FScopedAutomaticImportsOverride AutomaticImportsOverride(Engine->GetScriptEngine());
-			FScopedGlobalEngineOverride GlobalScope(Engine);
+			FAngelscriptEngineScope EngineScope(*Engine);
 			const ECompileResult CompileResult = Engine->CompileModules(CompileType, ModulesToCompile, CompiledModules);
 			if (OutCompileResult != nullptr)
 			{
@@ -173,7 +173,7 @@ namespace AngelscriptTestSupport
 				return false;
 			}
 
-			FScopedGlobalEngineOverride GlobalScope(Engine);
+			FAngelscriptEngineScope EngineScope(*Engine);
 			FString AbsoluteFilename;
 
 			if (FPaths::IsRelative(Filename))
@@ -217,7 +217,7 @@ namespace AngelscriptTestSupport
 			}
 
 			TArray<TSharedRef<FAngelscriptModuleDesc>> CompiledModules;
-			TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
+			TGuardValue<bool> AutomaticImportGuard(Engine->bUseAutomaticImportMethod, false);
 			FScopedAutomaticImportsOverride AutomaticImportsOverride(Engine->GetScriptEngine());
 			const ECompileResult CompileResult = Engine->CompileModules(CompileType, ModulesToCompile, CompiledModules);
 			if (OutCompileResult != nullptr)
@@ -366,14 +366,23 @@ namespace AngelscriptTestSupport
 
 	bool ExecuteIntFunction(FAngelscriptEngine* Engine, FName ModuleName, FString Decl, int32& OutResult)
 	{
+		return ExecuteIntFunction(Engine, FString(), ModuleName, MoveTemp(Decl), OutResult);
+	}
+
+	bool ExecuteIntFunction(FAngelscriptEngine* Engine, FString Filename, FName ModuleName, FString Decl, int32& OutResult)
+	{
 		if (Engine == nullptr)
 		{
+			UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction failed: engine was null for module=%s decl=%s"), *ModuleName.ToString(), *Decl);
 			return false;
 		}
 
-		TSharedPtr<FAngelscriptModuleDesc> ModuleDesc = Engine->GetModuleByModuleName(ModuleName.ToString());
+		TSharedPtr<FAngelscriptModuleDesc> ModuleDesc = Filename.IsEmpty()
+			? Engine->GetModuleByModuleName(ModuleName.ToString())
+			: Engine->GetModuleByFilenameOrModuleName(Filename, ModuleName.ToString());
 		if (!ModuleDesc.IsValid() || ModuleDesc->ScriptModule == nullptr)
 		{
+			UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction failed: module lookup failed for filename=%s module=%s decl=%s"), *Filename, *ModuleName.ToString(), *Decl);
 			return false;
 		}
 
@@ -382,14 +391,16 @@ namespace AngelscriptTestSupport
 		asIScriptFunction* Function = FindFunctionByDecl(*Module, Decl);
 		if (Function == nullptr)
 		{
+			UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction failed: function lookup failed for module=%s decl=%s"), *ModuleName.ToString(), *Decl);
 			return false;
 		}
 
-		FScopedTestEngineGlobalScope GlobalScope(Engine);
+		FAngelscriptEngineScope EngineScope(*Engine);
 
 		asIScriptContext* Context = Engine->CreateContext();
 		if (Context == nullptr)
 		{
+			UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction failed: context creation failed for module=%s decl=%s"), *ModuleName.ToString(), *Decl);
 			return false;
 		}
 
@@ -401,12 +412,18 @@ namespace AngelscriptTestSupport
 		const int PrepareResult = Context->Prepare(Function);
 		if (PrepareResult != asSUCCESS)
 		{
+			UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction failed: prepare returned %d for module=%s decl=%s"), PrepareResult, *ModuleName.ToString(), *Decl);
 			return false;
 		}
 
 		const int ExecuteResult = Context->Execute();
 		if (ExecuteResult != asEXECUTION_FINISHED)
 		{
+			UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction failed: execute returned %d for module=%s decl=%s"), ExecuteResult, *ModuleName.ToString(), *Decl);
+			if (Context->GetExceptionString() != nullptr)
+			{
+				UE_LOG(Angelscript, Warning, TEXT("ExecuteIntFunction exception: %s"), UTF8_TO_TCHAR(Context->GetExceptionString()));
+			}
 			return false;
 		}
 
@@ -414,24 +431,38 @@ namespace AngelscriptTestSupport
 		return true;
 	}
 
-	bool ExecuteGeneratedIntEventOnGameThread(UObject* Object, UFunction* Function, int32& OutResult)
+	bool ExecuteGeneratedIntEventOnGameThread(FAngelscriptEngine* Engine, UObject* Object, UFunction* Function, int32& OutResult)
 	{
 		if (Object == nullptr || Function == nullptr)
 		{
 			return false;
 		}
 
-		auto Invoke = [Object, Function, &OutResult]()
+		auto Invoke = [Engine, Object, Function, &OutResult]()
 		{
-			FScopedTestWorldContextScope WorldContextScope(Object);
-
-			if (UASFunction* ScriptFunction = Cast<UASFunction>(Function))
+			if (Engine != nullptr)
 			{
-				ScriptFunction->RuntimeCallEvent(Object, &OutResult);
+				FAngelscriptEngineScope EngineScope(*Engine, Object);
+				if (UASFunction* ScriptFunction = Cast<UASFunction>(Function))
+				{
+					ScriptFunction->RuntimeCallEvent(Object, &OutResult);
+				}
+				else
+				{
+					Object->ProcessEvent(Function, &OutResult);
+				}
 			}
 			else
 			{
-				Object->ProcessEvent(Function, &OutResult);
+				FScopedTestWorldContextScope WorldContextScope(Object);
+				if (UASFunction* ScriptFunction = Cast<UASFunction>(Function))
+				{
+					ScriptFunction->RuntimeCallEvent(Object, &OutResult);
+				}
+				else
+				{
+					Object->ProcessEvent(Function, &OutResult);
+				}
 			}
 		};
 

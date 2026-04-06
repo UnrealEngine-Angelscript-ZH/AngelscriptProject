@@ -8,6 +8,12 @@
 
 **Tech Stack:** UE Automation (`IMPLEMENT_SIMPLE_AUTOMATION_TEST`)、`FAutomationTestBase::AddInfo/AddWarning/AddError`、`FAngelscriptEngine`、`FAngelscriptBinds`、`FAngelscriptClassGenerator`、`asIScriptEngine/asIScriptModule/asIScriptContext`、`AngelscriptDebugServer`、`FAngelscriptCodeCoverage`。
 
+> **当前状态（2026-04-04 复核）**：本计划并非未开始，仓库中已实际落地大部分实现。
+> - 已完成：`P0.1-P4.1`、`P4.3-P4.7`、`P5.1`、`P5.3`、`P5.5-P5.6`、`P6.1-P6.3`
+> - 待补尾项：`P4.2`、`P5.2`、`P5.4`、`P5.7-P5.9`、`P6.4`
+> - 现有实现主要集中在 `Learning/Native/` 与 `Learning/Runtime/`；`Scenario` / `Editor` 方向仍作为后续扩展与尾项承接。
+> - **归档判断**：当前**不满足归档条件**。根据 `Plan.md` 与 `Archives/README.md` 的规则，只有“已完成或已关闭”的 Plan 才能移入 `Archives/`；本计划仍保留明确未完成项与未满足的验收覆盖面。
+
 ---
 
 ## 背景与目标
@@ -288,187 +294,187 @@
 
 > 目标：先把这套“教学型测试”与现有回归测试区分清楚，避免后续实现时把大量教学日志混进普通用例。
 
-- [ ] **P0.1** 确认新增主题目录与命名约定
+- [x] **P0.1** 确认新增主题目录与命名约定
   - 建议新增 `Plugins/Angelscript/Source/AngelscriptTest/Learning/Native/`、`Learning/Runtime/`、`Learning/Scenario/`、`Learning/Editor/`，测试名前缀统一用 `Angelscript.TestModule.Learning.*`。
   - 不把这批教学用例塞进 `Examples/`、`Internals/`、`Compiler/` 原有文件，避免原目录语义膨胀。
   - 若某个教学主题跨越多个层级（如 GC、class generation + world spawn），优先拆成成对文件，而不是把 Native/Runtime/Scenario 能力混进一个测试文件。
-- [ ] **P0.1** 📦 Git 提交：`[Test/Learning] Docs: freeze learning trace test taxonomy`
+- [x] **P0.1** 📦 Git 提交：`[Test/Learning] Docs: freeze learning trace test taxonomy`
 
-- [ ] **P0.2** 固定 trace 事件模型与输出层级
+- [x] **P0.2** 固定 trace 事件模型与输出层级
   - 在计划执行前先写清楚 `Phase/StepId/Action/Observation/Evidence` 五段式，避免实现时每个测试自创输出格式。
   - 确定三路输出：Automation `AddInfo`、`UE_LOG`、可选文件导出。
   - 确定 detail level：默认输出课程摘要；如开启 verbose 配置，再打印扩展信息（例如更完整的 property/method 列表或字节码 hex/opcode 细节）。
-- [ ] **P0.2** 📦 Git 提交：`[Test/Learning] Docs: define educational trace event contract`
+- [x] **P0.2** 📦 Git 提交：`[Test/Learning] Docs: define educational trace event contract`
 
 ### Phase 1：建立共享的教学 trace helper
 
 > 目标：先把“如何打印、如何分阶段、如何导出”的基础设施做出来，避免后续每个学习测试都手写输出格式。
 
-- [ ] **P1.1** 创建 `Shared/AngelscriptLearningTrace.h/.cpp`
+- [x] **P1.1** 创建 `Shared/AngelscriptLearningTrace.h/.cpp`
   - 定义 `FAngelscriptLearningTraceSession`、`FAngelscriptLearningTraceEvent`、`FAngelscriptLearningTraceSinkConfig` 一类轻量 helper。
   - 支持 `BeginPhase()`、`AddStep()`、`AddKeyValue()`、`AddCodeBlock()`、`FlushToAutomation()`、`FlushToLog()`、`FlushToFile()` 这类基础接口。
   - 这一步只解决“如何收集与输出”，不解决编译/绑定/类生成细节。
-- [ ] **P1.1** 📦 Git 提交：`[Test/Learning] Feat: add shared educational trace helpers`
+- [x] **P1.1** 📦 Git 提交：`[Test/Learning] Feat: add shared educational trace helpers`
 
-- [ ] **P1.2** 为 helper 补统一格式化器
+- [x] **P1.2** 为 helper 补统一格式化器
   - 至少覆盖以下常用展示：engine property 列表、compiler diagnostic 列表、函数声明列表、property 列表、生成类摘要、bytecode dword 摘要、callstack 行列表。
   - 格式化器应偏向稳定字符串，不依赖易变地址值或平台差异大的输出。
   - 先做“最小稳定版”，不要第一步就追求华丽文档导出。
-- [ ] **P1.2** 📦 Git 提交：`[Test/Learning] Feat: add educational trace pretty-printers`
+- [x] **P1.2** 📦 Git 提交：`[Test/Learning] Feat: add educational trace pretty-printers`
 
-- [ ] **P1.3** 增加 trace 完整性断言 helper
+- [x] **P1.3** 增加 trace 完整性断言 helper
   - 提供类似“断言 Phase 顺序”“断言某一步包含关键词”“断言至少存在 N 个观测项”的辅助函数。
   - 让教学型测试验证的是“课程结构有没有输出完整”，而不是把所有细节值都写死。
-- [ ] **P1.3** 📦 Git 提交：`[Test/Learning] Test: add educational trace structure assertions`
+- [x] **P1.3** 📦 Git 提交：`[Test/Learning] Test: add educational trace structure assertions`
 
 ### Phase 2：打通 Native Core 课程线
 
 > 目标：先在最稳定、最少 UE 干扰的原生层讲清楚 AngelScript 引擎最基本的创建、配置、编译、执行与 message callback。
 
-- [ ] **P2.1** 创建 `Learning/AngelscriptLearningNativeBootstrapTests.cpp`
+- [x] **P2.1** 创建 `Learning/AngelscriptLearningNativeBootstrapTests.cpp`
   - 基于 `AngelscriptNativeTestSupport.h`，讲清楚 `asCreateScriptEngine()`、`SetEngineProperty()`、`SetMessageCallback()`、`GetModule(..., asGM_ALWAYS_CREATE)`、`Build()` 的最小链路。
   - 每一步打印“调用了什么 API、返回码是什么、当前 engine property 是什么”。
   - 该测试的价值是让用户先脱离 UE 封装，看懂 AngelScript 原生生命周期。
-- [ ] **P2.1** 📦 Git 提交：`[Test/Learning] Feat: add native bootstrap learning trace test`
+- [x] **P2.1** 📦 Git 提交：`[Test/Learning] Feat: add native bootstrap learning trace test`
 
-- [ ] **P2.2** 创建 `Learning/AngelscriptLearningBindingTraceTests.cpp`
+- [x] **P2.2** 创建 `Learning/AngelscriptLearningBindingTraceTests.cpp`
   - 通过 `RegisterGlobalFunction`、`RegisterGlobalProperty`、`RegisterObjectType`、`RegisterObjectBehaviour` 等路径，讲清楚“原生绑定是怎么让脚本看见 C++ 能力”的。
   - 打印绑定声明串、返回码、模块里可见的函数声明、必要时打印 type id / type info 基础摘要。
   - 不在这一步引入 `FAngelscriptEngine`；保持原生层课程线的纯净度。
-- [ ] **P2.2** 📦 Git 提交：`[Test/Learning] Feat: add native binding learning trace test`
+- [x] **P2.2** 📦 Git 提交：`[Test/Learning] Feat: add native binding learning trace test`
 
-- [ ] **P2.3** 创建 `Learning/AngelscriptLearningBytecodeTraceTests.cpp`
+- [x] **P2.3** 创建 `Learning/AngelscriptLearningBytecodeTraceTests.cpp`
   - 先用原生模块编译一个最小函数，打印 `GetDeclaration()`、`GetParamCount()`、`GetVarCount()`、`GetByteCode()` 长度与前几项摘要。
   - 如果首批没有可靠 mnemonic disassembler，就先稳定输出“长度 + dword/opcode 摘要 + FindNextLineWithCode 结果”，把“可读反汇编”留作后续扩展。
   - 同时演示 `Prepare()` / `Execute()` / `GetReturnDWord()` 的调用链，形成“编译后如何执行”的完整闭环。
-- [ ] **P2.3** 📦 Git 提交：`[Test/Learning] Feat: add native bytecode and execution learning trace test`
+- [x] **P2.3** 📦 Git 提交：`[Test/Learning] Feat: add native bytecode and execution learning trace test`
 
-- [ ] **P2.4** 创建 `Learning/AngelscriptLearningHandleAndScriptObjectTraceTests.cpp`
+- [x] **P2.4** 创建 `Learning/AngelscriptLearningHandleAndScriptObjectTraceTests.cpp`
   - 使用原生 `asIScriptObject` / handle 相关 API，讲清楚对象句柄、引用语义、对象属性枚举、属性地址访问、对象复制等核心概念。
   - 输出重点是“handle identity vs value equality”“script object 如何暴露 property metadata”，而不是仅验证脚本结果值。
-- [ ] **P2.4** 📦 Git 提交：`[Test/Learning] Feat: add handle and script-object learning trace tests`
+- [x] **P2.4** 📦 Git 提交：`[Test/Learning] Feat: add handle and script-object learning trace tests`
 
-- [ ] **P2.5** 创建 `Learning/AngelscriptLearningDebuggerContextTraceTests.cpp`
+- [x] **P2.5** 创建 `Learning/AngelscriptLearningDebuggerContextTraceTests.cpp`
   - 使用 `asIScriptContext` 的 callstack / line number / local variable API 组织“执行中观察”课程，讲清楚如何读 `GetCallstackSize()`、`GetFunction()`、`GetVar*()`。
   - 若首批不直接引入完整 debugger add-on，也至少做“callstack + locals + exception unwind”级别的课程线。
-- [ ] **P2.5** 📦 Git 提交：`[Test/Learning] Feat: add debugger context learning trace test`
+- [x] **P2.5** 📦 Git 提交：`[Test/Learning] Feat: add debugger context learning trace test`
 
 ### Phase 3：打通插件封装层的编译/分析课程线
 
 > 目标：从“原生 AS”过渡到“插件里的 FAngelscriptEngine”，把预处理、模块描述、分阶段编译、诊断与热重载分析讲清楚。
 
-- [ ] **P3.1** 创建 `Learning/AngelscriptLearningCompilerTraceTests.cpp`
+- [x] **P3.1** 创建 `Learning/AngelscriptLearningCompilerTraceTests.cpp`
   - 基于 `Shared/AngelscriptTestUtilities.h` 与 `Shared/AngelscriptTestEngineHelper.cpp`，讲清楚 `BuildModule()` / `CompileModuleFromMemory()` / `CompileAnnotatedModuleFromMemory()` 的差异。
   - 输出至少包括：输入脚本名、是否走 preprocessor、得到多少 `FAngelscriptModuleDesc`、`CompileModules()` 返回什么 `ECompileResult`、收到了哪些 diagnostics。
   - 如果脚本故意写一个小错误，应把 `LogAngelscriptError()` 产生的 section/row/col/message 组织成教学输出，而不是只断言失败。
-- [ ] **P3.1** 📦 Git 提交：`[Test/Learning] Feat: add compiler pipeline learning trace test`
+- [x] **P3.1** 📦 Git 提交：`[Test/Learning] Feat: add compiler pipeline learning trace test`
 
-- [ ] **P3.2** 在 `Shared/AngelscriptTestEngineHelper.h/.cpp` 按需补轻量摘要 helper
+- [x] **P3.2** 在 `Shared/AngelscriptTestEngineHelper.h/.cpp` 按需补轻量摘要 helper
   - 若直接在测试文件里重复读取 `Diagnostics`、`ECompileResult`、`AnalyzeReloadFromMemory()` 输出会显得散乱，可抽成少量 helper。
   - helper 只做“提取摘要”，不做新的业务层；避免把 Learning 逻辑反向侵入普通测试基础设施。
-- [ ] **P3.2** 📦 Git 提交：`[Test/Learning] Chore: add helper summaries for compile trace tests`
+- [x] **P3.2** 📦 Git 提交：`[Test/Learning] Chore: add helper summaries for compile trace tests`
 
-- [ ] **P3.3** 创建 `Learning/AngelscriptLearningReloadAndClassAnalysisTests.cpp`
+- [x] **P3.3** 创建 `Learning/AngelscriptLearningReloadAndClassAnalysisTests.cpp`
   - 基于 `AnalyzeReloadFromMemory()`，讲清楚某段带 `UCLASS/USTRUCT/UENUM` 注解的脚本在软重载分析阶段为什么得到 `SoftReload` / `FullReloadSuggested` / `FullReloadRequired`。
   - 输出 reload requirement、影响它的属性/函数变化点、是否需要 full reload。
   - 这是“编译正确”之外，用户理解插件为何这样组织类生成的关键课程点。
-- [ ] **P3.3** 📦 Git 提交：`[Test/Learning] Feat: add reload analysis learning trace test`
+- [x] **P3.3** 📦 Git 提交：`[Test/Learning] Feat: add reload analysis learning trace test`
 
-- [ ] **P3.4** 创建 `Learning/AngelscriptLearningPreprocessorTraceTests.cpp`
+- [x] **P3.4** 创建 `Learning/AngelscriptLearningPreprocessorTraceTests.cpp`
   - 基于 `PreprocessorTests.cpp` 与 `FAngelscriptPreprocessor::OnProcessChunks/OnPostProcessCode`，讲清楚 chunk 拆分、macro 记录、`FilenameToModuleName()`、`import` 移除与 `ImportedModules` 记录。
   - 输出至少包括：原始脚本、chunk 类型、检测到的宏、生成后的 module name、处理后代码与 import 依赖结果。
-- [ ] **P3.4** 📦 Git 提交：`[Test/Learning] Feat: add preprocessor learning trace test`
+- [x] **P3.4** 📦 Git 提交：`[Test/Learning] Feat: add preprocessor learning trace test`
 
-- [ ] **P3.5** 创建 `Learning/AngelscriptLearningFileSystemAndModuleTraceTests.cpp`
+- [x] **P3.5** 创建 `Learning/AngelscriptLearningFileSystemAndModuleTraceTests.cpp`
   - 基于 `AngelscriptFileSystemTests.cpp`，讲清楚脚本文件发现、按文件名/模块名查找 module、disk compile、partial failure isolation、skip rules 的行为。
   - 输出重点是“路径 -> module name -> module desc -> compile result”的映射过程。
-- [ ] **P3.5** 📦 Git 提交：`[Test/Learning] Feat: add file-system and module-resolution learning trace test`
+- [x] **P3.5** 📦 Git 提交：`[Test/Learning] Feat: add file-system and module-resolution learning trace test`
 
-- [ ] **P3.6** 创建 `Learning/AngelscriptLearningRestoreAndBytecodePersistenceTests.cpp`
+- [x] **P3.6** 创建 `Learning/AngelscriptLearningRestoreAndBytecodePersistenceTests.cpp`
   - 讲清楚 bytecode/save-load 与 restore round-trip：哪些信息能保留，strip debug info 后哪些教学信息会减少。
   - 这条课程线应明确区分“可执行结果仍正确”和“调试/教学信息完整度变化”两类结果。
-- [ ] **P3.6** 📦 Git 提交：`[Test/Learning] Feat: add restore and bytecode persistence learning trace test`
+- [x] **P3.6** 📦 Git 提交：`[Test/Learning] Feat: add restore and bytecode persistence learning trace test`
 
-- [ ] **P3.7** 创建 `Learning/AngelscriptLearningHotReloadDecisionTraceTests.cpp`
+- [x] **P3.7** 创建 `Learning/AngelscriptLearningHotReloadDecisionTraceTests.cpp`
   - 基于 `AngelscriptHotReloadAnalysisTests.cpp` 与相关 scenario，用多组脚本变更样本讲清楚：body-only、property count、super class、class added/removed、signature changed 分别触发什么 reload requirement。
   - 输出不仅要有最终枚举值，还要解释“判定触发点是什么”。
-- [ ] **P3.7** 📦 Git 提交：`[Test/Learning] Feat: add hot-reload decision learning trace test`
+- [x] **P3.7** 📦 Git 提交：`[Test/Learning] Feat: add hot-reload decision learning trace test`
 
 ### Phase 4：打通类生成与 UE 反射课程线
 
 > 目标：把脚本类怎么变成 `UClass` / `UFunction` / `FProperty` 讲出来，而不是只看最终能否 spawn。
 
-- [ ] **P4.1** 创建 `Learning/AngelscriptLearningClassGenerationTraceTests.cpp`
+- [x] **P4.1** 创建 `Learning/AngelscriptLearningClassGenerationTraceTests.cpp`
   - 以最小 `UCLASS()` 脚本为例，输出 `FindGeneratedClass()`、`FindGeneratedFunction()`、生成属性名/类型、默认值、super class、是否是 actor-derived。
   - 如果需要，订阅 `FAngelscriptClassGenerator` 的 `OnClassReload` / `OnPostReload` 等 delegate，在测试里记录生成时机与类名。
   - 输出重点是“脚本声明 -> 分析 property/method -> 生成 Unreal metadata”这条链路。
-- [ ] **P4.1** 📦 Git 提交：`[Test/Learning] Feat: add class generation learning trace test`
+- [x] **P4.1** 📦 Git 提交：`[Test/Learning] Feat: add class generation learning trace test`
 
 - [ ] **P4.2** 必要时补最小 class-generator seam
   - 若现有 delegate 无法拿到教学测试需要的最基本上下文（例如新生成类名、reload 类型、枚举/结构体创建事件摘要），允许在 `AngelscriptClassGenerator.h/.cpp` 加最小测试可消费信息。
   - 该 seam 必须默认低噪声、不可把生产日志放大到不可控。
 - [ ] **P4.2** 📦 Git 提交：`[Test/Learning] Feat: expose minimal class generation trace seams`
 
-- [ ] **P4.3** 补一条 Blueprint/脚本类联动课程路径
+- [x] **P4.3** 补一条 Blueprint/脚本类联动课程路径
   - 复用 `ClassGenerator/AngelscriptScriptClassCreationTests.cpp` 的模式，展示脚本父类生成后如何创建 Blueprint child，Blueprint child 又如何保留脚本 override 行为。
   - 输出至少包括：生成类名、Blueprint child 名、BeginPlay 命中情况、关键 property 回读结果。
-- [ ] **P4.3** 📦 Git 提交：`[Test/Learning] Feat: add script-class-to-blueprint learning trace test`
+- [x] **P4.3** 📦 Git 提交：`[Test/Learning] Feat: add script-class-to-blueprint learning trace test`
 
-- [ ] **P4.4** 创建 `Learning/AngelscriptLearningInterfaceDispatchTraceTests.cpp`
+- [x] **P4.4** 创建 `Learning/AngelscriptLearningInterfaceDispatchTraceTests.cpp`
   - 基于 `Interface/AngelscriptInterfaceAdvancedTests.cpp`，讲清楚 `UINTERFACE`、interface 继承链、实现类如何满足父/子接口、以及 `Execute_` bridge 的 dispatch 过程。
   - 输出重点是“接口声明 -> 生成 UE interface type -> 实现类 dispatch -> C++/script 调用方看到的行为”。
-- [ ] **P4.4** 📦 Git 提交：`[Test/Learning] Feat: add interface dispatch learning trace test`
+- [x] **P4.4** 📦 Git 提交：`[Test/Learning] Feat: add interface dispatch learning trace test`
 
-- [ ] **P4.5** 创建 `Learning/AngelscriptLearningDelegateBridgeTraceTests.cpp`
+- [x] **P4.5** 创建 `Learning/AngelscriptLearningDelegateBridgeTraceTests.cpp`
   - 基于 `Delegate/AngelscriptDelegateScenarioTests.cpp` 与 `Bind_Delegates.h`，分别讲 unicast 和 multicast：storage、BindUFunction/AddUFunction、native -> script broadcast、script -> native callback。
   - 输出重点是“delegate signature 如何被保存”“绑定时对象和函数名如何落入 UE delegate 存储”。
-- [ ] **P4.5** 📦 Git 提交：`[Test/Learning] Feat: add delegate bridge learning trace test`
+- [x] **P4.5** 📦 Git 提交：`[Test/Learning] Feat: add delegate bridge learning trace test`
 
-- [ ] **P4.6** 创建 `Learning/AngelscriptLearningComponentHierarchyTraceTests.cpp`
+- [x] **P4.6** 创建 `Learning/AngelscriptLearningComponentHierarchyTraceTests.cpp`
   - 复用 `Component/AngelscriptComponentScenarioTests.cpp` 与 `Examples/AngelscriptScriptExamplePropertySpecifiersTest.cpp`，讲 default component、attach、root component、component BeginPlay/Tick 的过程。
   - 输出重点是 actor/component 组合关系与 property specifier 如何影响生成结果。
-- [ ] **P4.6** 📦 Git 提交：`[Test/Learning] Feat: add component hierarchy learning trace test`
+- [x] **P4.6** 📦 Git 提交：`[Test/Learning] Feat: add component hierarchy learning trace test`
 
-- [ ] **P4.7** 创建 `Learning/AngelscriptLearningBlueprintSubclassTraceTests.cpp`
+- [x] **P4.7** 创建 `Learning/AngelscriptLearningBlueprintSubclassTraceTests.cpp`
   - 进一步拆开“脚本类 -> Blueprint child -> 运行时 override”课程线，讲清楚 Blueprint 侧继承并非只是编译通过，而是会影响 BeginPlay / property defaults / dispatch。
   - 这一步可与 `Blueprint/AngelscriptBlueprintSubclassActorTests.cpp` 互为参考，但应保留教学型输出，不只是场景断言。
-- [ ] **P4.7** 📦 Git 提交：`[Test/Learning] Feat: add blueprint-subclass learning trace test`
+- [x] **P4.7** 📦 Git 提交：`[Test/Learning] Feat: add blueprint-subclass learning trace test`
 
 ### Phase 5：打通执行、调试与 UE 调用桥课程线
 
 > 目标：让用户看到“编译之后的脚本是怎么真正跑起来的，以及运行时还能观察到什么”。
 
-- [ ] **P5.1** 创建 `Learning/AngelscriptLearningExecutionTraceTests.cpp`
+- [x] **P5.1** 创建 `Learning/AngelscriptLearningExecutionTraceTests.cpp`
   - 讲清楚 `CreateContext()`、`Prepare()`、`Execute()`、返回值读取、异常/错误返回码。
   - 如测试使用 `FAngelscriptEngine` 路径，应输出 `FScopedTestEngineGlobalScope`、模块名、目标函数声明、执行结果码。
   - 至少补一条异常分支，演示 `LogAngelscriptException()` / `GetAngelscriptCallstack()` 能提供什么信息。
-- [ ] **P5.1** 📦 Git 提交：`[Test/Learning] Feat: add execution lifecycle learning trace test`
+- [x] **P5.1** 📦 Git 提交：`[Test/Learning] Feat: add execution lifecycle learning trace test`
 
 - [ ] **P5.2** 创建 `Learning/AngelscriptLearningLineTraceTests.cpp`
   - 以一段多行函数脚本为例，讲清楚 line callback 何时触发、coverage 如何记录 executable line、`FindNextLineWithCode()` 如何帮助理解“哪一行是可执行代码”。
   - 如果首批不想改 runtime，可以先通过现有 `FAngelscriptCodeCoverage::MapFunction/HitLine` 和 line callback 命中后的可见副作用来组织输出；如果信息还不够，再补最小 seam。
 - [ ] **P5.2** 📦 Git 提交：`[Test/Learning] Feat: add line callback and coverage learning trace test`
 
-- [ ] **P5.3** 创建 `Learning/AngelscriptLearningUEBridgeTraceTests.cpp`
+- [x] **P5.3** 创建 `Learning/AngelscriptLearningUEBridgeTraceTests.cpp`
   - 讲清楚脚本类实例化、`UASFunction` / `ProcessEvent` 调用、`BlueprintOverride`、`BeginPlay`、属性读写回到 UE 对象这条路径。
   - 优先复用 `ExecuteGeneratedIntEventOnGameThread()`、`SpawnScriptActor()`、`ReadPropertyValue()` 等现有 helper，避免重新发明世界/对象夹具。
   - 输出重点是“脚本函数如何变成 UE 可调用事件”和“UE 对象状态如何反向证明脚本逻辑执行过”。
-- [ ] **P5.3** 📦 Git 提交：`[Test/Learning] Feat: add UE bridge learning trace test`
+- [x] **P5.3** 📦 Git 提交：`[Test/Learning] Feat: add UE bridge learning trace test`
 
 - [ ] **P5.4** 评估并接入 DebugServer 作为第二层深度观察手段
   - 这一步不是首批必需，但建议在计划中保留：利用 `AngelscriptDebugServer` 的 callstack / variables / evaluate 能力，为后续“单步执行课程”做准备。
   - 首批可以只做 smoke：连接调试端口、请求 callstack 或 break filters、输出返回内容；不强求完整 IDE 协议课程。
 - [ ] **P5.4** 📦 Git 提交：`[Test/Learning] Feat: add debugger-backed learning trace smoke test`
 
-- [ ] **P5.5** 创建 `Learning/AngelscriptLearningGCTraceTests.cpp`
+- [x] **P5.5** 创建 `Learning/AngelscriptLearningGCTraceTests.cpp`
   - 基于 `GC/AngelscriptGCScenarioTests.cpp`、`Internals/AngelscriptGCInternalTests.cpp` 与 runtime GC seam，讲清楚 actor destroy、component destroy、world teardown、cycle detection、manual collect、GC statistics 的差异。
   - 输出至少包括：对象图变化、GC 前后弱引用状态、统计计数、是否存在 cycle detect 或 undestroyed report。
-- [ ] **P5.5** 📦 Git 提交：`[Test/Learning] Feat: add GC learning trace test`
+- [x] **P5.5** 📦 Git 提交：`[Test/Learning] Feat: add GC learning trace test`
 
-- [ ] **P5.6** 创建 `Learning/AngelscriptLearningTimerAndLatentTraceTests.cpp`
+- [x] **P5.6** 创建 `Learning/AngelscriptLearningTimerAndLatentTraceTests.cpp`
   - 基于 `Bind_SystemTimers.cpp` 与 world tick helper，讲清楚 `System::SetTimer()`、pause/unpause、clear/invalidate 与 world time 推进的关系。
   - 如需要多帧叙事，优先复用 latent automation/fixture 模式，把“第 0 帧绑定 / 第 N 帧回调 / 清理 timer”输出成课程步骤。
-- [ ] **P5.6** 📦 Git 提交：`[Test/Learning] Feat: add timer and latent learning trace test`
+- [x] **P5.6** 📦 Git 提交：`[Test/Learning] Feat: add timer and latent learning trace test`
 
 - [ ] **P5.7** 创建 `Learning/AngelscriptLearningSubsystemLifecycleTraceTests.cpp`
   - 基于 `ScriptWorldSubsystem.h` / `Bind_Subsystems.cpp` 与现有 scenario，讲清楚 `ShouldCreateSubsystem()`、`Initialize()`、`PostInitialize()`、`OnWorldBeginPlay()`、`Tick()`、`Deinitialize()` 的顺序与 world-type 条件。
@@ -489,21 +495,21 @@
 
 > 目标：让这套教学型测试可以被稳定运行、稳定阅读，而不是只在代码里存在。
 
-- [ ] **P6.1** 更新 `Documents/Guides/Test.md`
+- [x] **P6.1** 更新 `Documents/Guides/Test.md`
   - 增加 `Learning/` 主题目录说明，明确它的目标是“教学型 trace”，不是普通功能回归。
   - 写明推荐运行方式：`Automation RunTests Angelscript.TestModule.Learning`；需要更完整日志时如何配 `-ABSLOG`、`-ReportExportPath`、`-LogCmds`。
   - 明确建议的日志级别，例如 `-LogCmds="Angelscript Display,LogAutomationTest Verbose"`。
-- [ ] **P6.1** 📦 Git 提交：`[Docs] Feat: document learning trace automation tests`
+- [x] **P6.1** 📦 Git 提交：`[Docs] Feat: document learning trace automation tests`
 
-- [ ] **P6.2** 新增 `Documents/Guides/LearningTrace.md`
+- [x] **P6.2** 新增 `Documents/Guides/LearningTrace.md`
   - 专门说明每个 Learning 测试在讲什么、运行后应该看哪些 phase、如何从日志读出“绑定阶段 / 类生成阶段 / 执行阶段 / UE bridge 阶段”的关键知识点。
   - 如果实现阶段支持导出 `json/md`，在文档里明确导出目录和字段说明。
-- [ ] **P6.2** 📦 Git 提交：`[Docs] Feat: add learning trace reading guide`
+- [x] **P6.2** 📦 Git 提交：`[Docs] Feat: add learning trace reading guide`
 
-- [ ] **P6.3** 更新 `Documents/Guides/TestCatalog.md`
+- [x] **P6.3** 更新 `Documents/Guides/TestCatalog.md`
   - 增加一个 `Learning — 教学型可观测测试` 目录段，至少按 `NativeBootstrap / Binding / Bytecode / Handles / DebuggerContext / Compiler / Preprocessor / FileSystem / HotReload / ClassGeneration / Interface / Delegate / GC / Timers / Subsystems / SourceNavigation / UEBridge` 列出条目和教学目标。
   - 目录条目要写“这个测试在解释什么”，不要只写文件名。
-- [ ] **P6.3** 📦 Git 提交：`[Docs] Feat: catalog learning trace tests`
+- [x] **P6.3** 📦 Git 提交：`[Docs] Feat: catalog learning trace tests`
 
 - [ ] **P6.4** 分批验证教学型测试矩阵
   - 先跑 Native 层学习测试，再跑 Compiler/ClassGeneration，再跑 Execution/UEBridge，最后跑总前缀 `Angelscript.TestModule.Learning`。

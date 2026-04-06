@@ -1,4 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 #include "Components/ActorTestSpawner.h"
 #include "Misc/AutomationTest.h"
@@ -31,8 +32,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioInterfaceImplementBasicTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
+	ASTEST_BEGIN_SHARE_FRESH
 	static const FName ModuleName(TEXT("ScenarioInterfaceImplementBasic"));
 	ON_SCOPE_EXIT
 	{
@@ -85,13 +86,15 @@ class AScenarioInterfaceImplBasic : AActor, UIDamageableImpl
 	{
 		TestTrue(TEXT("Actor should implement the interface"), Actor->GetClass()->ImplementsInterface(InterfaceClass));
 	}
+	ASTEST_END_SHARE_FRESH
+
 	return true;
 }
 
 bool FAngelscriptScenarioInterfaceImplementMultipleTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
+	ASTEST_BEGIN_SHARE_FRESH
 	static const FName ModuleName(TEXT("ScenarioInterfaceImplementMultiple"));
 	ON_SCOPE_EXIT
 	{
@@ -164,13 +167,15 @@ class AScenarioInterfaceImplMultiple : AActor, UIDamageableMulti, UIHealableMult
 	{
 		TestTrue(TEXT("Actor should implement UIHealableMulti"), Actor->GetClass()->ImplementsInterface(HealableClass));
 	}
+	ASTEST_END_SHARE_FRESH
+
 	return true;
 }
 
 bool FAngelscriptScenarioInterfaceImplementsInterfaceMethodTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
+	ASTEST_BEGIN_SHARE_FRESH
 	static const FName ModuleName(TEXT("ScenarioInterfaceImplMethod"));
 	ON_SCOPE_EXIT
 	{
@@ -239,6 +244,8 @@ class AScenarioInterfaceImplMethod : AActor, UIDamageableImplCheck
 	}
 
 	TestEqual(TEXT("ImplementsInterface via StaticClass() should succeed in AS script"), ImplementsResult, 1);
+	ASTEST_END_SHARE_FRESH
+
 	return true;
 }
 

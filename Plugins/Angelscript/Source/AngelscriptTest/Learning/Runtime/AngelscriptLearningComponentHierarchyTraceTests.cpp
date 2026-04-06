@@ -2,6 +2,7 @@
 #include "../../Shared/AngelscriptScenarioTestUtils.h"
 #include "../../Shared/AngelscriptTestEngineHelper.h"
 #include "../../Shared/AngelscriptTestUtilities.h"
+#include "../../Shared/AngelscriptTestMacros.h"
 
 #include "Components/ActorTestSpawner.h"
 #include "Core/AngelscriptComponent.h"
@@ -32,8 +33,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningComponentHierarchyTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("LearningComponentHierarchyModule"));
 	ON_SCOPE_EXIT
 	{
@@ -137,10 +138,10 @@ class ALearningComponentHierarchyActor : AActor
 	}
 	Trace.AddKeyValue(TEXT("ScriptComponentCount"), FString::FromInt(ScriptComponentCount));
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	Trace.AddStep(TEXT("BeginPlayComponents"), TEXT("Called BeginPlay on the actor, which triggers BeginPlay on components"));
 
-	TickWorld(Spawner.GetWorld(), LearningComponentDeltaTime, 1);
+	TickWorld(Engine, Spawner.GetWorld(), LearningComponentDeltaTime, 1);
 	Trace.AddStep(TEXT("TickComponents"), TEXT("Ticked the world with a delta time, which propagates to component Tick"));
 
 	Trace.AddStep(TEXT("ComponentHierarchyObservation"), TEXT("Component hierarchy in Angelscript supports DefaultComponent specifier, RootComponent designation, and Attach relationships; component lifecycle mirrors actor lifecycle with BeginPlay/Tick"));
@@ -165,6 +166,8 @@ class ALearningComponentHierarchyActor : AActor
 		&& bContainsComponentKeyword
 		&& bContainsCountKeyword
 		&& bMinimumEventsOk;
+
+	ASTEST_END_SHARE_CLEAN
 }
 
 #endif

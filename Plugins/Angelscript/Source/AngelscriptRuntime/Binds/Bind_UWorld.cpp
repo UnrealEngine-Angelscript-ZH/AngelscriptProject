@@ -30,11 +30,15 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_NetMode((int32)FAngelscriptBin
 
 AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_World((int32)FAngelscriptBinds::EOrder::Late, []
 {
-	FAngelscriptBinds::BindGlobalVariable("UObject __WorldContext", &FAngelscriptEngine::CurrentWorldContext);
+	FAngelscriptBinds::BindGlobalFunction("UObject __WorldContext()",
+	[]() -> UObject*
+	{
+		return FAngelscriptEngine::TryGetCurrentWorldContextObject();
+	});
 	FAngelscriptBinds::BindGlobalFunction("UWorld GetCurrentWorld()",
 	[]() -> UWorld*
 	{
-		return GEngine->GetWorldFromContextObject(FAngelscriptEngine::CurrentWorldContext, EGetWorldErrorMode::ReturnNull);
+		return GEngine->GetWorldFromContextObject(FAngelscriptEngine::TryGetCurrentWorldContextObject(), EGetWorldErrorMode::ReturnNull);
 	});
 
 	auto UWorld_ = FAngelscriptBinds::ExistingClass("UWorld");

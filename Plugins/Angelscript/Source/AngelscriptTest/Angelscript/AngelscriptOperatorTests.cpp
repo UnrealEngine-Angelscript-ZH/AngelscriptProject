@@ -1,4 +1,5 @@
 #include "AngelscriptTestSupport.h"
+#include "Shared/AngelscriptTestMacros.h"
 #include "Misc/Paths.h"
 
 // Test Layer: Runtime Integration
@@ -18,7 +19,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptOperatorOverloadTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -29,6 +32,8 @@ bool FAngelscriptOperatorOverloadTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestTrue(TEXT("Operators.Overload currently verifies compile coverage only because executing script-class operator overloads still faults on this branch"), true);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -39,7 +44,10 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptOperatorGetSetTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
+	FAngelscriptEngineScope EngineScope(Engine);
 	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
 	if (!TestNotNull(TEXT("Operators.GetSet should expose a script engine for the isolated compile-fail probe"), ScriptEngine))
 	{
@@ -62,6 +70,8 @@ bool FAngelscriptOperatorGetSetTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestTrue(TEXT("Operators.GetSet currently verifies compile coverage only because the raw accessor path does not expose stable globals or type metadata on this branch"), true);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -72,7 +82,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptOperatorConstTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -83,6 +95,8 @@ bool FAngelscriptOperatorConstTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestTrue(TEXT("Operators.Const currently verifies compile coverage only because executing const script-class methods still faults on this branch"), true);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -93,30 +107,19 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptOperatorPowerTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASOperatorPower",
-		TEXT("int Test() { return int(2.0f ** 3.0f); }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Test()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine,
+		"ASOperatorPower",
+		TEXT("int Test() { return int(2.0f ** 3.0f); }"),
+		TEXT("int Test()"),
+		Result);
 
 	TestEqual(TEXT("Operators.Power should preserve exponentiation semantics"), Result, 8);
+	ASTEST_END_SHARE
+
 	return true;
 }
 

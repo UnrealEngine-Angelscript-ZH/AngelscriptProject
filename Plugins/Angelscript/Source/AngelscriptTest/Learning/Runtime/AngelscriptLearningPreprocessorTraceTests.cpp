@@ -1,5 +1,6 @@
 #include "../../Shared/AngelscriptLearningTrace.h"
 #include "../../Shared/AngelscriptTestUtilities.h"
+#include "../../Shared/AngelscriptTestMacros.h"
 
 #include "Preprocessor/AngelscriptPreprocessor.h"
 #include "HAL/FileManager.h"
@@ -115,7 +116,9 @@ bool FAngelscriptLearningPreprocessorTraceTest::RunTest(const FString& Parameter
 		TEXT("}\n"));
 
 	FAngelscriptPreprocessor Preprocessor;
-	TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
+	FAngelscriptEngine* CurrentEngine = FAngelscriptEngine::TryGetCurrentEngine();
+	TOptional<TGuardValue<bool>> AutomaticImportGuard;
+	if (CurrentEngine) { AutomaticImportGuard.Emplace(CurrentEngine->bUseAutomaticImportMethod, false); }
 	TArray<FString> HookEvents;
 	const FDelegateHandle ProcessChunksHandle = FAngelscriptPreprocessor::OnProcessChunks.AddLambda([&HookEvents](FAngelscriptPreprocessor& HookPreprocessor)
 	{

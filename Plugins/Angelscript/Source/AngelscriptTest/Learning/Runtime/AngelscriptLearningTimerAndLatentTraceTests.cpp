@@ -2,6 +2,7 @@
 #include "../../Shared/AngelscriptScenarioTestUtils.h"
 #include "../../Shared/AngelscriptTestEngineHelper.h"
 #include "../../Shared/AngelscriptTestUtilities.h"
+#include "../../Shared/AngelscriptTestMacros.h"
 
 #include "Components/ActorTestSpawner.h"
 #include "GameFramework/Actor.h"
@@ -25,8 +26,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningTimerAndLatentTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("LearningTimerModule"));
 	ON_SCOPE_EXIT
 	{
@@ -97,7 +98,7 @@ class ALearningTimerActor : AActor
 
 	Trace.AddStep(TEXT("SpawnTimerActor"), TEXT("Spawned an instance of the timer script actor"));
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 	Trace.AddStep(TEXT("BeginPlayTimerActor"), TEXT("Called BeginPlay, which sets up the repeating timer via System::SetTimer"));
 
 	int32 InitialCallCount = 0;
@@ -109,7 +110,7 @@ class ALearningTimerActor : AActor
 	Trace.AddStep(TEXT("CheckInitialCallCount"), TEXT("Checked initial timer call count before any ticks"));
 	Trace.AddKeyValue(TEXT("InitialCallCount"), FString::FromInt(InitialCallCount));
 
-	TickWorld(Spawner.GetWorld(), LearningTimerDeltaTime, 20);
+	TickWorld(Engine, Spawner.GetWorld(), LearningTimerDeltaTime, 20);
 	Trace.AddStep(TEXT("TickWorld"), TEXT("Ticked the world to allow timer to fire"));
 
 	int32 AfterTickCount = 0;
@@ -138,6 +139,8 @@ class ALearningTimerActor : AActor
 		&& bPhaseSequenceOk
 		&& bContainsCallCountKeyword
 		&& bMinimumEventsOk;
+
+	ASTEST_END_SHARE_CLEAN
 }
 
 #endif

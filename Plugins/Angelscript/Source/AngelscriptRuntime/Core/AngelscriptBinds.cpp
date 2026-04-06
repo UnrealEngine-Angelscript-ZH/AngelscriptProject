@@ -20,60 +20,17 @@
 #include "source/as_scriptengine.h"
 #include "EndAngelscriptHeaders.h"
 
-namespace
+static FAngelscriptBindState& GetBindState()
 {
-	struct FAngelscriptBindState
+	if (FAngelscriptEngine* Engine = FAngelscriptEngine::TryGetCurrentEngine())
 	{
-		TMap<UClass*, TMap<FString, FFuncEntry>> ClassFuncMaps;
-		TMap<FString, TArray<TObjectPtr<UClass>>> RuntimeClassDB;
-#if WITH_EDITOR
-		TMap<FString, TArray<TObjectPtr<UClass>>> EditorClassDB;
-#endif
-		TArray<FString> BindModuleNames;
-		TMap<UClass*, TSet<FString>> SkipBinds;
-		TSet<TTuple<FName, FName>> SkipBindNames;
-		TSet<FName> SkipBindClasses;
-		int32 PreviouslyBoundFunction = -1;
-		int32 PreviouslyBoundGlobalProperty = -1;
-	};
-
-	const void* GetLegacyBindStateKey()
-	{
-		static uint8 LegacyBindStateKey = 0;
-		return &LegacyBindStateKey;
-	}
-
-	const void* ResolveBindStateKey(const void* StateKey = nullptr)
-	{
-		if (StateKey != nullptr)
+		if (FAngelscriptBindState* State = Engine->GetBindState())
 		{
-			return StateKey;
+			return *State;
 		}
-
-		if (const void* CurrentKey = FAngelscriptEngine::GetCurrentIsolationStateKey())
-		{
-			return CurrentKey;
-		}
-
-		return GetLegacyBindStateKey();
 	}
-
-	TMap<const void*, TUniquePtr<FAngelscriptBindState>>& GetBindStates()
-	{
-		static TMap<const void*, TUniquePtr<FAngelscriptBindState>> BindStates;
-		return BindStates;
-	}
-
-	FAngelscriptBindState& GetBindState(const void* StateKey = nullptr)
-	{
-		TUniquePtr<FAngelscriptBindState>& BindState = GetBindStates().FindOrAdd(ResolveBindStateKey(StateKey));
-		if (!BindState.IsValid())
-		{
-			BindState = MakeUnique<FAngelscriptBindState>();
-		}
-
-		return *BindState;
-	}
+	static FAngelscriptBindState LegacyBindState;
+	return LegacyBindState;
 }
 
 TMap<FString, TArray<TObjectPtr<UClass>>>& FAngelscriptBinds::GetRuntimeClassDB()
@@ -191,12 +148,7 @@ TArray<FAngelscriptBinds::FBindInfo> FAngelscriptBinds::GetBindInfoList(const TS
 
 void FAngelscriptBinds::ResetBindState()
 {
-	ResetBindStateForKey(nullptr);
-}
-
-void FAngelscriptBinds::ResetBindStateForKey(const void* StateKey)
-{
-	GetBindStates().Remove(ResolveBindStateKey(StateKey));
+	GetBindState() = FAngelscriptBindState();
 }
 
 void FAngelscriptBinds::CallBinds()
@@ -478,7 +430,7 @@ int FAngelscriptBinds::CompileOutInTest(int FunctionId)
 	auto& Manager = FAngelscriptEngine::Get();
 	auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(FunctionId);
 
-	if (UE_BUILD_TEST || UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::bSimulateCooked))
+	if (UE_BUILD_TEST || UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::IsSimulatingCookedForCurrentContext()))
 	{
 		Function->compileOutType = asECompileOutType::CompileOutEntirely;
 	}
@@ -496,7 +448,7 @@ int FAngelscriptBinds::CompileOutIfNoLog(int FunctionId)
 	auto& Manager = FAngelscriptEngine::Get();
 	auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(FunctionId);
 
-	if (UE_BUILD_TEST || UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::bSimulateCooked))
+	if (UE_BUILD_TEST || UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::IsSimulatingCookedForCurrentContext()))
 	{
 		Function->compileOutType = asECompileOutType::CompileOutEntirely;
 	}
@@ -515,7 +467,7 @@ int FAngelscriptBinds::CompileOutAsEnsure(int FunctionId)
 	auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(FunctionId);
 	Function->traits.SetTrait(asTRAIT_NODISCARD, true);
 
-	if (UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::bSimulateCooked))
+	if (UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::IsSimulatingCookedForCurrentContext()))
 	{
 		Function->compileOutType = asECompileOutType::ReplaceWithFirstParam;
 	}
@@ -527,7 +479,7 @@ int FAngelscriptBinds::CompileOutAsCheck(int FunctionId)
 	auto& Manager = FAngelscriptEngine::Get();
 	auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(FunctionId);
 
-	if (UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::bSimulateCooked))
+	if (UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::IsSimulatingCookedForCurrentContext()))
 	{
 		Function->compileOutType = asECompileOutType::CompileOutEntirely;
 	}
@@ -542,7 +494,7 @@ int FAngelscriptBinds::CompileOutAsCheck(int FunctionId)
 
 int FAngelscriptBinds::CompileReplaceWithFirstArgInTest(int FunctionId)
 {
-	if (UE_BUILD_TEST || UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::bSimulateCooked))
+	if (UE_BUILD_TEST || UE_BUILD_SHIPPING || (WITH_EDITOR && FAngelscriptEngine::IsSimulatingCookedForCurrentContext()))
 	{
 		auto& Manager = FAngelscriptEngine::Get();
 		auto* Function = (asCScriptFunction*)Manager.Engine->GetFunctionById(FunctionId);

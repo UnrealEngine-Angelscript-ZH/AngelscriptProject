@@ -1,4 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 #include "Components/ActorTestSpawner.h"
 #include "Engine/Blueprint.h"
@@ -124,6 +125,7 @@ namespace BlueprintSubclassRuntimeTest
 
 	bool InvokeNoParamScriptFunction(
 		FAutomationTestBase& Test,
+		FAngelscriptEngine& Engine,
 		UObject* Object,
 		FName FunctionName,
 		const TCHAR* Context)
@@ -141,13 +143,14 @@ namespace BlueprintSubclassRuntimeTest
 			return false;
 		}
 
-		FScopedTestWorldContextScope WorldContextScope(Object);
+		FAngelscriptEngineScope FunctionScope(Engine, Object);
 		Object->ProcessEvent(Function, nullptr);
 		return true;
 	}
 
 	bool InvokeIntScriptFunction(
 		FAutomationTestBase& Test,
+		FAngelscriptEngine& Engine,
 		UObject* Object,
 		FName FunctionName,
 		int32 Value,
@@ -169,7 +172,7 @@ namespace BlueprintSubclassRuntimeTest
 		FSingleIntParam Params;
 		Params.Value = Value;
 
-		FScopedTestWorldContextScope WorldContextScope(Object);
+		FAngelscriptEngineScope FunctionScope(Engine, Object);
 		Object->ProcessEvent(Function, &Params);
 		return true;
 	}
@@ -207,8 +210,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioBlueprintChildInheritsScriptBeginPlayTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioBlueprintChildInheritsScriptBeginPlay"));
 	ON_SCOPE_EXIT
 	{
@@ -261,7 +264,7 @@ class AScenarioBlueprintChildInheritsScriptBeginPlayParent : AActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 BeginPlayCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("BeginPlayCount"), BeginPlayCount))
@@ -270,13 +273,15 @@ class AScenarioBlueprintChildInheritsScriptBeginPlayParent : AActor
 	}
 
 	TestEqual(TEXT("Blueprint child should inherit and execute the script BeginPlay override"), BeginPlayCount, 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioBlueprintChildInheritsScriptTickTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioBlueprintChildInheritsScriptTick"));
 	ON_SCOPE_EXIT
 	{
@@ -342,7 +347,7 @@ class AScenarioBlueprintChildInheritsScriptTickParent : AActor
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 InitialLogicalTickCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("LogicalTickCount"), InitialLogicalTickCount))
@@ -350,7 +355,7 @@ class AScenarioBlueprintChildInheritsScriptTickParent : AActor
 		return false;
 	}
 
-	TickWorld(Spawner.GetWorld(), BlueprintSubclassRuntimeTest::ScenarioTickDeltaTime, BlueprintSubclassRuntimeTest::InheritedTickCount);
+	TickWorld(Engine, Spawner.GetWorld(), BlueprintSubclassRuntimeTest::ScenarioTickDeltaTime, BlueprintSubclassRuntimeTest::InheritedTickCount);
 
 	int32 LogicalTickCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("LogicalTickCount"), LogicalTickCount))
@@ -362,13 +367,15 @@ class AScenarioBlueprintChildInheritsScriptTickParent : AActor
 		TEXT("Blueprint child should inherit and execute the script Tick override for each manual world tick"),
 		LogicalTickCount - InitialLogicalTickCount,
 		BlueprintSubclassRuntimeTest::InheritedTickCount);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioBlueprintChildScriptUFunctionStillCallableTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioBlueprintChildScriptUFunctionStillCallable"));
 	ON_SCOPE_EXIT
 	{
@@ -427,6 +434,7 @@ class AScenarioBlueprintChildScriptUFunctionStillCallableParent : AActor
 
 	if (!BlueprintSubclassRuntimeTest::InvokeIntScriptFunction(
 			*this,
+			Engine,
 			Actor,
 			TEXT("RecordExternalCall"),
 			77,
@@ -449,13 +457,15 @@ class AScenarioBlueprintChildScriptUFunctionStillCallableParent : AActor
 
 	TestEqual(TEXT("Blueprint child should preserve script UFUNCTION dispatch through ProcessEvent"), ScriptCallCount, 1);
 	TestEqual(TEXT("Blueprint child should preserve reflected integer parameters when invoking script UFUNCTIONs"), LastCallValue, 77);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioBlueprintChildRecreateDoesNotLeakPreviousStateTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioBlueprintChildRecreateDoesNotLeakPreviousState"));
 	ON_SCOPE_EXIT
 	{
@@ -518,9 +528,10 @@ class AScenarioBlueprintChildRecreateStateParent : AActor
 		return false;
 	}
 
-	BeginPlayActor(*FirstActor);
+	BeginPlayActor(Engine, *FirstActor);
 	if (!BlueprintSubclassRuntimeTest::InvokeNoParamScriptFunction(
 			*this,
+			Engine,
 			FirstActor,
 			TEXT("BumpState"),
 			TEXT("Blueprint child recreate scenario first actor mutation")))
@@ -535,7 +546,7 @@ class AScenarioBlueprintChildRecreateStateParent : AActor
 	}
 
 	FirstActor->Destroy();
-	TickWorld(Spawner.GetWorld(), 0.0f, 1);
+	TickWorld(Engine, Spawner.GetWorld(), 0.0f, 1);
 
 	AActor* SecondActor = SpawnScriptActor(*this, Spawner, BlueprintClass);
 	if (!TestNotNull(TEXT("Blueprint child recreate scenario should spawn the second actor"), SecondActor))
@@ -543,7 +554,7 @@ class AScenarioBlueprintChildRecreateStateParent : AActor
 		return false;
 	}
 
-	BeginPlayActor(*SecondActor);
+	BeginPlayActor(Engine, *SecondActor);
 
 	int32 SecondStatefulValue = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, SecondActor, TEXT("StatefulValue"), SecondStatefulValue))
@@ -560,13 +571,15 @@ class AScenarioBlueprintChildRecreateStateParent : AActor
 	TestEqual(TEXT("Blueprint child recreate scenario should observe the first actor mutating its local script state"), FirstStatefulValue, 48);
 	TestEqual(TEXT("Blueprint child recreate scenario should reset script state when respawning a new blueprint child"), SecondStatefulValue, 11);
 	TestEqual(TEXT("Blueprint child recreate scenario should execute BeginPlay independently for each spawned instance"), SecondBeginPlayCount, 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioBlueprintChildNoOverrideUsesScriptParentDefaultTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioBlueprintChildNoOverrideUsesScriptParentDefault"));
 	ON_SCOPE_EXIT
 	{
@@ -667,13 +680,15 @@ class AScenarioBlueprintChildNoOverrideUsesScriptParentDefaultParent : AActor
 	TestEqual(TEXT("Blueprint child with no overrides should preserve parent integer defaults on spawned instances"), DefaultCounterOnInstance, 23);
 	TestTrue(TEXT("Blueprint child with no overrides should preserve parent boolean defaults on spawned instances"), bDefaultToggleOnInstance);
 	TestEqual(TEXT("Blueprint child with no overrides should preserve parent string defaults on spawned instances"), DefaultLabelOnInstance, FString(TEXT("ScriptParentDefault")));
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScenarioBlueprintChildOverrideChainHasDeterministicCountsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioBlueprintChildOverrideChainHasDeterministicCounts"));
 	ON_SCOPE_EXIT
 	{
@@ -809,9 +824,9 @@ class AScenarioBlueprintChildOverrideChainScriptChild : AScenarioBlueprintChildO
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
-	TickWorld(Spawner.GetWorld(), BlueprintSubclassRuntimeTest::ScenarioTickDeltaTime, BlueprintSubclassRuntimeTest::OverrideChainTickCount);
+	TickWorld(Engine, Spawner.GetWorld(), BlueprintSubclassRuntimeTest::ScenarioTickDeltaTime, BlueprintSubclassRuntimeTest::OverrideChainTickCount);
 
 	int32 ParentBeginPlayCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("ParentBeginPlayCount"), ParentBeginPlayCount))
@@ -847,6 +862,8 @@ class AScenarioBlueprintChildOverrideChainScriptChild : AScenarioBlueprintChildO
 		TEXT("Blueprint child override-chain scenario should execute deterministic child Tick steps"),
 		ChildTickCount,
 		BlueprintSubclassRuntimeTest::OverrideChainTickCount);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 

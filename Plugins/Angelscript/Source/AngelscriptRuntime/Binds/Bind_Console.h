@@ -15,7 +15,7 @@ struct FScriptConsoleVariable
 		Variable = IConsoleManager::Get().FindConsoleVariable(*Name);
 		if (Variable == nullptr)
 		{
-			if (!FAngelscriptEngine::Get().bIsInitialCompileFinished)
+			if (!FAngelscriptEngine::Get().IsInitialCompileFinished())
 			{
 				// If we're still in the initial compile, we should not initialize the CVar until after compile is finished.
 				// The initial compile can happen on a separate thread, so registering it now might end up crashing.
@@ -25,6 +25,7 @@ struct FScriptConsoleVariable
 					[this, NameCopy, DefaultValue, HelpCopy]()
 					{
 						Variable = IConsoleManager::Get().RegisterConsoleVariable(*NameCopy, DefaultValue, *HelpCopy);
+						FAngelscriptRuntimeModule::GetOnInitialCompileFinished().Remove(LateInitializeDelegateHandle);
 						LateInitializeDelegateHandle.Reset();
 					}
 				);
@@ -59,6 +60,13 @@ struct FScriptConsoleVariable
 		return Variable->GetFloat();
 	}
 
+	FString GetString() const
+	{
+		if (Variable == nullptr)
+			return TEXT("");
+		return Variable->GetString();
+	}
+
 	int GetInt() const
 	{
 		if (Variable == nullptr)
@@ -78,6 +86,13 @@ struct FScriptConsoleVariable
 		if(Variable == nullptr)
 			return;
 		Variable->Set(InValue);
+	}
+
+	void SetString(const FString& InValue) const
+	{
+		if (Variable == nullptr)
+			return;
+		Variable->Set(*InValue);
 	}
 	
 	void SetInt(const int InValue) const

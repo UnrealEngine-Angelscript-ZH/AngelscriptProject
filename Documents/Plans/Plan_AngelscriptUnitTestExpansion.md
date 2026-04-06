@@ -212,15 +212,11 @@ Phase 0 记录 live inventory 时，统一使用“扫描源码中的 automation
 
 ### 构建命令
 
-```powershell
-powershell.exe -Command "& '<EngineRoot>\Engine\Build\BatchFiles\Build.bat' AngelscriptProjectEditor Win64 Development '-Project=<ProjectFile>' -WaitMutex -FromMsBuild -architecture=x64 2>&1 | Out-String"
-```
+Use `Tools\RunBuild.ps1`（例如 `Tools\RunBuild.ps1 -Label bootstrap -TimeoutMs 180000 -- -SerializeByEngine`）来验证 `AngelscriptProjectEditor`，保持和 `AgentConfig.ini` 中的路径/超时一致，同时自动处理 UBT 进程锁和日志输出。
 
 ### 单组自动化测试命令（NullRHI）
 
-```powershell
-powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"<ProjectFile>\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NullRHI','-NOSOUND','-ABSLOG=<AbsoluteLogPath>','-ReportExportPath=<AbsoluteReportDir>' -Wait -NoNewWindow; Write-Host 'DONE'"
-```
+自动化测试建议通过 `Tools\RunTests.ps1 -TestPrefix <TestName> -Label <Label> -TimeoutMs 600000 -- -NullRHI` 来启动；日志、报告与摘要统一由脚本写入 `Saved/Tests/<Label>/<RunId>/`，不再手写 `-ABSLOG` / `-ReportExportPath`。
 
 ### 执行约束
 
@@ -452,7 +448,7 @@ powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\W
 - [ ] **P2.4** 补 Runtime 预处理 / 类型系统的窄范围覆盖
   - 评估新增：
     - `Plugins/Angelscript/Source/AngelscriptRuntime/Tests/AngelscriptTypeSystemTests.cpp`
-    - 或扩展 `Plugins/Angelscript/Source/AngelscriptTest/Preprocessor/PreprocessorTests.cpp`
+- 或扩展 `Plugins/Angelscript/Source/AngelscriptTest/Preprocessor/AngelscriptPreprocessorTests.cpp`
     - 或扩展 `Plugins/Angelscript/Source/AngelscriptTest/Internals/AngelscriptDataTypeTests.cpp`
   - 优先覆盖：嵌套宏、循环 import、错误恢复、类型匹配边界
   - 若同一能力更适合 `AngelscriptTest/` helper 层，则写在对应目录，但必须在提交说明中解释“不留在 Runtime/Tests 的原因”

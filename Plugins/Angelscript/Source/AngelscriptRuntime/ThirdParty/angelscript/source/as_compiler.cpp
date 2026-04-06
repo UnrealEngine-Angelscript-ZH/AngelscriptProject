@@ -1005,7 +1005,7 @@ int asCCompiler::CompileFunction(asCBuilder *in_builder, asCScriptCode *in_scrip
 			|| in_outFunc->name.StartsWith("__Init_")
 			|| in_outFunc->name == "OnActorModifiedInEditor_Implementation"
 			|| in_outFunc->name == "OnComponentModifiedInEditor_Implementation"
-			|| (WITH_EDITOR && !FAngelscriptEngine::bSimulateCooked && in_outFunc->name.StartsWith("Editor_"))
+			|| (WITH_EDITOR && !FAngelscriptEngine::IsSimulatingCookedForCurrentContext() && in_outFunc->name.StartsWith("Editor_"))
 	;
 
 
@@ -7086,6 +7086,14 @@ bool asCCompiler::CompileRefCast(asCExprContext *ctx, const asCDataType &to, boo
 	if (!ot)
 		return false;
 
+	UClass* TargetClass = to.GetTypeInfo() != nullptr
+		? reinterpret_cast<UClass*>(to.GetTypeInfo()->GetUserData())
+		: nullptr;
+	const char* TargetTypeName = to.GetTypeInfo() != nullptr ? to.GetTypeInfo()->GetName() : "<null>";
+	const bool bLogInterfaceCast =
+		(TargetClass != nullptr && TargetClass->HasAnyClassFlags(CLASS_Interface))
+		|| (TargetTypeName != nullptr && FCStringAnsi::Strstr(TargetTypeName, "DamageableCast") != nullptr);
+
 	if (isExplicit)
 	{
 		ot->FindMethod("opCast", [&](asCScriptFunction* func)
@@ -7132,6 +7140,19 @@ bool asCCompiler::CompileRefCast(asCExprContext *ctx, const asCDataType &to, boo
 	// Filter the list by constness to remove const methods if there are matching non-const methods
 	FilterConst(ops, !isConst);
 
+	if (bLogInterfaceCast)
+	{
+			UE_LOG(
+				Angelscript,
+				Display,
+				TEXT("CompileRefCast candidates from=%hs to=%hs explicit=%s ops=%d generate=%s"),
+				ot->GetName(),
+				TargetTypeName,
+				isExplicit ? TEXT("true") : TEXT("false"),
+				ops.GetLength(),
+				generateCode ? TEXT("true") : TEXT("false"));
+	}
+
 	// If there is multiple matches, then pick the most appropriate one
 	if (ops.GetLength() > 1)
 	{
@@ -7154,6 +7175,18 @@ bool asCCompiler::CompileRefCast(asCExprContext *ctx, const asCDataType &to, boo
 	// Should only have one behaviour for each output type
 	if( ops.GetLength() == 1 )
 	{
+		if (bLogInterfaceCast)
+		{
+			asCScriptFunction *func = engine->scriptFunctions[ops[0]];
+				UE_LOG(
+					Angelscript,
+					Display,
+					TEXT("CompileRefCast selected method=%hs returnToken=%d paramCount=%d"),
+				func != nullptr ? func->name.AddressOf() : "<null>",
+				func != nullptr ? func->returnType.GetTokenType() : -1,
+				func != nullptr ? func->parameterTypes.GetLength() : -1);
+		}
+
 		conversionDone = true;
 		if( generateCode )
 		{
@@ -7309,6 +7342,18 @@ bool asCCompiler::CompileRefCast(asCExprContext *ctx, const asCDataType &to, boo
 
 		if( ops.GetLength() == 1 )
 		{
+			if (bLogInterfaceCast)
+			{
+				asCScriptFunction *func = engine->scriptFunctions[ops[0]];
+				UE_LOG(
+					Angelscript,
+					Display,
+					TEXT("CompileRefCast selected generic method=%hs returnToken=%d paramCount=%d"),
+					func != nullptr ? func->name.AddressOf() : "<null>",
+					func != nullptr ? func->returnType.GetTokenType() : -1,
+					func != nullptr ? func->parameterTypes.GetLength() : -1);
+			}
+
 			conversionDone = true;
 			if( generateCode )
 			{
@@ -7394,6 +7439,17 @@ bool asCCompiler::CompileRefCast(asCExprContext *ctx, const asCDataType &to, boo
 	// then check if the desired type is part of the hierarchy
 	if( !conversionDone && (ctx->type.dataType.GetTypeInfo()->flags & asOBJ_REF))
 	{
+		if (bLogInterfaceCast)
+		{
+			UE_LOG(
+				Angelscript,
+				Display,
+				TEXT("CompileRefCast falling back to hierarchy cast from=%hs to=%hs explicit=%s"),
+				ot->GetName(),
+				TargetTypeName,
+				isExplicit ? TEXT("true") : TEXT("false"));
+		}
+
 		if( isExplicit )
 		{
 			check(false);

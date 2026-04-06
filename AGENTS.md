@@ -14,11 +14,14 @@
 ## Key Paths
 
 - `Plugins/Angelscript/Source/AngelscriptRuntime/`: Runtime module — plugin core capabilities land here first.
+- `Plugins/Angelscript/Source/AngelscriptRuntime/Dump/`: Runtime CSV state dump/export infrastructure. Keep dump logic here as a pure external observer over existing runtime/public APIs.
 - `Plugins/Angelscript/Source/AngelscriptEditor/`: Editor-related support.
 - `Plugins/Angelscript/Source/AngelscriptTest/`: Plugin tests and validation.
+- `Plugins/Angelscript/Source/AngelscriptTest/Dump/`: Test-module console command and automation coverage for dump flows.
 - `Documents/Guides/`: Build, test, and lookup guides.
 - `Documents/Rules/`: Git commit and other rule documents.
 - `Documents/Plans/`: Multi-phase task plan documents.
+- `Documents/Plans/Archives/`: Archive directory and summaries for completed or closed plans.
 - `Tools/`: Local helper scripts.
 
 ## External Reference Repositories
@@ -44,6 +47,8 @@
 
 - Build instructions: see `Documents/Guides/Build.md`.
 - Test instructions: see `Documents/Guides/Test.md`.
+- State dump entry point: `FAngelscriptStateDump::DumpAll()` in `Plugins/Angelscript/Source/AngelscriptRuntime/Dump/AngelscriptStateDump.h`, plus console command `as.DumpEngineState` in `Plugins/Angelscript/Source/AngelscriptTest/Dump/`.
+- Preserve the dump architecture as a pure external observer: prefer reading existing public APIs over adding intrusive dump hooks to runtime/editor classes.
 - If documentation conflicts with the current plugin-centric goal, update the documentation first, then continue implementation.
 
 ## Documentation Maintenance Principles
@@ -67,6 +72,7 @@
 ## Plans & TODO
 
 - Tasks requiring multi-phase execution should have a Plan document under `Documents/Plans/`. Writing rules are defined in `Documents/Plans/Plan.md`.
+- Completed or closed plans move from `Documents/Plans/` to `Documents/Plans/Archives/`; each archived plan must include archive status, archive date, closure rationale, and a short result summary, with indexes updated in sync.
 - TODOs should be broken down around the plugin goal. Avoid lumping legacy project issues into one large task.
 - When renaming, migrating modules, or adjusting public APIs, identify all affected files and documentation.
 - Tests under `Plugins/Angelscript/Source/AngelscriptTest/` should be organized by concrete theme (for example `Actor`, `Blueprint`, `Interface`, `HotReload`, `Shared`) rather than accumulated under a broad catch-all `Scenarios` bucket.
@@ -82,4 +88,5 @@
 | `Documents/Guides/UE_Search_Guide.md` | UE knowledge lookup guide |
 | `Documents/Rules/GitCommitRule.md` | English commit conventions |
 | `Documents/Plans/Plan.md` | Plan document writing rules |
+| `Documents/Plans/Archives/README.md` | Archived plan index and summaries |
 | `Documents/Tools/Tool.md` | Internal tool documentation |

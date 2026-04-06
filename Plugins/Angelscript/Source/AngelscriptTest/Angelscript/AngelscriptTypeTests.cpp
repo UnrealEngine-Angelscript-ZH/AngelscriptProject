@@ -1,4 +1,5 @@
 #include "Angelscript/AngelscriptTestSupport.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 // Test Layer: Runtime Integration
 #if WITH_DEV_AUTOMATION_TESTS
@@ -59,30 +60,17 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptPrimitiveTypeTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASTypePrimitiveAndEnum",
-		TEXT("enum EState { Idle = 2, Running = 4 } int Run() { bool bFlag = true; float Value = 1.5f + 2.5f; return (bFlag ? 1 : 0) + int(Value) + int(EState::Running); }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine, "ASTypePrimitiveAndEnum",
+		TEXT("enum EState { Idle = 2, Running = 4 } int Run() { bool bFlag = true; float Value = 1.5f + 2.5f; return (bFlag ? 1 : 0) + int(Value) + int(EState::Running); }"),
+		TEXT("int Run()"), Result);
 
 	TestEqual(TEXT("Primitive and enum math should preserve the expected result"), Result, 9);
+
+	ASTEST_END_SHARE
 	return true;
 }
 
@@ -93,30 +81,17 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptInt64TypedefTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASTypeInt64AndTypedef",
-		TEXT("int64 Run() { int64 Value = 1; Value <<= 40; Value += 7; return Value; }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int64 Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int64 Result = 0;
-	if (!ExecuteInt64Function(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT64(Engine, "ASTypeInt64AndTypedef",
+		TEXT("int64 Run() { int64 Value = 1; Value <<= 40; Value += 7; return Value; }"),
+		TEXT("int64 Run()"), Result);
 
 	TestEqual(TEXT("int64 arithmetic should preserve wide integer precision"), Result, static_cast<int64>(1099511627783LL));
+
+	ASTEST_END_SHARE
 	return true;
 }
 
@@ -127,30 +102,17 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptTypeBoolTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASTypeBool",
-		TEXT("int Run() { bool A = true; bool B = false; return (A && !B) ? 1 : 0; }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine, "ASTypeBool",
+		TEXT("int Run() { bool A = true; bool B = false; return (A && !B) ? 1 : 0; }"),
+		TEXT("int Run()"), Result);
 
 	TestEqual(TEXT("Bool expressions should preserve logical truthiness"), Result, 1);
+
+	ASTEST_END_SHARE
 	return true;
 }
 
@@ -166,7 +128,10 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptTypeFloatTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
 	if (!TestNotNull(TEXT("Types.Float should expose a script engine"), ScriptEngine))
 	{
@@ -191,13 +156,19 @@ bool FAngelscriptTypeFloatTest::RunTest(const FString& Parameters)
 		return false;
 	}
 
-	return ReadExpectedFloatResult(*this, Engine, *Function, 6.28);
+	bPassed = ReadExpectedFloatResult(*this, Engine, *Function, 6.28);
+
+	ASTEST_END_SHARE
+	return bPassed;
 }
 
 bool FAngelscriptTypeFloatDebuggerFormattingTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	static_cast<void>(Engine);
+	bool bUsesScientificNotation = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
+	FAngelscriptEngineScope EngineScope(Engine);
 
 	FAngelscriptTypeUsage FloatUsage(FAngelscriptType::GetByAngelscriptTypeName(TEXT("float")));
 	if (!TestTrue(TEXT("Float debugger formatting test should resolve the float type"), FloatUsage.IsValid()))
@@ -226,8 +197,11 @@ bool FAngelscriptTypeFloatDebuggerFormattingTest::RunTest(const FString& Paramet
 		}
 	}
 
-	TestTrue(TEXT("Small float debugger values should use scientific notation"), DebugValue.Value.Contains(TEXT("e")) || DebugValue.Value.Contains(TEXT("E")));
-	return DebugValue.Value.Contains(TEXT("e")) || DebugValue.Value.Contains(TEXT("E"));
+	bUsesScientificNotation = DebugValue.Value.Contains(TEXT("e")) || DebugValue.Value.Contains(TEXT("E"));
+	TestTrue(TEXT("Small float debugger values should use scientific notation"), bUsesScientificNotation);
+
+	ASTEST_END_SHARE
+	return bUsesScientificNotation;
 }
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -237,30 +211,17 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptTypeInt8Test::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASTypeInt8",
-		TEXT("int Run() { int8 A = 100; int8 B = 50; return int(A + B); }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine, "ASTypeInt8",
+		TEXT("int Run() { int8 A = 100; int8 B = 50; return int(A + B); }"),
+		TEXT("int Run()"), Result);
 
 	TestEqual(TEXT("Int8 arithmetic should survive promotion back to int"), Result, 150);
+
+	ASTEST_END_SHARE
 	return true;
 }
 
@@ -271,30 +232,17 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptTypeBitsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASTypeBits",
-		TEXT("int Run() { int A = 0x0F; int B = 0xF0; return ((A | B) == 0xFF && (A & B) == 0 && (A ^ B) == 0xFF) ? 1 : 0; }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine, "ASTypeBits",
+		TEXT("int Run() { int A = 0x0F; int B = 0xF0; return ((A | B) == 0xFF && (A & B) == 0 && (A ^ B) == 0xFF) ? 1 : 0; }"),
+		TEXT("int Run()"), Result);
 
 	TestEqual(TEXT("Bitwise operations should preserve expected masks"), Result, 1);
+
+	ASTEST_END_SHARE
 	return true;
 }
 
@@ -305,30 +253,17 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptTypeEnumTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASTypeEnum",
-		TEXT("enum Color { Red, Green, Blue } int Run() { Color Value = Color::Green; return int(Value); }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine, "ASTypeEnum",
+		TEXT("enum Color { Red, Green, Blue } int Run() { Color Value = Color::Green; return int(Value); }"),
+		TEXT("int Run()"), Result);
 
 	TestEqual(TEXT("Enums should preserve ordinal values"), Result, 1);
+
+	ASTEST_END_SHARE
 	return true;
 }
 
@@ -339,30 +274,17 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptTypeAutoTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASTypeAuto",
-		TEXT("int Run() { auto Value = 42; return Value; }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine, "ASTypeAuto",
+		TEXT("int Run() { auto Value = 42; return Value; }"),
+		TEXT("int Run()"), Result);
 
 	TestEqual(TEXT("Auto should infer integer literal types"), Result, 42);
+
+	ASTEST_END_SHARE
 	return true;
 }
 
@@ -373,7 +295,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptTypeConversionTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
 	if (!TestNotNull(TEXT("Types.Conversion should expose a script engine"), ScriptEngine))
 	{
@@ -385,25 +309,12 @@ bool FAngelscriptTypeConversionTest::RunTest(const FString& Parameters)
 		? TEXT("int Run() { double Value = 3.7; return int(Value); }")
 		: TEXT("int Run() { float Value = 3.7f; return int(Value); }");
 
-	asIScriptModule* Module = BuildModule(*this, Engine, "ASTypeConversion", Script);
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
-
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine, "ASTypeConversion", Script, TEXT("int Run()"), Result);
 
 	TestEqual(TEXT("Explicit numeric conversion should truncate toward zero"), Result, 3);
+
+	ASTEST_END_SHARE
 	return true;
 }
 
@@ -414,7 +325,10 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptTypeImplicitCastTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
 	if (!TestNotNull(TEXT("Types.ImplicitCast should expose a script engine"), ScriptEngine))
 	{
@@ -439,7 +353,10 @@ bool FAngelscriptTypeImplicitCastTest::RunTest(const FString& Parameters)
 		return false;
 	}
 
-	return ReadExpectedFloatResult(*this, Engine, *Function, 42.0);
+	bPassed = ReadExpectedFloatResult(*this, Engine, *Function, 42.0);
+
+	ASTEST_END_SHARE
+	return bPassed;
 }
 
 #endif

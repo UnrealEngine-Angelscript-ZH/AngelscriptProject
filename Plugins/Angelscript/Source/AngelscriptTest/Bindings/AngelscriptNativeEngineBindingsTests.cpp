@@ -1,4 +1,5 @@
 #include "../Shared/AngelscriptTestUtilities.h"
+#include "../Shared/AngelscriptTestMacros.h"
 #include "../Shared/AngelscriptTestEngineHelper.h"
 #include "ClassGenerator/ASClass.h"
 
@@ -26,7 +27,9 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptNativeActorBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	const bool bCompiled = CompileAnnotatedModuleFromMemory(
 		&Engine,
 		TEXT("ASNativeActorBindingTest"),
@@ -76,17 +79,22 @@ class ABindingExampleActor : AActor
 	}
 
 	int32 Result = 0;
-	if (!TestTrue(TEXT("Native actor binding reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(RuntimeActor, ReadNativeBindingsFunction, Result)))
+	if (!TestTrue(TEXT("Native actor binding reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(&Engine, RuntimeActor, ReadNativeBindingsFunction, Result)))
 	{
 		return false;
 	}
 	TestEqual(TEXT("Script class should call bridged native AActor and UObject methods"), Result, 1);
-	return Result == 1;
+	bPassed = Result == 1;
+	ASTEST_END_SHARE
+
+	return bPassed;
 }
 
 bool FAngelscriptNativeComponentBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	const bool bCompiled = CompileAnnotatedModuleFromMemory(
 		&Engine,
 		TEXT("ASNativeComponentBindingTest"),
@@ -192,17 +200,22 @@ class UBindingSceneComponent : USceneComponent
 	OuterActor->AddOwnedComponent(RuntimeComponent);
 
 	int32 Result = 0;
-	if (!TestTrue(TEXT("Native component binding reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(RuntimeComponent, ReadComponentBindingsFunction, Result)))
+	if (!TestTrue(TEXT("Native component binding reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(&Engine, RuntimeComponent, ReadComponentBindingsFunction, Result)))
 	{
 		return false;
 	}
 	TestEqual(TEXT("Script component should call bridged native component methods"), Result, 1);
-	return Result == 1;
+	bPassed = Result == 1;
+	ASTEST_END_SHARE
+
+	return bPassed;
 }
 
 bool FAngelscriptComponentDestroyBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	const bool bCompiled = CompileAnnotatedModuleFromMemory(
 		&Engine,
 		TEXT("ASComponentDestroyCompat"),
@@ -251,7 +264,7 @@ class UDestroyBindingComponent : UActorComponent
 	OuterActor->AddOwnedComponent(RuntimeComponent);
 
 	int32 Result = 0;
-	if (!TestTrue(TEXT("Destroy component reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(RuntimeComponent, DestroySelfFunction, Result)))
+	if (!TestTrue(TEXT("Destroy component reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(&Engine, RuntimeComponent, DestroySelfFunction, Result)))
 	{
 		return false;
 	}
@@ -262,7 +275,10 @@ class UDestroyBindingComponent : UActorComponent
 	}
 
 	TestTrue(TEXT("DestroyComponent binding should mark the component as being destroyed"), RuntimeComponent->IsBeingDestroyed());
-	return RuntimeComponent->IsBeingDestroyed();
+	bPassed = RuntimeComponent->IsBeingDestroyed();
+	ASTEST_END_SHARE
+
+	return bPassed;
 }
 
 #endif

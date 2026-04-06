@@ -1,4 +1,7 @@
 #include "../Shared/AngelscriptTestUtilities.h"
+#include "../Shared/AngelscriptTestMacros.h"
+
+#include "Misc/ScopeExit.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -16,7 +19,13 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptSetIteratorBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(TEXT("ASSetIteratorCompat"));
+	};
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -56,12 +65,20 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TSet iterator helpers should behave as expected"), Result, 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptMapIteratorBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(TEXT("ASMapIteratorCompat"));
+	};
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -105,6 +122,8 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TMap iterator helpers should behave as expected"), Result, 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 

@@ -1,0 +1,58 @@
+ASTEST TEST MACRO SYSTEM - MIGRATION GUIDE
+==========================================
+
+This file replaces an older migration draft that targeted an abandoned
+`ANGELSCRIPT_TEST` / `ANGELSCRIPT_ISOLATED_TEST` wrapper family.
+
+The active migration target in this repository is the `ASTEST_*` system in:
+
+- `Plugins/Angelscript/Source/AngelscriptTest/Shared/AngelscriptTestMacros.h`
+- `Plugins/Angelscript/Source/AngelscriptTest/TESTING_GUIDE.md`
+- `Documents/Plans/Plan_TestMacroOptimization.md`
+
+CURRENT MIGRATION RULES
+-----------------------
+
+1. Keep `IMPLEMENT_SIMPLE_AUTOMATION_TEST(...)` for test registration.
+2. Replace manual engine acquisition with the current `ASTEST_CREATE_ENGINE_*()` macros when semantics match.
+3. Replace manual lifecycle scaffolding with `ASTEST_BEGIN_*` / `ASTEST_END_*` when that does not hide important test behavior.
+4. Use helper macros such as `ASTEST_COMPILE_RUN_INT`, `ASTEST_COMPILE_RUN_INT64`, and `ASTEST_BUILD_MODULE` when they remove duplication without obscuring test intent.
+5. Do not migrate Native / ASSDK / production-engine / multi-engine paths blindly; classify them first.
+
+CURRENT ENGINE-SELECTION NOTES
+------------------------------
+
+- `ASTEST_CREATE_ENGINE_SHARE()` preserves existing shared-engine reuse without reset.
+- `ASTEST_CREATE_ENGINE_SHARE_CLEAN()` preserves `AcquireCleanSharedCloneEngine()` semantics.
+- `ASTEST_CREATE_ENGINE_SHARE_FRESH()` preserves `AcquireFreshSharedCloneEngine()` semantics.
+- `ASTEST_CREATE_ENGINE_CLONE()` is an isolated clone engine and should not be used as a blanket replacement for the legacy shared helpers.
+
+ACTIVE EXAMPLE SHAPE
+--------------------
+
+    IMPLEMENT_SIMPLE_AUTOMATION_TEST(FMyTest, "Cat.Test", Flags)
+    bool FMyTest::RunTest(const FString& Parameters)
+    {
+        bool bPassed = false;
+        FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
+        ASTEST_BEGIN_FULL
+
+        int32 Result = 0;
+        ASTEST_COMPILE_RUN_INT(Engine,
+            "ModuleName",
+            TEXT("int Run() { return 42; }"),
+            TEXT("int Run()"),
+            Result);
+
+        bPassed = TestEqual(TEXT("Result should be 42"), Result, 42);
+
+        ASTEST_END_FULL
+        return bPassed;
+    }
+
+AUTHORITATIVE REFERENCES
+------------------------
+
+- `Plugins/Angelscript/Source/AngelscriptTest/TESTING_GUIDE.md`
+- `Plugins/Angelscript/Source/AngelscriptTest/Shared/AngelscriptTestMacros.h`
+- `Documents/Plans/Plan_TestMacroOptimization.md`

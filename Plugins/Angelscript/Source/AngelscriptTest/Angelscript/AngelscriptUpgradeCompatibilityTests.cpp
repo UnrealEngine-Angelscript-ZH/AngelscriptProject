@@ -1,4 +1,5 @@
 #include "Angelscript/AngelscriptTestSupport.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 #include "StartAngelscriptHeaders.h"
 #include "source/as_string.h"
@@ -123,14 +124,17 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptUpgradeEnginePropertyCompatibilityTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bCustomPropertiesStillWork = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
 	if (!TestNotNull(TEXT("Upgrade property test should create a script engine"), ScriptEngine))
 	{
 		return false;
 	}
 
-	const bool bCustomPropertiesStillWork =
+	bCustomPropertiesStillWork =
 		TestTrue(TEXT("APV2 automatic imports property getter should reflect the value written through SetEngineProperty"),
 			[&]()
 			{
@@ -192,12 +196,16 @@ bool FAngelscriptUpgradeEnginePropertyCompatibilityTest::RunTest(const FString& 
 
 				return bAllMatched;
 			}());
+
+	ASTEST_END_SHARE
 	return bCustomPropertiesStillWork;
 }
 
 bool FAngelscriptUpgradeMessageCallbackCompatibilityTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
 	if (!TestNotNull(TEXT("Upgrade message callback test should create a script engine"), ScriptEngine))
 	{
@@ -231,6 +239,7 @@ bool FAngelscriptUpgradeMessageCallbackCompatibilityTest::RunTest(const FString&
 		return false;
 	}
 
+	ASTEST_END_SHARE
 	return TestTrue(TEXT("The registered upgrade callback should receive WriteMessage diagnostics"), GUpgradeMessageCallbackInvoked)
 		&& TestEqual(TEXT("The registered upgrade callback should receive the expected message text"), GUpgradeMessageText, FString(TEXT("CallbackRoundtrip")))
 		&& TestEqual(TEXT("The registered upgrade callback should receive the expected message type"), static_cast<int32>(GUpgradeMessageType), static_cast<int32>(asMSGTYPE_WARNING));
@@ -238,7 +247,10 @@ bool FAngelscriptUpgradeMessageCallbackCompatibilityTest::RunTest(const FString&
 
 bool FAngelscriptUpgradeRegisterObjectTypeFlagCompatibilityTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	asQWORD Flags = 0;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
+
 	asIScriptEngine* ScriptEngine = Engine.GetScriptEngine();
 	if (!TestNotNull(TEXT("Upgrade object-type registration test should create a script engine"), ScriptEngine))
 	{
@@ -258,7 +270,9 @@ bool FAngelscriptUpgradeRegisterObjectTypeFlagCompatibilityTest::RunTest(const F
 		return false;
 	}
 
-	const asQWORD Flags = TypeInfo->GetFlags();
+	Flags = TypeInfo->GetFlags();
+
+	ASTEST_END_SHARE
 	return TestTrue(TEXT("The registered type should preserve the migrated editor-only high-bit flag"), (Flags & asOBJ_EDITOR_ONLY) != 0)
 		&& TestFalse(TEXT("The registered type should not alias the stock more-constructors bit when using the migrated editor-only flag"), (Flags & asOBJ_APP_CLASS_MORE_CONSTRUCTORS) != 0);
 }

@@ -1,10 +1,11 @@
 #pragma once
 #include "CoreMinimal.h"
+#include "Streaming/StreamingWorldSubsystemInterface.h"
 #include "Subsystems/WorldSubsystem.h"
 #include "ScriptWorldSubsystem.generated.h"
 
 UCLASS(Blueprintable, Abstract)
-class ANGELSCRIPTRUNTIME_API UScriptWorldSubsystem : public UWorldSubsystem, public FTickableGameObject
+class ANGELSCRIPTRUNTIME_API UScriptWorldSubsystem : public UWorldSubsystem, public FTickableGameObject, public IStreamingWorldSubsystemInterface
 {
 	GENERATED_BODY()
 
@@ -96,10 +97,8 @@ public:
 			BP_OnWorldComponentsUpdated();
 	}
 
-	virtual void UpdateStreamingState() override
+	virtual void OnUpdateStreamingState() override
 	{
-		Super::UpdateStreamingState();
-
 		if (!IsUnreachable())
 			BP_UpdateStreamingState();
 	}

@@ -57,6 +57,24 @@ struct FAngelscriptMultiEngineTestAccess
 	{
 		return Engine.GetActiveCloneCountForTesting();
 	}
+
+	static int32 GetLocalPooledContextCount(asIScriptEngine* ScriptEngine)
+	{
+		return FAngelscriptEngine::GetLocalPooledContextCountForTesting(ScriptEngine);
+	}
+};
+
+struct FMultiEngineContextStackGuard
+{
+	TArray<FAngelscriptEngine*> SavedStack;
+	FMultiEngineContextStackGuard()
+	{
+		SavedStack = FAngelscriptEngineContextStack::SnapshotAndClear();
+	}
+	~FMultiEngineContextStackGuard()
+	{
+		FAngelscriptEngineContextStack::RestoreSnapshot(MoveTemp(SavedStack));
+	}
 };
 
 static void ResetToIsolatedEngineState()
@@ -88,6 +106,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptEngineCreateForTestingUsesScopedSourceEngineTest,
+	"Angelscript.CppTests.MultiEngine.CreateForTesting.UsesScopedSourceEngine",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptEngineCreateForTestingFallbacksToFullTest,
 	"Angelscript.CppTests.MultiEngine.CreateForTesting.FallbacksToFull",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -110,6 +133,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptDestroyingSourceWhileCloneAliveIsRejectedTest,
 	"Angelscript.CppTests.MultiEngine.DestroyingSourceWhileCloneAliveIsRejected",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptDeferredSharedStateReleasePurgesLocalContextPoolTest,
+	"Angelscript.CppTests.MultiEngine.DeferredSharedStateReleasePurgesLocalContextPool",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
@@ -208,7 +236,7 @@ bool FAngelscriptEngineCreateForTestingDefaultsToCloneTest::RunTest(const FStrin
 		return false;
 	}
 
-	FScopedTestEngineGlobalScope GlobalScope(SourceEngine.Get());
+	FAngelscriptEngineScope GlobalScope(*SourceEngine);
 
 	TUniquePtr<FAngelscriptEngine> TestEngine = FAngelscriptEngine::CreateForTesting(Config, Dependencies);
 	if (!TestNotNull(TEXT("MultiEngine.CreateForTesting.DefaultsToClone should create a test engine"), TestEngine.Get()))
@@ -222,9 +250,39 @@ bool FAngelscriptEngineCreateForTestingDefaultsToCloneTest::RunTest(const FStrin
 	return TestTrue(TEXT("MultiEngine.CreateForTesting.DefaultsToClone should share the global asIScriptEngine"), TestEngine->GetScriptEngine() == SourceEngine->GetScriptEngine());
 }
 
+bool FAngelscriptEngineCreateForTestingUsesScopedSourceEngineTest::RunTest(const FString& Parameters)
+{
+	ResetToIsolatedEngineState();
+
+	const FAngelscriptEngineConfig Config;
+	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
+	TUniquePtr<FAngelscriptEngine> SourceEngine = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+	if (!TestNotNull(TEXT("MultiEngine.CreateForTesting.UsesScopedSourceEngine should create a source engine"), SourceEngine.Get()))
+	{
+		return false;
+	}
+
+	TUniquePtr<FAngelscriptEngine> TestEngine;
+	{
+		FAngelscriptEngineScope SourceScope(*SourceEngine);
+		TestEngine = FAngelscriptEngine::CreateForTesting(Config, Dependencies);
+	}
+
+	if (!TestNotNull(TEXT("MultiEngine.CreateForTesting.UsesScopedSourceEngine should create a testing engine"), TestEngine.Get()))
+	{
+		return false;
+	}
+
+	TestEqual(TEXT("MultiEngine.CreateForTesting.UsesScopedSourceEngine should choose Clone mode when a scoped source engine exists"), TestEngine->GetCreationMode(), EAngelscriptEngineCreationMode::Clone);
+	TestFalse(TEXT("MultiEngine.CreateForTesting.UsesScopedSourceEngine should not own the shared script engine"), TestEngine->OwnsEngine());
+	TestTrue(TEXT("MultiEngine.CreateForTesting.UsesScopedSourceEngine should point back to the scoped source engine"), TestEngine->GetSourceEngine() == SourceEngine.Get());
+	return TestTrue(TEXT("MultiEngine.CreateForTesting.UsesScopedSourceEngine should share the scoped source script engine"), TestEngine->GetScriptEngine() == SourceEngine->GetScriptEngine());
+}
+
 bool FAngelscriptEngineCreateForTestingFallbacksToFullTest::RunTest(const FString& Parameters)
 {
 	ResetToIsolatedEngineState();
+	FMultiEngineContextStackGuard StackGuard;
 
 	const FAngelscriptEngineConfig Config;
 	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
@@ -364,6 +422,58 @@ bool FAngelscriptDestroyingSourceWhileCloneAliveIsRejectedTest::RunTest(const FS
 	return TestNotNull(TEXT("MultiEngine.DestroyingSourceWhileCloneAliveIsRejected should leave the clone with a usable shared script engine reference"), CloneEngine->GetScriptEngine());
 }
 
+bool FAngelscriptDeferredSharedStateReleasePurgesLocalContextPoolTest::RunTest(const FString& Parameters)
+{
+	ResetToIsolatedEngineState();
+
+	const FAngelscriptEngineConfig Config;
+	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
+	TUniquePtr<FAngelscriptEngine> SourceEngine = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+	TUniquePtr<FAngelscriptEngine> CloneEngine = FAngelscriptEngine::CreateCloneFrom(*SourceEngine, Config);
+
+	if (!TestNotNull(TEXT("MultiEngine.DeferredSharedStateReleasePurgesLocalContextPool should create a source engine"), SourceEngine.Get())
+		|| !TestNotNull(TEXT("MultiEngine.DeferredSharedStateReleasePurgesLocalContextPool should create a clone engine"), CloneEngine.Get()))
+	{
+		return false;
+	}
+
+	asIScriptEngine* SharedScriptEngine = SourceEngine->GetScriptEngine();
+	if (!TestNotNull(TEXT("MultiEngine.DeferredSharedStateReleasePurgesLocalContextPool should resolve the shared script engine"), SharedScriptEngine))
+	{
+		return false;
+	}
+
+	{
+		FAngelscriptEngineScope SourceScope(*SourceEngine);
+		{
+			FAngelscriptPooledContextBase SeedContext;
+		}
+	}
+
+	if (!TestTrue(
+		TEXT("MultiEngine.DeferredSharedStateReleasePurgesLocalContextPool should place the seeded context into the local pool"),
+		FAngelscriptMultiEngineTestAccess::GetLocalPooledContextCount(SharedScriptEngine) > 0))
+	{
+		return false;
+	}
+
+	AddExpectedError(TEXT("Rejecting Full engine shutdown while Clone instances still reference shared state"), EAutomationExpectedErrorFlags::Contains, 1);
+	SourceEngine.Reset();
+
+	if (!TestTrue(
+		TEXT("MultiEngine.DeferredSharedStateReleasePurgesLocalContextPool should keep the pooled shared context alive while the clone still references shared state"),
+		FAngelscriptMultiEngineTestAccess::GetLocalPooledContextCount(SharedScriptEngine) > 0))
+	{
+		return false;
+	}
+
+	CloneEngine.Reset();
+	return TestEqual(
+		TEXT("MultiEngine.DeferredSharedStateReleasePurgesLocalContextPool should purge pooled contexts when the deferred shared state is finally released"),
+		FAngelscriptMultiEngineTestAccess::GetLocalPooledContextCount(SharedScriptEngine),
+		0);
+}
+
 bool FAngelscriptSecondFullCreateIsRejectedBeforeBindRegistrationTest::RunTest(const FString& Parameters)
 {
 	ResetToIsolatedEngineState();
@@ -411,6 +521,7 @@ bool FAngelscriptSecondFullCreateIsRejectedBeforeBindRegistrationTest::RunTest(c
 bool FAngelscriptSingleFullDestroyResetsGlobalStateTest::RunTest(const FString& Parameters)
 {
 	ResetToIsolatedEngineState();
+	FMultiEngineContextStackGuard StackGuard;
 
 	const FAngelscriptEngineConfig Config;
 	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
@@ -448,7 +559,7 @@ bool FAngelscriptCloneHonorsInjectedDependenciesTest::RunTest(const FString& Par
 		return false;
 	}
 
-	FScopedTestEngineGlobalScope GlobalScope(SourceEngine.Get());
+	FAngelscriptEngineScope GlobalScope(*SourceEngine);
 
 	bool bMakeDirectoryCalled = false;
 	FString CreatedPath;
@@ -575,7 +686,7 @@ bool FAngelscriptStartupBindObservationCreateForTestingCloneTest::RunTest(const 
 		return false;
 	}
 
-	FScopedTestEngineGlobalScope GlobalScope(SourceEngine.Get());
+	FAngelscriptEngineScope GlobalScope(*SourceEngine);
 	FAngelscriptBindExecutionObservation::Reset();
 
 	TUniquePtr<FAngelscriptEngine> TestEngine = FAngelscriptEngine::CreateForTesting(Config, Dependencies, EAngelscriptEngineCreationMode::Clone);
@@ -597,6 +708,7 @@ bool FAngelscriptStartupBindObservationCreateForTestingCloneTest::RunTest(const 
 bool FAngelscriptStartupBindObservationCreateForTestingFullFallbackTest::RunTest(const FString& Parameters)
 {
 	ResetToIsolatedEngineState();
+	FMultiEngineContextStackGuard StackGuard;
 
 	const FName FirstBindName = MakeUniqueStartupBindName(TEXT("Automation.StartupBind.CreateForTesting.FullFallback.First"));
 	const FName SecondBindName = MakeUniqueStartupBindName(TEXT("Automation.StartupBind.CreateForTesting.FullFallback.Second"));

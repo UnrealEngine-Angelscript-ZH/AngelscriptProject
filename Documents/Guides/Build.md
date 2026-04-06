@@ -1,107 +1,241 @@
 # Build 指南
 
-## 执行前置配置
+## 强制规则
 
-- 执行任何构建或自动化测试前，先读取项目根目录 `AgentConfig.ini`。
-- 若 `AgentConfig.ini` 不存在，先运行 `Tools\GenerateAgentConfigTemplate.bat` 生成模板，再补齐本机配置；未补齐前不要继续执行构建或测试。
-- `Paths.EngineRoot` 是唯一的硬阻塞项；缺失或为空时必须先补配置，不能继续猜路径。
-- `Paths.ProjectFile` 允许留空；留空时统一回退到仓库根目录下的 `AngelscriptProject.uproject`。
-- `Build.EditorTarget`、`Build.Platform`、`Build.Configuration`、`Build.Architecture` 缺失时，分别回退到 `AngelscriptProjectEditor`、`Win64`、`Development`、`x64`。
-- `Build.DefaultTimeoutMs` 缺失时回退到 `1200000ms`；若未配置该键，至少使用 `600000ms` 作为保底超时。
-- 在真正运行构建命令前，可先执行 `Tools\ResolveAgentCommandTemplates.ps1` 做参数展开级 smoke check。
+- 本仓库的标准构建入口只有 `Tools\RunBuild.ps1`。
+- 不再允许把 `Build.bat`、`RunUBT.bat` 或 `dotnet UnrealBuildTool.dll` 直接写进日常操作指引、Agent 提示词或自动化外壳。
+- 所有构建命令都必须显式带超时，且超时不得超过 `900000ms`。
+- 默认构建超时来自 `AgentConfig.ini` 的 `Build.DefaultTimeoutMs`；仓库标准默认值为 `180000ms`。
+- 构建过程必须实时输出；超时或异常退出后，脚本必须清理整棵 UBT 进程树。
+- 每次构建都必须写入自己的独立日志目录；禁止把多个 worktree 的构建日志写到同一个共享文件。
 
-## Agent 环境命令
+## AgentConfig.ini 与 bootstrap
 
-在 AI Agent 环境中执行时，建议统一使用 `Tools\RunBuild.ps1`，避免无超时的裸 `Build.bat` 调用卡死。对于多个 worktree / 多个 agent 并发构建，优先使用无锁模式（`-NoMutex`），该模式会通过 `RunUBT.bat` 透传 `-NoMutex` 给 UBT，不等待其他 UBT 实例，同时绕开 `Build.bat` 的脚本级锁文件。
+执行任何构建命令前，先读取项目根目录的 `AgentConfig.ini`。
 
-```powershell
-powershell.exe -ExecutionPolicy Bypass -File "Tools\RunBuild.ps1" -NoMutex
+关键配置项：
+
+```ini
+[Paths]
+EngineRoot=<UE 根目录>
+ProjectFile=<当前 worktree 的 .uproject>
+
+[Build]
+EditorTarget=AngelscriptProjectEditor
+Platform=Win64
+Configuration=Development
+Architecture=x64
+DefaultTimeoutMs=180000
+
+[Test]
+DefaultTimeoutMs=600000
 ```
 
-脚本会读取 `Build.DefaultTimeoutMs`（若缺失则回退到 `Test.DefaultTimeoutMs` / `600000`），超时后强制终止构建进程树并返回 `124`。
-
-- `-NoMutex`：调用 `RunUBT.bat ... -NoMutex`，不等待也不阻塞其他 worktree 的 UBT。
-- `-UseWaitMutex`：显式串行等待同一 UBT 全局锁，仅在你明确需要避免并发时使用。
-
-先根据 `AgentConfig.ini` 中的 `Paths.EngineRoot` 获取 `Engine\Build\BatchFiles\RunUBT.bat` 的完整路径；若 `Paths.ProjectFile` 为空，则先回退到仓库根目录 `.uproject`，其余构建参数按默认值补齐：
+如果当前 worktree 还没有 `AgentConfig.ini`，优先执行：
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File "Tools\RunBuild.ps1" -TimeoutMs <BuildTimeoutMs> -NoMutex
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1
 ```
 
-默认参数速查
-
-- `<ResolvedProjectFile>`：`Paths.ProjectFile`，为空时回退到 `<RepoRoot>\AngelscriptProject.uproject`
-- `<EditorTarget>`：`Build.EditorTarget`，默认为 `AngelscriptProjectEditor`
-- `<Platform>`：`Build.Platform`，默认为 `Win64`
-- `<Configuration>`：`Build.Configuration`，默认为 `Development`
-- `<Architecture>`：`Build.Architecture`，默认为 `x64`
-
-示例（占位符形式）
+常用 bootstrap 方式：
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File "Tools\RunBuild.ps1" -TimeoutMs 1200000 -NoMutex
+# 初始化当前 worktree
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1
+
+# 初始化所有已注册 worktree
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1 -AllRegisteredWorktrees
+
+# 显式指定引擎目录并跳过预热
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\BootstrapWorktree.ps1 -EngineRoot "J:\UnrealEngine\UERelease" -NoPrewarm
 ```
 
-- `<Architecture>` 通常为 `x64`
+`Tools\BootstrapWorktree.ps1` 会：
 
-## 原始命令
+- 生成或规范化当前 worktree 的 `AgentConfig.ini`
+- 回填 `Build.DefaultTimeoutMs=180000` 与 `Test.DefaultTimeoutMs=600000`
+- 把 `Paths.ProjectFile` 固定到当前 worktree 的 `.uproject`
+- 预热 `Intermediate/TargetInfo.json`，避免首次 build/test 把时间浪费在旧的 `Build.bat` 查询阶段
 
-使用 `UnrealEditor-Cmd.exe` 配合 `-ExecCmds` 参数，在 `NullRHI` 模式下运行。
+只想给 Agent 生成官方命令模板时，使用：
 
-其中 `EngineRoot` 和 `ProjectFile` 应来自 `AgentConfig.ini`；`ProjectFile` 为空时应先回退到仓库根 `.uproject`。
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\ResolveAgentCommandTemplates.ps1
+```
 
-编辑器命令路径应按以下方式理解：
+该脚本在配置缺失时会先返回 `BootstrapCommand`，配置正常时才返回构建与测试模板。
+
+## 标准入口
+
+### 并发开发默认模式
+
+多个 worktree 共享同一个引擎目录时，默认使用：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Label agent-build -TimeoutMs 180000
+```
+
+默认行为：
+
+- 直接调用 `dotnet <EngineRoot>\Engine\Binaries\DotNET\UnrealBuildTool\UnrealBuildTool.dll`
+- 自动读取 `AgentConfig.ini`
+- 默认追加 `-NoMutex -NoEngineChanges`
+- 对同一 worktree 加单飞锁，禁止同一 worktree 内重复 build/test
+- 通过 `-Log=` 把 UBT 日志重定向到当前 run 的私有目录，避免写入共享 `Log.txt`
+- 不依赖 `Build.bat` 的全局脚本锁，因此允许不同 worktree 并发构建
+
+常用命令模板也可以通过 `Tools\ResolveAgentCommandTemplates.ps1` 直接获取；当前会同时返回：
+
+- `BuildCommand`
+- `NoXgeBuildCommand`
+- `SerializedBuildCommand`
+
+### 需要改动引擎输出时
+
+如果本次构建会改写共享引擎产物，必须显式切换到串行模式：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Label engine-write -TimeoutMs 180000 -SerializeByEngine
+```
+
+该模式会基于 `EngineRoot` 获取命名互斥锁，避免多个 worktree 同时写引擎输出。
+
+## 常用参数
+
+```powershell
+Tools\RunBuild.ps1 -Label compile-bindings -TimeoutMs 120000
+Tools\RunBuild.ps1 -Label compile-bindings -TimeoutMs 180000 -NoXGE
+Tools\RunBuild.ps1 -Label compile-bindings -TimeoutMs 180000 -- -Verbose
+Tools\RunBuild.ps1 -Label engine-write -TimeoutMs 180000 -SerializeByEngine
+Tools\RunBuild.ps1 -Label local-log-root -TimeoutMs 180000 -LogRoot "D:\Tmp\AngelscriptLogs"
+```
+
+参数说明：
+
+- `-TimeoutMs`：本次构建超时，必须大于 `0` 且不超过 `900000`
+- `-Label`：输出目录标签
+- `-LogRoot`：自定义输出根目录；脚本会把它当成父目录，再创建独立的 `Build/<Label>/<RunId>/`
+- `-NoXGE`：禁用 XGE / Incredibuild 入口，避免外部分布式执行器容量影响验证结果
+- `-SerializeByEngine`：启用引擎级串行锁
+- `-- <ExtraArgs>`：透传少量非常用 UBT 参数；常用的 `-NoXGE` / `-UniqueBuildEnvironment` 不再推荐通过 `ExtraArgs` 传递
+
+## 输出与产物
+
+默认输出目录：
 
 ```text
-<EngineRoot> + Engine\Binaries\Win64\UnrealEditor-Cmd.exe
+Saved/Build/<Label>/<RunId>/
+  Build.log
+  UBT.log
+  RunMetadata.json
 ```
 
-```bat
-Engine\Binaries\Win64\UnrealEditor-Cmd.exe "<ResolvedProjectFile>" -ExecCmds="Automation RunTests <TestName>; Quit" -Unattended -NoPause -NoSplash -NullRHI -NOSOUND
+如果传入 `-LogRoot D:\Tmp\Logs`，实际目录会变成：
+
+```text
+D:\Tmp\Logs\Build\<Label>\<RunId>\
 ```
 
-## AI Agent 环境命令
+注意：
 
-在 AI Agent 环境中执行时，使用 PowerShell 配合 `Start-Process`：
+- `-LogRoot` / 自定义目录只是父目录，不是最终运行目录
+- 每次调用都会新建独立 `RunId`，防止多个 worktree 或多次重跑把日志写进同一文件
+- `Build.log` 是脚本流式日志，`UBT.log` 是 UBT 自己的日志，`RunMetadata.json` 记录参数、阶段、超时与退出码
+
+## 查询当前 UBT 进程
+
+排查卡死、残留 UBT 或多 worktree 并发情况时使用：
 
 ```powershell
-powershell.exe -Command "Start-Process -FilePath '<EngineRoot>\Engine\Binaries\Win64\UnrealEditor-Cmd.exe' -ArgumentList '\"<ResolvedProjectFile>\"','-ExecCmds=\"Automation RunTests <TestName>; Quit\"','-Unattended','-NoPause','-NoSplash','-NullRHI','-NOSOUND' -Wait -NoNewWindow; Write-Host 'DONE'"
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Get-UbtProcess.ps1
 ```
 
-## 超时建议
+只看当前 worktree：
 
-- 建议默认超时设置为 `600000ms`。
-- 首次启动通常需要加载引擎，并可能触发 shader 编译，因此耗时会明显更长。
-- 如果 `AgentConfig.ini` 中配置了 `Test.DefaultTimeoutMs`，应优先使用该值。
-
-## 给 AI Agent 的执行要求
-
-当 AI Agent 需要执行 Unreal 构建或自动化测试时，应遵循以下规则：
-
-- 先读取项目根目录的 `AgentConfig.ini`。
-- 如果 `AgentConfig.ini` 不存在，先运行 `Tools\GenerateAgentConfigTemplate.bat` 生成模板，并补齐本机值后再继续。
-- 如果 `Paths.EngineRoot` 缺失或为空，应立即阻塞执行，先补配置再继续。
-- 如果 `Paths.ProjectFile` 为空，回退到仓库根目录下的 `AngelscriptProject.uproject`。
-- 如果 `Build.EditorTarget`、`Build.Platform`、`Build.Configuration`、`Build.Architecture` 缺失，分别回退到 `AngelscriptProjectEditor`、`Win64`、`Development`、`x64`。
-- 文档中的工具路径均为相对路径，执行前必须基于 `Paths.EngineRoot` 解析为完整路径。
-- 并发 worktree / agent 构建优先使用 `Tools\RunBuild.ps1 -NoMutex`；该模式会调用 `RunUBT.bat -NoMutex`。
-- 只有在你明确需要串行等待其他 UBT 时，才使用 `Tools\RunBuild.ps1 -UseWaitMutex`。
-- 不要在 AI Agent 环境中直接调用 `cmd.exe /c Build.bat`。
-- 运行 `UnrealEditor-Cmd.exe` 时，优先使用 `Start-Process -Wait -NoNewWindow`。
-- 自动化测试建议启用 `-Unattended -NoPause -NoSplash -NullRHI -NOSOUND`。
-- 长时间任务必须使用超时包装执行；构建优先读取 `Build.DefaultTimeoutMs`，默认推荐 `1200000ms`。
-
-## 可直接引用的提示语
-
-如果需要让 AI Agent 执行构建，可直接使用以下提示语：
-
-```text
-请先读取项目根目录的 AgentConfig.ini。若文件不存在，先运行 Tools\GenerateAgentConfigTemplate.bat 生成模板并补齐本机值。若 Paths.EngineRoot 缺失则立即阻塞；若 Paths.ProjectFile 为空则回退到仓库根目录 AngelscriptProject.uproject；若 Build.EditorTarget、Build.Platform、Build.Configuration、Build.Architecture 缺失，则分别回退到 AngelscriptProjectEditor、Win64、Development、x64。文档中的 Build.bat 路径使用相对路径 Engine\Build\BatchFiles\Build.bat 表示，执行前请基于 EngineRoot 解析出完整路径。请使用 PowerShell 执行，不要使用 cmd.exe /c。必须完整捕获输出，确保 stdout 和 stderr 都被记录，并在命令末尾追加 2>&1 | Out-String。
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Get-UbtProcess.ps1 -CurrentWorktreeOnly
 ```
 
-如果需要让 AI Agent 执行自动化测试，可直接使用以下提示语：
+## 多 worktree 故障排除
+
+### XGE 槽位争抢
+
+症状：
+
+- 构建启动后长时间没有 `[N/M] Compile`
+- 日志出现 `Using XGE executor` 后停住
+- 当前 worktree 没有残留 UBT，但其他 worktree 正在活跃构建
+- 或者直接在日志里看到 `Maximum number of concurrent builds reached.`
+
+处理方式：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Label noxge -TimeoutMs 180000 -NoXGE
+```
+
+补充说明：
+
+- `2026-04-05` 的专用 `main` worktree 并发构建验证表明，`RunBuild.ps1` 已经能把每次构建的 `UBT.log` 隔离到各自的 run 目录，但 **XGE executor 仍然可能因为机器上的并发容量限制拒绝第二个构建**。
+- 这类失败不是 `Build.bat` 锁，也不是共享 `UBT.log` 路径冲突，而是 XGE / Incredibuild 侧的资源上限问题。
+- `PowerShell.exe -File ... -- -NoXGE` 容易在多层转发时被误解析；标准 runner 现在提供一等参数 `-NoXGE`，不要再手写 `-- -NoXGE`。
+- 对“两个 worktree 同时构建是否互不干扰”的验证，建议优先使用 `-NoXGE` 复现脚本层并发能力，先把分布式执行器容量这个外部变量排掉。
+
+### 旧 `Build.bat` 锁争用
+
+旧流程走 `Build.bat` 时，会在共享引擎目录上占用全局脚本锁。标准构建已经绕过这条路径；如果仍遇到锁争用，说明还有旧文档、旧脚本或其他 worktree 没切到 `Tools\RunBuild.ps1`。
+
+处理顺序：
+
+1. 用 `Tools\Get-UbtProcess.ps1` 找出还在跑旧流程的 worktree
+2. 用 `Tools\BootstrapWorktree.ps1 -AllRegisteredWorktrees` 统一补齐配置
+3. 只通过 `Tools\ResolveAgentCommandTemplates.ps1` / 本文档下发构建命令
+
+### UBT 共享日志冲突
+
+UBT 默认会写共享 `Log.txt`。`RunBuild.ps1` 已通过 `-Log=` 把它重定向到当前 run 的 `UBT.log`；如果仍看到共享日志冲突，说明调用方绕过了 `Tools\RunBuild.ps1`。
+
+### UHT Timestamp 共享写冲突
+
+症状：
+
+- 构建日志里出现 `Couldn't write Timestamp file: ...\UHT\Timestamp ... being used by another process`
+- 或在 header 阶段直接出现 `IOException: ...\UHT\Timestamp ... being used by another process`
+- 进程退出码有时仍然是 `0`，但日志已经说明本次共享引擎 intermediate 发生了竞争
+
+根因：
+
+- `-NoEngineChanges` 只覆盖 action graph 里“已存在的引擎产物改写”
+- UBT 的 `ExternalExecution.UpdateTimestamps()` 会在 header 阶段后额外读写 `...\UHT\Timestamp`
+- 当 editor target 仍使用 shared build environment 时，这批 timestamp 默认落在共享 `Engine\Intermediate\Build\...\UHT\Timestamp`
+
+处理方式：
+
+```powershell
+# 低成本兜底：共享引擎继续共用，但在引擎级串行
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunBuild.ps1 -Label engine-write -TimeoutMs 180000 -SerializeByEngine
+```
+
+已评估但禁止采用的方案（`2026-04-05`）：
+
+- `-UniqueBuildEnvironment` 确实能把共享 `UHT\Timestamp` 改到当前 worktree 私有 `Intermediate\Build\...`
+- 但这会触发一轮 worktree 私有的巨型首次编译；实测在 `AngelscriptProjectEditor` 上直接进入约 `3571` actions 的大规模构建
+- 用户已明确要求**禁止使用**这条路径，因此标准 runner、模板和文档都不再下发或推荐 `-UniqueBuildEnvironment`
+- 当前允许的官方策略只保留两种：
+  - 继续共享引擎输出，但使用 `-SerializeByEngine`
+  - 给需要强隔离的 worktree 分配独立 `EngineRoot`
+
+## 对 AI Agent 的要求
+
+1. 先读取根目录 `AgentConfig.ini`
+2. 配置缺失时先跑 `Tools\BootstrapWorktree.ps1`
+3. 仅通过 `Tools\RunBuild.ps1` 执行构建
+4. 显式传入或继承一个不超过 `900000ms` 的超时
+5. 默认使用并发模式；只有确认会写引擎共享输出时才加 `-SerializeByEngine`
+6. 不要使用 `-UniqueBuildEnvironment`；这会触发 worktree 私有的引擎级重编
+7. 不要手写 `Build.bat` / `RunUBT.bat` / `dotnet UnrealBuildTool.dll`
+
+## 推荐提示词
 
 ```text
-请先读取项目根目录的 AgentConfig.ini。若文件不存在，先运行 Tools\GenerateAgentConfigTemplate.bat 生成模板并补齐本机值。若 Paths.EngineRoot 缺失则立即阻塞；若 Paths.ProjectFile 为空则回退到仓库根目录 AngelscriptProject.uproject；若 Test.DefaultTimeoutMs 缺失则回退到 600000。文档中的 UnrealEditor-Cmd.exe 路径使用相对路径 Engine\Binaries\Win64\UnrealEditor-Cmd.exe 表示，执行前请基于 EngineRoot 解析出完整路径，再结合 ProjectFile 和 DefaultTimeoutMs 启动 Automation Tests。请使用 PowerShell 的 Start-Process -Wait -NoNewWindow 执行，并保留 -Unattended -NoPause -NoSplash -NullRHI -NOSOUND 参数。
+请先读取项目根目录的 AgentConfig.ini；如果缺失或 ProjectFile 不属于当前 worktree，先执行 Tools\BootstrapWorktree.ps1。构建只能通过 Tools\RunBuild.ps1 进行，并显式带一个不超过 900000ms 的超时。默认保持并发模式；只有确认要写共享引擎输出时才追加 -SerializeByEngine。常用的 -NoXGE 不要再通过 ExtraArgs 透传，直接使用一等参数。不要使用 -UniqueBuildEnvironment，因为它会触发 worktree 私有的引擎级重编。日志必须实时输出，并写入当前 run 的独立目录；不要手写 Build.bat、RunUBT.bat 或 dotnet UnrealBuildTool.dll 命令。
 ```

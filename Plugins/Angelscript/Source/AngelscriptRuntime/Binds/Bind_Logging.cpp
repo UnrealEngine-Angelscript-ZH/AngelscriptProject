@@ -173,7 +173,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Logging([]
 	"void Print(const FString& Text, float32 Duration = 5.f, FLinearColor Color = FLinearColor::LucBlue)",
 		[](const FString& Text, float Duration, FLinearColor Color)
 	{
-		UKismetSystemLibrary::PrintString(FAngelscriptEngine::CurrentWorldContext, Text, true, /*bPrintToLog=*/ (Duration > 0.f), Color, Duration);
+		UKismetSystemLibrary::PrintString(FAngelscriptEngine::TryGetCurrentWorldContextObject(), Text, true, /*bPrintToLog=*/ (Duration > 0.f), Color, Duration);
 	}));
 	FAngelscriptBinds::SetPreviousBindRequiresWorldContext(true);
 
@@ -188,7 +188,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Logging([]
 	"void PrintToScreen(const FString& Text, float32 Duration = 0.f, FLinearColor Color = FLinearColor::LucBlue)",
 		[](const FString& Text, float Duration, FLinearColor Color)
 	{
-		UKismetSystemLibrary::PrintString(FAngelscriptEngine::CurrentWorldContext, Text, true, false, Color, Duration);
+		UKismetSystemLibrary::PrintString(FAngelscriptEngine::TryGetCurrentWorldContextObject(), Text, true, false, Color, Duration);
 	}));
 	FAngelscriptBinds::SetPreviousBindRequiresWorldContext(true);
 
@@ -197,7 +197,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Logging([]
 		[](const FString& Text, float Duration, FLinearColor Color)
 	{
 		const FString& WarningText = FString::Printf(TEXT("[Warning] ")) + Text;
-		UKismetSystemLibrary::PrintString(FAngelscriptEngine::CurrentWorldContext, WarningText, true, true, Color, Duration);
+		UKismetSystemLibrary::PrintString(FAngelscriptEngine::TryGetCurrentWorldContextObject(), WarningText, true, true, Color, Duration);
 	}));
 	FAngelscriptBinds::SetPreviousBindRequiresWorldContext(true);
 
@@ -206,7 +206,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_Logging([]
 		[](const FString& Text, float Duration, FLinearColor Color)
 	{
 		const FString& ErrorText = FString::Printf(TEXT("[Error] ")) + Text;
-		UKismetSystemLibrary::PrintString(FAngelscriptEngine::CurrentWorldContext, ErrorText, true, true, Color, Duration);
+		UKismetSystemLibrary::PrintString(FAngelscriptEngine::TryGetCurrentWorldContextObject(), ErrorText, true, true, Color, Duration);
 	}));
 	FAngelscriptBinds::SetPreviousBindRequiresWorldContext(true);
 });

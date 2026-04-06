@@ -379,51 +379,17 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_FString(FAngelscriptBinds::EOr
 	FAngelscriptEngine::Get().Engine->RegisterStringFactory("FString", new FStringFactory());
 });
 
-struct FToStringType
-{
-	FString TypeName;
-	asITypeInfo* TypeInfo = nullptr;
-	FToStringHelper::FToStringFunction ToString;
-	bool bImplicitConversion;
-	bool bIsHandleType;
-};
-
-static const void* GetLegacyToStringKey()
-{
-	static uint8 LegacyToStringKey = 0;
-	return &LegacyToStringKey;
-}
-
-static const void* ResolveToStringKey(const void* StateKey = nullptr)
-{
-	if (StateKey != nullptr)
-	{
-		return StateKey;
-	}
-
-	if (const void* CurrentKey = FAngelscriptEngine::GetCurrentIsolationStateKey())
-	{
-		return CurrentKey;
-	}
-
-	return GetLegacyToStringKey();
-}
-
-static TMap<const void*, TUniquePtr<TArray<FToStringType>>>& GetToStringLists()
-{
-	static TMap<const void*, TUniquePtr<TArray<FToStringType>>> ListsByState;
-	return ListsByState;
-}
-
 static TArray<FToStringType>& GetToStringList()
 {
-	TUniquePtr<TArray<FToStringType>>& List = GetToStringLists().FindOrAdd(ResolveToStringKey());
-	if (!List.IsValid())
+	if (FAngelscriptEngine* Engine = FAngelscriptEngine::TryGetCurrentEngine())
 	{
-		List = MakeUnique<TArray<FToStringType>>();
+		if (TArray<FToStringType>* List = Engine->GetToStringList())
+		{
+			return *List;
+		}
 	}
-
-	return *List;
+	static TArray<FToStringType> LegacyToStringList;
+	return LegacyToStringList;
 }
 
 void FToStringHelper::Register(const FString& TypeName, FToStringHelper::FToStringFunction ToString, bool bImplicitConversion, bool bIsHandleType)
@@ -434,11 +400,6 @@ void FToStringHelper::Register(const FString& TypeName, FToStringHelper::FToStri
 void FToStringHelper::Reset()
 {
 	GetToStringList().Reset();
-}
-
-void FToStringHelper::ResetForKey(const void* StateKey)
-{
-	GetToStringLists().Remove(ResolveToStringKey(StateKey));
 }
 
 #if WITH_DEV_AUTOMATION_TESTS

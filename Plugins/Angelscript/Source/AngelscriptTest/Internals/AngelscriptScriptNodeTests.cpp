@@ -1,4 +1,5 @@
 #include "Angelscript/AngelscriptTestSupport.h"
+#include "../Shared/AngelscriptTestMacros.h"
 #include "Misc/AutomationTest.h"
 
 #include "StartAngelscriptHeaders.h"
@@ -56,7 +57,8 @@ bool FAngelscriptScriptNodeTypeTest::RunTest(const FString& Parameters)
 
 bool FAngelscriptScriptNodeTraversalTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
 	asCModule* Module = CreateScriptNodeModule(ScriptEngine, "ScriptNodeTraversal");
 	if (!TestNotNull(TEXT("ScriptNode traversal test should create a backing module"), Module))
@@ -86,12 +88,15 @@ bool FAngelscriptScriptNodeTraversalTest::RunTest(const FString& Parameters)
 	TestNotNull(TEXT("Root should expose the last child"), Root->lastChild);
 	TestTrue(TEXT("First and last child should differ when multiple declarations exist"), Root->firstChild != Root->lastChild);
 	TestEqual(TEXT("Second child should point back to the first child as prev"), Root->lastChild->prev, Root->firstChild);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptScriptNodeCopyTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AngelscriptTestSupport::AcquireCleanSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	asCScriptEngine* ScriptEngine = static_cast<asCScriptEngine*>(Engine.GetScriptEngine());
 	asCModule* Module = CreateScriptNodeModule(ScriptEngine, "ScriptNodeCopy");
 	if (!TestNotNull(TEXT("ScriptNode copy test should create a backing module"), Module))
@@ -124,6 +129,8 @@ bool FAngelscriptScriptNodeCopyTest::RunTest(const FString& Parameters)
 	TestEqual(TEXT("Copied root should keep the same node type"), static_cast<int32>(Copy->nodeType), static_cast<int32>(Root->nodeType));
 	TestTrue(TEXT("Copied node should be a different instance"), Copy != Root);
 	TestTrue(TEXT("Copied first child should be a different instance"), Copy->firstChild != nullptr && Copy->firstChild != Root->firstChild);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 

@@ -288,7 +288,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_UUserWidget((int32)FAngelscrip
 		"UUserWidget CreateWidget(const TSubclassOf<UUserWidget>& WidgetClass, APlayerController OwningPlayer)",
 		[](const TSubclassOf<UUserWidget>& WidgetClass, APlayerController* OwningPlayer)
 		{
-			return UWidgetBlueprintLibrary::Create(FAngelscriptEngine::CurrentWorldContext, WidgetClass, OwningPlayer);
+			return UWidgetBlueprintLibrary::Create(FAngelscriptEngine::TryGetCurrentWorldContextObject(), WidgetClass, OwningPlayer);
 		});
 	FAngelscriptBinds::SetPreviousBindRequiresWorldContext(true);
 

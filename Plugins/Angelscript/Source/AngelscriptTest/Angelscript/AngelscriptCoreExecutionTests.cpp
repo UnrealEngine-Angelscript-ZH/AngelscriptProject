@@ -1,5 +1,6 @@
 #include "Angelscript/AngelscriptTestSupport.h"
 #include "Shared/AngelscriptTestEngineHelper.h"
+#include "Shared/AngelscriptTestMacros.h"
 #include "Misc/ScopeExit.h"
 // Test Layer: Runtime Integration
 #if WITH_DEV_AUTOMATION_TESTS
@@ -13,30 +14,17 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCoreCreateCompileExecuteTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASCoreCreateCompileExecute",
-		TEXT("int DoubleValue(int Value) { return Value * 2; } int Run() { return DoubleValue(21); }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine, "ASCoreCreateCompileExecute",
+		TEXT("int DoubleValue(int Value) { return Value * 2; } int Run() { return DoubleValue(21); }"),
+		TEXT("int Run()"), Result);
 
 	TestEqual(TEXT("Core create/compile/execute should return the expected value"), Result, 42);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -47,30 +35,17 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCoreGlobalStateTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	asIScriptModule* Module = BuildModule(
-		*this,
-		Engine,
-		"ASCoreGlobalState",
-		TEXT("const int g_Count = 3; int Step(int Value) { return Value + 4; } int Run() { return Step(g_Count); }"));
-	if (Module == nullptr)
-	{
-		return false;
-	}
-
-	asIScriptFunction* Function = GetFunctionByDecl(*this, *Module, TEXT("int Run()"));
-	if (Function == nullptr)
-	{
-		return false;
-	}
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	int32 Result = 0;
-	if (!ExecuteIntFunction(*this, Engine, *Function, Result))
-	{
-		return false;
-	}
+	ASTEST_COMPILE_RUN_INT(Engine, "ASCoreGlobalState",
+		TEXT("const int g_Count = 3; int Step(int Value) { return Value + 4; } int Run() { return Step(g_Count); }"),
+		TEXT("int Run()"), Result);
 
 	TestEqual(TEXT("Const globals and helper calls should evaluate as expected"), Result, 7);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
@@ -112,14 +87,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCompilerBasicTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	ON_SCOPE_EXIT
-	{
-		Engine.DiscardModule(TEXT("ASCoreCompilerBasicSimple"));
-		Engine.DiscardModule(TEXT("ASCoreCompilerBasicMulti"));
-		Engine.DiscardModule(TEXT("ASCoreCompilerBasicGlobals"));
-		Engine.DiscardModule(TEXT("ASCoreCompilerBasicInvalid"));
-	};
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
+	ASTEST_BEGIN_FULL
 	const bool bCompiledSimple = CompileModuleFromMemory(
 		&Engine,
 		TEXT("ASCoreCompilerBasicSimple"),
@@ -188,6 +157,8 @@ bool FAngelscriptCompilerBasicTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestEqual(TEXT("Core.CompilerBasic should report an error compile result for invalid syntax"), ErrorCompileResult, ECompileResult::Error);
+	ASTEST_END_FULL
+
 	return true;
 }
 
@@ -198,13 +169,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCompilerParserTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	ON_SCOPE_EXIT
-	{
-		Engine.DiscardModule(TEXT("ASCoreParserValid"));
-		Engine.DiscardModule(TEXT("ASCoreParserNested"));
-		Engine.DiscardModule(TEXT("ASCoreParserInvalid"));
-	};
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
+	ASTEST_BEGIN_FULL
 	const bool bCompiledValid = CompileModuleFromMemory(
 		&Engine,
 		TEXT("ASCoreParserValid"),
@@ -241,6 +207,8 @@ bool FAngelscriptCompilerParserTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestEqual(TEXT("Core.Parser should report an error compile result for invalid syntax"), InvalidCompileResult, ECompileResult::Error);
+	ASTEST_END_FULL
+
 	return true;
 }
 
@@ -251,12 +219,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptCompilerOptimizeTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	ON_SCOPE_EXIT
-	{
-		Engine.DiscardModule(TEXT("ASCoreOptimizeConstant"));
-		Engine.DiscardModule(TEXT("ASCoreOptimizeDeadCode"));
-	};
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_FULL();
+	ASTEST_BEGIN_FULL
 	const bool bCompiledConstant = CompileModuleFromMemory(
 		&Engine,
 		TEXT("ASCoreOptimizeConstant"),
@@ -291,6 +255,8 @@ bool FAngelscriptCompilerOptimizeTest::RunTest(const FString& Parameters)
 		return false;
 	}
 	TestEqual(TEXT("Core.Optimize should keep reachable results stable when dead code is present"), DeadCodeResult, 1);
+	ASTEST_END_FULL
+
 	return true;
 }
 

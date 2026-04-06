@@ -14,13 +14,12 @@ void UAngelscriptGameInstanceSubsystem::Initialize(FSubsystemCollectionBase& Col
 	Super::Initialize(Collection);
 
 	bInitialized = true;
-	PrimaryEngine = FAngelscriptEngine::TryGetGlobalEngine();
+	PrimaryEngine = FAngelscriptEngine::TryGetCurrentEngine();
 	if (PrimaryEngine == nullptr)
 	{
-		OwnedPrimaryEngine = MakeUnique<FAngelscriptEngine>();
-		PrimaryEngine = OwnedPrimaryEngine.Get();
-		FAngelscriptEngine::SetGlobalEngine(PrimaryEngine);
-		PrimaryEngine->Initialize();
+		PrimaryEngine = &OwnedEngine;
+		FAngelscriptEngineContextStack::Push(PrimaryEngine);
+		OwnedEngine.Initialize();
 		bOwnsPrimaryEngine = true;
 	}
 
@@ -39,12 +38,11 @@ void UAngelscriptGameInstanceSubsystem::Deinitialize()
 
 	if (bOwnsPrimaryEngine)
 	{
-		if (FAngelscriptEngine::TryGetGlobalEngine() == PrimaryEngine)
+		FAngelscriptEngineContextStack::Pop(PrimaryEngine);
+		if (PrimaryEngine != nullptr)
 		{
-			FAngelscriptEngine::SetGlobalEngine(nullptr);
+			PrimaryEngine->Shutdown();
 		}
-
-		OwnedPrimaryEngine.Reset();
 		bOwnsPrimaryEngine = false;
 	}
 
@@ -100,7 +98,7 @@ UAngelscriptGameInstanceSubsystem* UAngelscriptGameInstanceSubsystem::GetCurrent
 		return nullptr;
 	}
 
-	UWorld* World = GEngine->GetWorldFromContextObject(FAngelscriptEngine::CurrentWorldContext, EGetWorldErrorMode::ReturnNull);
+	UWorld* World = GEngine->GetWorldFromContextObject(FAngelscriptEngine::GetAmbientWorldContext(), EGetWorldErrorMode::ReturnNull);
 	if (World == nullptr)
 	{
 		return nullptr;

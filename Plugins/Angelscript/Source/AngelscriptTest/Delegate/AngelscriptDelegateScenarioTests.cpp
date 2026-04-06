@@ -115,7 +115,7 @@ class AScenarioDelegateUnicast : AActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	UAngelscriptNativeScriptTestObject* NativeReceiver = NewObject<UAngelscriptNativeScriptTestObject>(GetTransientPackage());
 	if (!TestNotNull(TEXT("Scenario unicast delegate test should create a native receiver"), NativeReceiver))
@@ -143,7 +143,10 @@ class AScenarioDelegateUnicast : AActor
 	FScenarioIntStringParams Params;
 	Params.Value = 77;
 	Params.Label = TEXT("Unicast");
-	Actor->ProcessEvent(TriggerFunction, &Params);
+	{
+		FAngelscriptEngineScope ExecutionScope(Engine, Actor);
+		Actor->ProcessEvent(TriggerFunction, &Params);
+	}
 
 	TestEqual(TEXT("Scenario unicast delegate should invoke the bound C++ callback"), NativeReceiver->NameCounts.FindRef(TEXT("Unicast")), 77);
 	return true;
@@ -203,7 +206,7 @@ class AScenarioDelegateMulticast : AActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	int32 InitialEventTriggerCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("EventTriggerCount"), InitialEventTriggerCount))
@@ -226,7 +229,10 @@ class AScenarioDelegateMulticast : AActor
 	FScenarioIntStringParams Params;
 	Params.Value = 33;
 	Params.Label = TEXT("Multicast");
-	MulticastDelegate->ProcessMulticastDelegate<UObject>(&Params);
+	{
+		FAngelscriptEngineScope ExecutionScope(Engine, Actor);
+		MulticastDelegate->ProcessMulticastDelegate<UObject>(&Params);
+	}
 
 	int32 EventTriggerCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("EventTriggerCount"), EventTriggerCount))
@@ -286,7 +292,7 @@ class AScenarioDelegateUnicastSignatureMismatch : AActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	UAngelscriptNativeScriptTestObject* NativeReceiver = NewObject<UAngelscriptNativeScriptTestObject>(GetTransientPackage());
 	if (!TestNotNull(TEXT("Scenario unicast mismatch test should create a native receiver"), NativeReceiver))
@@ -319,7 +325,10 @@ class AScenarioDelegateUnicastSignatureMismatch : AActor
 		TEXT("ScenarioDelegateUnicastSignatureMismatch"),
 		TEXT("void FOnHealthChanged::Execute(int, FString) const"),
 		TEXT("void AScenarioDelegateUnicastSignatureMismatch::TriggerHealthChanged(int, FString)"));
-	Actor->ProcessEvent(TriggerFunction, &Params);
+	{
+		FAngelscriptEngineScope ExecutionScope(Engine, Actor);
+		Actor->ProcessEvent(TriggerFunction, &Params);
+	}
 
 	TestFalse(TEXT("Scenario unicast mismatch should not invoke a zero-argument native receiver"), NativeReceiver->bNativeFlag);
 	return true;
@@ -370,7 +379,7 @@ class AScenarioDelegateMulticastSignatureMismatch : AActor
 	{
 		return false;
 	}
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	UAngelscriptNativeScriptTestObject* NativeReceiver = NewObject<UAngelscriptNativeScriptTestObject>(GetTransientPackage());
 	if (!TestNotNull(TEXT("Scenario multicast mismatch test should create a native receiver"), NativeReceiver))
@@ -409,7 +418,10 @@ class AScenarioDelegateMulticastSignatureMismatch : AActor
 		TEXT("ScenarioDelegateMulticastSignatureMismatch"),
 		TEXT("void FOnDamaged::Broadcast(int, FString) const"),
 		TEXT("void AScenarioDelegateMulticastSignatureMismatch::TriggerDamaged(int, FString)"));
-	Actor->ProcessEvent(TriggerFunction, &Params);
+	{
+		FAngelscriptEngineScope ExecutionScope(Engine, Actor);
+		Actor->ProcessEvent(TriggerFunction, &Params);
+	}
 
 	TestFalse(TEXT("Scenario multicast mismatch should not invoke a zero-argument native receiver"), NativeReceiver->bNativeFlag);
 	return true;

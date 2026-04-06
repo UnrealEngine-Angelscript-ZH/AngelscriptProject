@@ -4,12 +4,16 @@
 #include "AngelscriptGameInstanceSubsystem.h"
 #include "HAL/FileManager.h"
 #include "Containers/StringConv.h"
+#include "Engine/Engine.h"
+#include "Engine/GameInstance.h"
 #include "Misc/Crc.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "UObject/GarbageCollection.h"
+#include "UObject/UObjectIterator.h"
 #include "Preprocessor/AngelscriptPreprocessor.h"
+#include "ClassGenerator/ASClass.h"
 
 #include "StartAngelscriptHeaders.h"
 #include "source/as_context.h"
@@ -19,6 +23,11 @@
 
 struct FAngelscriptTestEngineScopeAccess
 {
+	static FAngelscriptEngine* GetCurrentEngine()
+	{
+		return FAngelscriptEngine::TryGetCurrentEngine();
+	}
+
 	static FAngelscriptEngine* GetGlobalEngine()
 	{
 		return FAngelscriptEngine::TryGetGlobalEngine();
@@ -33,8 +42,41 @@ struct FAngelscriptTestEngineScopeAccess
 namespace AngelscriptTestSupport
 {
 	using FAngelscriptTestEngineScopeAccess = ::FAngelscriptTestEngineScopeAccess;
-	using FScopedGlobalEngineOverride = ::FScopedGlobalEngineOverride;
-	using FScopedTestEngineGlobalScope = ::FScopedTestEngineGlobalScope;
+
+	inline UAngelscriptGameInstanceSubsystem* TryGetRunningProductionSubsystem()
+	{
+		if (UAngelscriptGameInstanceSubsystem* Subsystem = UAngelscriptGameInstanceSubsystem::GetCurrent())
+		{
+			return Subsystem;
+		}
+
+		if (GEngine == nullptr)
+		{
+			return nullptr;
+		}
+
+		for (const FWorldContext& WorldContext : GEngine->GetWorldContexts())
+		{
+			UWorld* World = WorldContext.World();
+			if (World == nullptr)
+			{
+				continue;
+			}
+
+			UGameInstance* GameInstance = World->GetGameInstance();
+			if (GameInstance == nullptr)
+			{
+				continue;
+			}
+
+			if (UAngelscriptGameInstanceSubsystem* Subsystem = GameInstance->GetSubsystem<UAngelscriptGameInstanceSubsystem>())
+			{
+				return Subsystem;
+			}
+		}
+
+		return nullptr;
+	}
 
 	inline TUniquePtr<FAngelscriptEngine>& GetSharedTestEngineStorage()
 	{
@@ -42,28 +84,10 @@ namespace AngelscriptTestSupport
 		return Storage;
 	}
 
-	inline TUniquePtr<FScopedGlobalEngineOverride>& GetSharedTestEngineGlobalScopeStorage()
+	inline TUniquePtr<FAngelscriptEngineScope>& GetSharedTestEngineScopeStorage()
 	{
-		static TUniquePtr<FScopedGlobalEngineOverride> ScopeStorage;
-		return ScopeStorage;
-	}
-
-	inline void SyncSharedTestEngineGlobalRegistration()
-	{
-		TUniquePtr<FAngelscriptEngine>& SharedEngine = GetSharedTestEngineStorage();
-		if (!SharedEngine.IsValid())
-		{
-			return;
-		}
-
-		if (SharedEngine->OwnsEngine() && FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == nullptr)
-		{
-			TUniquePtr<FScopedGlobalEngineOverride>& ScopeStorage = GetSharedTestEngineGlobalScopeStorage();
-			if (!ScopeStorage.IsValid())
-			{
-				ScopeStorage = MakeUnique<FScopedGlobalEngineOverride>(SharedEngine.Get());
-			}
-		}
+		static TUniquePtr<FAngelscriptEngineScope> Storage;
+		return Storage;
 	}
 
 	struct FScopedTestWorldContextScope
@@ -82,7 +106,7 @@ namespace AngelscriptTestSupport
 
 	inline FAngelscriptEngine* TryGetRunningProductionEngine()
 	{
-		if (UAngelscriptGameInstanceSubsystem* Subsystem = UAngelscriptGameInstanceSubsystem::GetCurrent())
+		if (UAngelscriptGameInstanceSubsystem* Subsystem = TryGetRunningProductionSubsystem())
 		{
 			if (FAngelscriptEngine* AttachedEngine = Subsystem->GetEngine())
 			{
@@ -98,12 +122,47 @@ namespace AngelscriptTestSupport
 		return nullptr;
 	}
 
+	inline FAngelscriptEngine* TryGetRunningProductionDebuggerEngine()
+	{
+		if (UAngelscriptGameInstanceSubsystem* Subsystem = TryGetRunningProductionSubsystem())
+		{
+			if (FAngelscriptEngine* AttachedEngine = Subsystem->GetEngine())
+			{
+				if (AttachedEngine->DebugServer != nullptr)
+				{
+					return AttachedEngine;
+				}
+			}
+		}
+
+#if WITH_DEV_AUTOMATION_TESTS
+		TArray<FAngelscriptEngine*> SavedStack = FAngelscriptEngineContextStack::SnapshotAndClear();
+		FAngelscriptEngine* MatchingEngine = nullptr;
+		for (int32 Index = SavedStack.Num() - 1; Index >= 0; --Index)
+		{
+			FAngelscriptEngine* Candidate = SavedStack[Index];
+			if (Candidate != nullptr && Candidate->DebugServer != nullptr)
+			{
+				MatchingEngine = Candidate;
+				break;
+			}
+		}
+
+		FAngelscriptEngineContextStack::RestoreSnapshot(MoveTemp(SavedStack));
+		return MatchingEngine;
+#else
+		return nullptr;
+#endif
+	}
+
 	inline TUniquePtr<FAngelscriptEngine> CreateIsolatedFullEngine()
 	{
 		FAngelscriptEngineConfig Config;
 		FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
 
 		TUniquePtr<FAngelscriptEngine> Engine = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+		UE_LOG(Angelscript, Verbose, TEXT("[TestEngine] Created isolated Full engine %p id='%s'"),
+			Engine.Get(), Engine.IsValid() ? *Engine->GetInstanceId() : TEXT("null"));
 		return Engine;
 	}
 
@@ -111,19 +170,32 @@ namespace AngelscriptTestSupport
 	{
 		FAngelscriptEngineConfig Config;
 		FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
-		return FAngelscriptEngine::CreateForTesting(Config, Dependencies, EAngelscriptEngineCreationMode::Clone);
+		TUniquePtr<FAngelscriptEngine> Engine = FAngelscriptEngine::CreateForTesting(Config, Dependencies, EAngelscriptEngineCreationMode::Clone);
+		UE_LOG(Angelscript, Verbose, TEXT("[TestEngine] Created isolated Clone engine %p id='%s'"),
+			Engine.Get(), Engine.IsValid() ? *Engine->GetInstanceId() : TEXT("null"));
+		return Engine;
 	}
 
 	inline FAngelscriptEngine& GetOrCreateSharedCloneEngine()
 	{
 		TUniquePtr<FAngelscriptEngine>& SharedCloneEngine = GetSharedTestEngineStorage();
+		TUniquePtr<FAngelscriptEngineScope>& SharedScope = GetSharedTestEngineScopeStorage();
 		if (!SharedCloneEngine.IsValid())
 		{
-			SharedCloneEngine = CreateIsolatedCloneEngine();
+			SharedScope.Reset();
+			SharedCloneEngine = CreateIsolatedFullEngine();
+			SharedScope = MakeUnique<FAngelscriptEngineScope>(*SharedCloneEngine);
+			UE_LOG(Angelscript, Verbose, TEXT("[TestEngine] Created shared test engine %p id='%s' with persistent scope"),
+				SharedCloneEngine.Get(), *SharedCloneEngine->GetInstanceId());
+		}
+		else if (!SharedScope.IsValid())
+		{
+			SharedScope = MakeUnique<FAngelscriptEngineScope>(*SharedCloneEngine);
+			UE_LOG(Angelscript, Verbose, TEXT("[TestEngine] Re-established persistent scope for shared engine %p id='%s'"),
+				SharedCloneEngine.Get(), *SharedCloneEngine->GetInstanceId());
 		}
 
 		check(SharedCloneEngine.IsValid());
-		SyncSharedTestEngineGlobalRegistration();
 		return *SharedCloneEngine;
 	}
 
@@ -135,9 +207,62 @@ namespace AngelscriptTestSupport
 	inline void ResetSharedCloneEngine(FAngelscriptEngine& Engine)
 	{
 		const TArray<TSharedRef<FAngelscriptModuleDesc>> ActiveModules = Engine.GetActiveModules();
+		UE_LOG(Angelscript, Verbose, TEXT("[TestEngine] ResetShared: engine=%p id='%s' activeModules=%d"),
+			&Engine, *Engine.GetInstanceId(), ActiveModules.Num());
+
 		for (const TSharedRef<FAngelscriptModuleDesc>& Module : ActiveModules)
 		{
 			Engine.DiscardModule(*Module->ModuleName);
+		}
+
+		if (asCScriptEngine* ScriptEngine = reinterpret_cast<asCScriptEngine*>(Engine.GetScriptEngine()))
+		{
+			TArray<FString> RemainingModuleNames;
+			const asUINT ModuleCount = ScriptEngine->GetModuleCount();
+			RemainingModuleNames.Reserve(static_cast<int32>(ModuleCount));
+			for (asUINT ModuleIndex = 0; ModuleIndex < ModuleCount; ++ModuleIndex)
+			{
+				if (asIScriptModule* Module = ScriptEngine->GetModuleByIndex(ModuleIndex))
+				{
+					RemainingModuleNames.Add(UTF8_TO_TCHAR(Module->GetName()));
+				}
+			}
+
+			if (RemainingModuleNames.Num() > 0)
+			{
+				UE_LOG(Angelscript, Verbose, TEXT("[TestEngine] ResetShared: discarding %d raw AS modules"),
+					RemainingModuleNames.Num());
+			}
+
+			for (const FString& ModuleName : RemainingModuleNames)
+			{
+				const auto ModuleNameAnsi = StringCast<ANSICHAR>(*ModuleName);
+				ScriptEngine->DiscardModule(ModuleNameAnsi.Get());
+			}
+
+			ScriptEngine->DeleteDiscardedModules();
+		}
+
+		int32 DetachedClassCount = 0;
+		int32 UnrootedCount = 0;
+		for (TObjectIterator<UASClass> It; It; ++It)
+		{
+			if (It->ScriptTypePtr == nullptr)
+			{
+				++DetachedClassCount;
+				if (It->IsRooted())
+				{
+					It->RemoveFromRoot();
+					++UnrootedCount;
+				}
+				It->ClearFlags(RF_Standalone);
+			}
+		}
+
+		if (DetachedClassCount > 0)
+		{
+			UE_LOG(Angelscript, Verbose, TEXT("[TestEngine] ResetShared: cleaned %d detached UASClass objects (%d unrooted)"),
+				DetachedClassCount, UnrootedCount);
 		}
 
 		CollectGarbage(RF_NoFlags, true);
@@ -148,9 +273,113 @@ namespace AngelscriptTestSupport
 		ResetSharedCloneEngine(Engine);
 	}
 
+	inline void LogSharedEngineDebugState(const TCHAR* Phase, FAngelscriptEngine& Engine)
+	{
+		asCScriptEngine* ScriptEngine = reinterpret_cast<asCScriptEngine*>(Engine.GetScriptEngine());
+		if (ScriptEngine == nullptr)
+		{
+			UE_LOG(Angelscript, Log, TEXT("[TestDebug] %s ScriptEngine=<null>"), Phase);
+			return;
+		}
+
+		int32 LiveASClasses = 0;
+		int32 DetachedASClasses = 0;
+		int32 RootedDetachedASClasses = 0;
+		TArray<FString> DetachedClassNames;
+		for (TObjectIterator<UASClass> It; It; ++It)
+		{
+			if (It->ScriptTypePtr != nullptr)
+			{
+				++LiveASClasses;
+			}
+			else
+			{
+				++DetachedASClasses;
+				if (It->IsRooted())
+				{
+					++RootedDetachedASClasses;
+				}
+				if (DetachedClassNames.Num() < 16)
+				{
+					DetachedClassNames.Add(FString::Printf(
+						TEXT("%s Rooted=%s Standalone=%s"),
+						*It->GetPathName(),
+						It->IsRooted() ? TEXT("true") : TEXT("false"),
+						It->HasAnyFlags(RF_Standalone) ? TEXT("true") : TEXT("false")));
+				}
+			}
+		}
+
+		int32 LiveASFunctions = 0;
+		int32 DetachedASFunctions = 0;
+		TArray<FString> DetachedFunctionNames;
+		for (TObjectIterator<UASFunction> It; It; ++It)
+		{
+			if (It->ScriptFunction != nullptr)
+			{
+				++LiveASFunctions;
+			}
+			else
+			{
+				++DetachedASFunctions;
+				if (DetachedFunctionNames.Num() < 16)
+				{
+					DetachedFunctionNames.Add(FString::Printf(
+						TEXT("%s Outer=%s Validate=%s"),
+						*It->GetPathName(),
+						It->GetOuter() != nullptr ? *It->GetOuter()->GetPathName() : TEXT("<null>"),
+						It->ValidateFunction != nullptr ? TEXT("true") : TEXT("false")));
+				}
+			}
+		}
+
+		TArray<FString> RawModuleNames;
+		const asUINT RawModuleCount = ScriptEngine->GetModuleCount();
+		RawModuleNames.Reserve(static_cast<int32>(RawModuleCount));
+		for (asUINT ModuleIndex = 0; ModuleIndex < RawModuleCount; ++ModuleIndex)
+		{
+			if (asIScriptModule* Module = ScriptEngine->GetModuleByIndex(ModuleIndex))
+			{
+				RawModuleNames.Add(UTF8_TO_TCHAR(Module->GetName()));
+			}
+		}
+
+		UE_LOG(
+			Angelscript,
+			Log,
+			TEXT("[TestDebug] %s ActiveModules=%d RawModules=%u ScriptFunctionSlots=%d FreeScriptFunctionIds=%d LiveASClasses=%d DetachedASClasses=%d RootedDetachedASClasses=%d LiveASFunctions=%d DetachedASFunctions=%d"),
+			Phase,
+			Engine.GetActiveModules().Num(),
+			ScriptEngine->GetModuleCount(),
+			ScriptEngine->scriptFunctions.GetLength(),
+			ScriptEngine->freeScriptFunctionIds.GetLength(),
+			LiveASClasses,
+			DetachedASClasses,
+			RootedDetachedASClasses,
+			LiveASFunctions,
+			DetachedASFunctions);
+
+		if (RawModuleNames.Num() > 0)
+		{
+			UE_LOG(Angelscript, Log, TEXT("[TestDebug] %s RawModuleNames=%s"), Phase, *FString::Join(RawModuleNames, TEXT(", ")));
+		}
+
+		if (DetachedClassNames.Num() > 0)
+		{
+			UE_LOG(Angelscript, Log, TEXT("[TestDebug] %s DetachedClasses=%s"), Phase, *FString::Join(DetachedClassNames, TEXT(" | ")));
+		}
+
+		if (DetachedFunctionNames.Num() > 0)
+		{
+			UE_LOG(Angelscript, Log, TEXT("[TestDebug] %s DetachedFunctions=%s"), Phase, *FString::Join(DetachedFunctionNames, TEXT(" | ")));
+		}
+	}
+
 	inline FAngelscriptEngine& AcquireCleanSharedCloneEngine()
 	{
 		FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+		UE_LOG(Angelscript, Verbose, TEXT("[TestEngine] AcquireClean: resetting shared engine %p id='%s'"),
+			&Engine, *Engine.GetInstanceId());
 		ResetSharedCloneEngine(Engine);
 		return Engine;
 	}
@@ -160,32 +389,41 @@ namespace AngelscriptTestSupport
 		return AcquireCleanSharedCloneEngine();
 	}
 
-	inline FAngelscriptEngine& AcquireCleanSharedCloneEngineAndOverrideGlobal(FScopedGlobalEngineOverride& OutScope)
-	{
-		FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-		ResetSharedCloneEngine(Engine);
-		OutScope = FScopedGlobalEngineOverride(&Engine);
-		return Engine;
-	}
-
 	inline void DestroySharedTestEngine()
 	{
-		TUniquePtr<FAngelscriptEngine>& SharedEngine = GetSharedTestEngineStorage();
-		if (SharedEngine.IsValid() && FAngelscriptTestEngineScopeAccess::GetGlobalEngine() == SharedEngine.Get())
+		TUniquePtr<FAngelscriptEngine>& SharedEngineStorage = GetSharedTestEngineStorage();
+		TUniquePtr<FAngelscriptEngineScope>& SharedScope = GetSharedTestEngineScopeStorage();
+		if (SharedEngineStorage.IsValid())
 		{
-			GetSharedTestEngineGlobalScopeStorage().Reset();
+			UE_LOG(Angelscript, Verbose, TEXT("[TestEngine] DestroyShared: tearing down engine %p id='%s' hasScope=%s"),
+				SharedEngineStorage.Get(), *SharedEngineStorage->GetInstanceId(),
+				SharedScope.IsValid() ? TEXT("true") : TEXT("false"));
+			LogSharedEngineDebugState(TEXT("DestroySharedTestEngine.PreReset"), *SharedEngineStorage);
+			ResetSharedCloneEngine(*SharedEngineStorage);
+			LogSharedEngineDebugState(TEXT("DestroySharedTestEngine.PostReset"), *SharedEngineStorage);
 		}
 
-		SharedEngine.Reset();
+		SharedScope.Reset();
+		SharedEngineStorage.Reset();
+	}
+
+	inline void DestroyStrayLegacyGlobalTestEngine()
+	{
+		if (!UAngelscriptGameInstanceSubsystem::HasAnyTickOwner())
+		{
+			if (FAngelscriptEngine* GlobalEngine = FAngelscriptTestEngineScopeAccess::GetGlobalEngine())
+			{
+				ResetSharedCloneEngine(*GlobalEngine);
+			}
+
+			FAngelscriptTestEngineScopeAccess::DestroyGlobalEngine();
+		}
 	}
 
 	inline void DestroySharedAndStrayGlobalTestEngine()
 	{
 		DestroySharedTestEngine();
-		if (!UAngelscriptGameInstanceSubsystem::HasAnyTickOwner() && FAngelscriptTestEngineScopeAccess::GetGlobalEngine() != nullptr)
-		{
-			FAngelscriptTestEngineScopeAccess::DestroyGlobalEngine();
-		}
+		DestroyStrayLegacyGlobalTestEngine();
 	}
 
 	inline FAngelscriptEngine& AcquireFreshSharedCloneEngine()
@@ -202,7 +440,7 @@ namespace AngelscriptTestSupport
 	struct FResolvedProductionLikeEngine
 	{
 		TUniquePtr<FAngelscriptEngine> OwnedEngine;
-		TUniquePtr<FScopedGlobalEngineOverride> GlobalScope;
+		TUniquePtr<FAngelscriptEngineScope> EngineScope;
 		FAngelscriptEngine* Engine = nullptr;
 
 		FAngelscriptEngine& Get() const
@@ -216,8 +454,8 @@ namespace AngelscriptTestSupport
 	{
 		if (FAngelscriptEngine* ProductionEngine = TryGetRunningProductionEngine())
 		{
-			OutResolved.GlobalScope = MakeUnique<FScopedGlobalEngineOverride>(ProductionEngine);
 			OutResolved.Engine = ProductionEngine;
+			OutResolved.EngineScope = MakeUnique<FAngelscriptEngineScope>(*ProductionEngine);
 			return true;
 		}
 
@@ -230,8 +468,8 @@ namespace AngelscriptTestSupport
 			return false;
 		}
 
-		OutResolved.GlobalScope = MakeUnique<FScopedGlobalEngineOverride>(OutResolved.OwnedEngine.Get());
 		OutResolved.Engine = OutResolved.OwnedEngine.Get();
+		OutResolved.EngineScope = MakeUnique<FAngelscriptEngineScope>(*OutResolved.Engine);
 		return true;
 	}
 
@@ -316,6 +554,8 @@ namespace AngelscriptTestSupport
 			return nullptr;
 		}
 
+		FAngelscriptEngineScope EngineScope(Engine);
+
 		FAngelscriptPreprocessor Preprocessor;
 		Preprocessor.AddFile(RelativeFilename, AbsoluteFilename);
 		if (!Preprocessor.Preprocess())
@@ -328,7 +568,7 @@ namespace AngelscriptTestSupport
 		TArray<TSharedRef<FAngelscriptModuleDesc>> ModulesToCompile = Preprocessor.GetModulesToCompile();
 
 		TArray<TSharedRef<FAngelscriptModuleDesc>> CompiledModules;
-		TGuardValue<bool> AutomaticImportGuard(FAngelscriptEngine::bUseAutomaticImportMethod, false);
+		TGuardValue<bool> AutomaticImportGuard(Engine.bUseAutomaticImportMethod, false);
 		FScopedAutomaticImportsOverride AutomaticImportsOverride(Engine.GetScriptEngine());
 		const ECompileResult CompileResult = Engine.CompileModules(ECompileType::Initial, ModulesToCompile, CompiledModules);
 		if (CompileResult == ECompileResult::Error || CompileResult == ECompileResult::ErrorNeedFullReload)
@@ -426,7 +666,7 @@ namespace AngelscriptTestSupport
 
 	inline bool ExecuteIntFunction(FAutomationTestBase& Test, FAngelscriptEngine& Engine, asIScriptFunction& Function, int32& OutValue)
 	{
-		FScopedTestEngineGlobalScope GlobalScope(&Engine);
+		FAngelscriptEngineScope EngineScope(Engine);
 		asIScriptContext* Context = Engine.CreateContext();
 		if (Context == nullptr)
 		{
@@ -456,7 +696,7 @@ namespace AngelscriptTestSupport
 
 	inline bool ExecuteInt64Function(FAutomationTestBase& Test, FAngelscriptEngine& Engine, asIScriptFunction& Function, int64& OutValue)
 	{
-		FScopedTestEngineGlobalScope GlobalScope(&Engine);
+		FAngelscriptEngineScope EngineScope(Engine);
 		asIScriptContext* Context = Engine.CreateContext();
 		if (Context == nullptr)
 		{
@@ -483,5 +723,89 @@ namespace AngelscriptTestSupport
 		Context->Release();
 		return PrepareResult == asSUCCESS && ExecuteResult == asEXECUTION_FINISHED;
 	}
+
+	enum class ETestEngineMode : uint8
+	{
+		SharedClone,
+		IsolatedFull,
+		ProductionLike,
+	};
+
+	struct FAngelscriptTestFixture
+	{
+		FAngelscriptTestFixture(FAutomationTestBase& InTest, ETestEngineMode InMode = ETestEngineMode::SharedClone)
+			: Test(InTest)
+			, Mode(InMode)
+		{
+			switch (Mode)
+			{
+			case ETestEngineMode::SharedClone:
+			{
+				FAngelscriptEngine& SharedEngine = AcquireCleanSharedCloneEngine();
+				Engine = &SharedEngine;
+				EngineScope = MakeUnique<FAngelscriptEngineScope>(SharedEngine);
+				break;
+			}
+			case ETestEngineMode::IsolatedFull:
+			{
+				OwnedEngine = CreateIsolatedFullEngine();
+				if (OwnedEngine.IsValid())
+				{
+					Engine = OwnedEngine.Get();
+					EngineScope = MakeUnique<FAngelscriptEngineScope>(*Engine);
+				}
+				break;
+			}
+			case ETestEngineMode::ProductionLike:
+			{
+				FResolvedProductionLikeEngine Resolved;
+				if (AcquireProductionLikeEngine(InTest, TEXT("FAngelscriptTestFixture failed to acquire production-like engine"), Resolved))
+				{
+					OwnedEngine = MoveTemp(Resolved.OwnedEngine);
+					EngineScope = MoveTemp(Resolved.EngineScope);
+					Engine = Resolved.Engine;
+				}
+				break;
+			}
+			}
+		}
+
+		~FAngelscriptTestFixture()
+		{
+			EngineScope.Reset();
+		}
+
+		FAngelscriptTestFixture(const FAngelscriptTestFixture&) = delete;
+		FAngelscriptTestFixture& operator=(const FAngelscriptTestFixture&) = delete;
+
+		bool IsValid() const { return Engine != nullptr; }
+		FAngelscriptEngine& GetEngine() const { check(Engine != nullptr); return *Engine; }
+		FAutomationTestBase& GetTest() const { return Test; }
+
+		asIScriptModule* BuildModule(const char* ModuleName, const FString& Source)
+		{
+			check(Engine != nullptr);
+			return AngelscriptTestSupport::BuildModule(Test, *Engine, ModuleName, Source);
+		}
+
+		bool ExecuteInt(asIScriptFunction& Function, int32& OutResult)
+		{
+			check(Engine != nullptr);
+			return AngelscriptTestSupport::ExecuteIntFunction(Test, *Engine, Function, OutResult);
+		}
+
+		bool ExecuteInt64(asIScriptFunction& Function, int64& OutResult)
+		{
+			check(Engine != nullptr);
+			return AngelscriptTestSupport::ExecuteInt64Function(Test, *Engine, Function, OutResult);
+		}
+
+	private:
+		FAutomationTestBase& Test;
+		ETestEngineMode Mode;
+		FAngelscriptEngine* Engine = nullptr;
+		TUniquePtr<FAngelscriptEngine> OwnedEngine;
+		TUniquePtr<FAngelscriptEngineScope> EngineScope;
+	};
 
 }

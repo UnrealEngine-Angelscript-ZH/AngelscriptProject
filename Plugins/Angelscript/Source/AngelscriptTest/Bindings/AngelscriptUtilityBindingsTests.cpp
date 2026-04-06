@@ -1,4 +1,5 @@
 #include "../Shared/AngelscriptTestUtilities.h"
+#include "../Shared/AngelscriptTestMacros.h"
 
 #include "HAL/PlatformMisc.h"
 #include "Misc/App.h"
@@ -35,7 +36,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptHashBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -87,12 +89,15 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Hash compat operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
 bool FAngelscriptUtilityBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	TArray<FString> ExpectedTokens;
 	TArray<FString> ExpectedSwitches;
@@ -151,12 +156,15 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Utility compat operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
 bool FAngelscriptParseBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -211,12 +219,15 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Parse compat operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
 bool FAngelscriptRandomStreamBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -276,12 +287,15 @@ int Entry()
 	}
 
 	TestEqual(TEXT("RandomStream compat operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
 bool FAngelscriptStringRemoveAtBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -319,6 +333,8 @@ int Entry()
 	}
 
 	TestEqual(TEXT("FString RemoveAt(Index, Count) should behave as expected"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 

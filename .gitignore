@@ -103,6 +103,9 @@ DerivedDataCache/*
 # Sisyphus
 .sisyphus/
 
+# Local git worktrees
+.worktrees/
+
 # Windows artifact
 /nul
 

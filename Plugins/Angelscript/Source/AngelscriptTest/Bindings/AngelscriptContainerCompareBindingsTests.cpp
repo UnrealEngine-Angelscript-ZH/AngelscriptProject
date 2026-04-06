@@ -1,4 +1,5 @@
 #include "../Shared/AngelscriptTestUtilities.h"
+#include "../Shared/AngelscriptTestMacros.h"
 #include "../../AngelscriptRuntime/Binds/Bind_TMap.h"
 #include "../../AngelscriptRuntime/Binds/Bind_TOptional.h"
 
@@ -30,7 +31,13 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptSetCompareBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(TEXT("ASSetCompareCompat"));
+	};
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -74,12 +81,20 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TSet compare operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptMapCompareBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(TEXT("ASMapCompareCompat"));
+	};
+
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -123,13 +138,15 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TMap compare operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE_CLEAN
+
 	return true;
 }
 
 bool FAngelscriptOptionalTypeCompareTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	static_cast<void>(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	FAngelscriptTypeUsage IntUsage(FAngelscriptType::GetByAngelscriptTypeName(TEXT("int")));
 	FAngelscriptTypeUsage OptionalUsage(FAngelscriptType::GetByAngelscriptTypeName(TEXT("TOptional")));
@@ -192,11 +209,15 @@ bool FAngelscriptOptionalTypeCompareTest::RunTest(const FString& Parameters)
 	OptionalUsage.DestructValue(RightStorage);
 
 	TestFalse(TEXT("Set and unset optionals should compare unequal"), bSetVsUnsetEqual);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
 bool FAngelscriptMapDebuggerBindingsTest::RunTest(const FString& Parameters)
 {
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	FAngelscriptTypeUsage KeyUsage(FAngelscriptType::GetByAngelscriptTypeName(TEXT("FName")));
 	FAngelscriptTypeUsage ValueUsage(FAngelscriptType::GetByAngelscriptTypeName(TEXT("int")));
 	FAngelscriptTypeUsage MapUsage(FAngelscriptType::GetByAngelscriptTypeName(TEXT("TMap")));
@@ -239,6 +260,8 @@ bool FAngelscriptMapDebuggerBindingsTest::RunTest(const FString& Parameters)
 	}
 
 	TestEqual(TEXT("TMap debugger key lookup should return the mapped value"), AlphaDebugValue.Value, FString(TEXT("2")));
+	ASTEST_END_SHARE
+
 	return true;
 }
 

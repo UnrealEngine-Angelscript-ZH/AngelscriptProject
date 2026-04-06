@@ -1,6 +1,7 @@
 #include "../../Shared/AngelscriptLearningTrace.h"
 #include "../../Shared/AngelscriptTestEngineHelper.h"
 #include "../../Shared/AngelscriptTestUtilities.h"
+#include "../../Shared/AngelscriptTestMacros.h"
 
 #include "GameFramework/Actor.h"
 #include "Misc/AutomationTest.h"
@@ -77,7 +78,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningClassGenerationTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
+	ASTEST_BEGIN_SHARE_FRESH
 	static const FName ModuleName(TEXT("LearningClassGenerationTraceModule"));
 	ON_SCOPE_EXIT
 	{
@@ -179,6 +181,8 @@ class ALearningClassGenerationTraceActor : AActor
 		&& bContainsGeneratedPropertyKeyword
 		&& bContainsDefaultValueKeyword
 		&& bMinimumEventsOk;
+
+	ASTEST_END_SHARE_FRESH
 }
 
 #endif

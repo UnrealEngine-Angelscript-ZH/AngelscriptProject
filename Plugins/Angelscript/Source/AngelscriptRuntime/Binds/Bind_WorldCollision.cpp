@@ -13,7 +13,7 @@ namespace WorldCollision
 {
 	UWorld* GetWorld()
 	{
-		return GEngine->GetWorldFromContextObject(FAngelscriptEngine::CurrentWorldContext, EGetWorldErrorMode::LogAndReturnNull);
+		return GEngine->GetWorldFromContextObject(FAngelscriptEngine::TryGetCurrentWorldContextObject(), EGetWorldErrorMode::LogAndReturnNull);
 	}
 };
 

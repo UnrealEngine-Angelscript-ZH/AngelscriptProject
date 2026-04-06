@@ -1,4 +1,5 @@
 #include "Shared/AngelscriptScenarioTestUtils.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 #include "Components/ActorTestSpawner.h"
 #include "Engine/Blueprint.h"
@@ -66,14 +67,14 @@ namespace BlueprintSubclassActorTest
 		return Blueprint;
 	}
 
-	void BeginPlayWorld(UWorld& World)
+	void BeginPlayWorld(FAngelscriptEngine& Engine, UWorld& World)
 	{
 		if (!World.HasBegunPlay())
 		{
 			AWorldSettings* WorldSettings = World.GetWorldSettings();
 			if (WorldSettings != nullptr)
 			{
-				FScopedTestWorldContextScope WorldContextScope(WorldSettings);
+				FAngelscriptEngineScope WorldScope(Engine, WorldSettings);
 				WorldSettings->NotifyBeginPlay();
 			}
 		}
@@ -88,8 +89,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioBlueprintSubclassBeginPlayTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireCleanSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	static const FName ModuleName(TEXT("ScenarioActorBlueprintSubclassBeginPlay"));
 	UBlueprint* Blueprint = nullptr;
 	ON_SCOPE_EXIT
@@ -170,7 +171,7 @@ class AScenarioActorBlueprintSubclassBeginPlay : AActor
 		return false;
 	}
 
-	BlueprintSubclassActorTest::BeginPlayWorld(Spawner.GetWorld());
+	BlueprintSubclassActorTest::BeginPlayWorld(Engine, Spawner.GetWorld());
 
 	int32 BeginPlayCalled = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("BeginPlayCalled"), BeginPlayCalled))
@@ -183,7 +184,7 @@ class AScenarioActorBlueprintSubclassBeginPlay : AActor
 		BeginPlayCalled,
 		1);
 
-	TickWorld(Spawner.GetWorld(), BlueprintSubclassActorTest::ScenarioTickDeltaTime, BlueprintSubclassActorTest::ScenarioTickCount);
+	TickWorld(Engine, Spawner.GetWorld(), BlueprintSubclassActorTest::ScenarioTickDeltaTime, BlueprintSubclassActorTest::ScenarioTickCount);
 
 	int32 TickCount = 0;
 	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("TickCount"), TickCount))
@@ -194,6 +195,8 @@ class AScenarioActorBlueprintSubclassBeginPlay : AActor
 	TestTrue(
 		TEXT("World-level Tick should dispatch inherited script Tick to blueprint subclass actors at least once per world tick"),
 		TickCount >= BlueprintSubclassActorTest::ScenarioTickCount);
+
+	ASTEST_END_SHARE_CLEAN
 
 	return true;
 }

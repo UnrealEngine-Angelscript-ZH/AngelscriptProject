@@ -13,6 +13,8 @@ namespace UnrealBuildTool.Rules
 			PublicIncludePaths.Add(ModuleDirectory);
 			PrivateIncludePaths.Add(ModuleDirectory);
 			PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Core"));
+			PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Debugger"));
+			PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Dump"));
 			PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Internals"));
 			PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Native"));
 			PrivateIncludePaths.Add(Path.Combine(ModuleDirectory, "Preprocessor"));
@@ -34,6 +36,8 @@ namespace UnrealBuildTool.Rules
 				PrivateDependencyModuleNames.AddRange(new string[]
 				{
 					"CQTest",
+					"Networking",
+					"Sockets",
 					"UnrealEd",
 					"AngelscriptEditor",
 				});

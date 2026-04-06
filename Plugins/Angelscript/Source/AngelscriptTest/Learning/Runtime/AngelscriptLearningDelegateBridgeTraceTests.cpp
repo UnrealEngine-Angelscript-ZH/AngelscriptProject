@@ -2,6 +2,7 @@
 #include "../../Shared/AngelscriptScenarioTestUtils.h"
 #include "../../Shared/AngelscriptTestEngineHelper.h"
 #include "../../Shared/AngelscriptTestUtilities.h"
+#include "../../Shared/AngelscriptTestMacros.h"
 #include "../../Shared/AngelscriptNativeScriptTestObject.h"
 
 #include "Components/ActorTestSpawner.h"
@@ -34,8 +35,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningDelegateBridgeTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
+	ASTEST_BEGIN_SHARE_FRESH
 	static const FName ModuleName(TEXT("LearningDelegateBridgeModule"));
 	ON_SCOPE_EXIT
 	{
@@ -186,6 +187,8 @@ class ALearningDelegateBridgeActor : AActor
 		&& bContainsDelegateKeyword
 		&& bContainsBindKeyword
 		&& bMinimumEventsOk;
+
+	ASTEST_END_SHARE_FRESH
 }
 
 #endif

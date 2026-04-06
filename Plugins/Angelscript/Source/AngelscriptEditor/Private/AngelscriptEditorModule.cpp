@@ -42,6 +42,12 @@
 
 IMPLEMENT_MODULE(FAngelscriptEditorModule, AngelscriptEditor);
 
+namespace AngelscriptEditor::Private
+{
+	void RegisterStateDumpExtension(FDelegateHandle& OutHandle);
+	void UnregisterStateDumpExtension(FDelegateHandle& InOutHandle);
+}
+
 extern void RegisterAngelscriptSourceNavigation();
 
 static FDelegateHandle GLiteralAssetPreSaveHandle;
@@ -347,7 +353,7 @@ void FAngelscriptEditorModule::StartupModule()
 	FClassReloadHelper::Init();
 	RegisterAngelscriptSourceNavigation();
 
-	if (FAngelscriptEngine::bIsInitialCompileFinished)
+	if (FAngelscriptEngine::IsInitialized() && FAngelscriptEngine::Get().IsInitialCompileFinished())
 		FComponentTypeRegistry::Get().Invalidate();
 
 	IGameplayTagsModule::OnTagSettingsChanged.AddRaw(this, &FAngelscriptEditorModule::ReloadTags);
@@ -355,6 +361,7 @@ void FAngelscriptEditorModule::StartupModule()
 	FCoreDelegates::OnPostEngineInit.AddStatic(&OnEngineInitDone);
 
 	UScriptEditorMenuExtension::InitializeExtensions();
+	AngelscriptEditor::Private::RegisterStateDumpExtension(StateDumpExtensionHandle);
 
 	// Register a directory watch on the script directory so we know when to reload
 	FDirectoryWatcherModule& DirectoryWatcherModule = FModuleManager::LoadModuleChecked<FDirectoryWatcherModule>("DirectoryWatcher");
@@ -673,6 +680,8 @@ void FAngelscriptEditorModule::ShutdownModule()
 		FCoreUObjectDelegates::OnObjectPreSave.Remove(GLiteralAssetPreSaveHandle);
 		GLiteralAssetPreSaveHandle.Reset();
 	}
+
+	AngelscriptEditor::Private::UnregisterStateDumpExtension(StateDumpExtensionHandle);
 
 	// Unregister the tool menu extension
 	UToolMenus::UnRegisterStartupCallback(this);
@@ -1253,7 +1262,7 @@ void FAngelscriptEditorModule::GenerateBuildFile(FString ModuleName, TArray<FStr
 		str.FindLastChar('/', modIndex);		
 		include = str.RightChop(modIndex);
 		if (removeFirst)
-			include.RemoveAt(0, 1, true);		
+			include.RemoveAt(0, 1, EAllowShrinking::Yes);
 
 		line += '"';
 		line += include;
@@ -2197,7 +2206,7 @@ void FAngelscriptEditorModule::GenerateFunctionEntries(UClass* Class, TArray<FSt
 		for (auto& elem : UPars)
 		{
 			if (elem.Key != -1 && elem.Value != -1)
-				line.RemoveAt(elem.Key, (elem.Value - elem.Key) + 1, true);
+				line.RemoveAt(elem.Key, (elem.Value - elem.Key) + 1, EAllowShrinking::Yes);
 		}
 
 		File.Add(line);
@@ -3366,7 +3375,7 @@ void FAngelscriptEditorModule::OriginalGenerate()
 		int32 modIndex = 0;
 		ModuleName.FindLastChar('/', modIndex);
 		ModuleName = ModuleName.RightChop(modIndex);
-		ModuleName.RemoveAt(0, 1, true);
+		ModuleName.RemoveAt(0, 1, EAllowShrinking::Yes);
 		//lines.Add("//Module: " + ModuleName);
 		//newLines.Add("//Module: " + ModuleName);
 

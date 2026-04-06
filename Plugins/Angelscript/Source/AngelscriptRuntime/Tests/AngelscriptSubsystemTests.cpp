@@ -77,13 +77,13 @@ struct FAngelscriptTickBehaviorTestAccess
 		Engine.NextHotReloadCheck = 0.0;
 	}
 
-	static void SetSubsystemOwnedPrimaryEngine(UAngelscriptGameInstanceSubsystem& Subsystem, TUniquePtr<FAngelscriptEngine>&& OwnedEngine)
+	static void SetSubsystemPrimaryEngine(UAngelscriptGameInstanceSubsystem& Subsystem, FAngelscriptEngine* Engine)
 	{
-		Subsystem.OwnedPrimaryEngine = MoveTemp(OwnedEngine);
-		Subsystem.PrimaryEngine = Subsystem.OwnedPrimaryEngine.Get();
+		Subsystem.PrimaryEngine = Engine;
 		Subsystem.bOwnsPrimaryEngine = true;
 		Subsystem.bInitialized = true;
 		Subsystem.ActiveTickOwners = 1;
+		FAngelscriptEngineContextStack::Push(Engine);
 	}
 };
 
@@ -137,9 +137,9 @@ static UAngelscriptGameInstanceSubsystem* CreateSubsystemWorld(FAutomationTestBa
 	return GameInstance->GetSubsystem<UAngelscriptGameInstanceSubsystem>();
 }
 
-static UAngelscriptGameInstanceSubsystem* CreateInjectedSubsystem(FAutomationTestBase& Test, TUniquePtr<FAngelscriptEngine>&& OwnedEngine, TStrongObjectPtr<UGameInstance>& OutGameInstance)
+static UAngelscriptGameInstanceSubsystem* CreateInjectedSubsystem(FAutomationTestBase& Test, FAngelscriptEngine* Engine, TStrongObjectPtr<UGameInstance>& OutGameInstance)
 {
-	if (!Test.TestNotNull(TEXT("Injected subsystem helper should receive an owned engine"), OwnedEngine.Get()))
+	if (!Test.TestNotNull(TEXT("Injected subsystem helper should receive an engine"), Engine))
 	{
 		return nullptr;
 	}
@@ -156,7 +156,7 @@ static UAngelscriptGameInstanceSubsystem* CreateInjectedSubsystem(FAutomationTes
 		return nullptr;
 	}
 
-	FAngelscriptTickBehaviorTestAccess::SetSubsystemOwnedPrimaryEngine(*Subsystem, MoveTemp(OwnedEngine));
+	FAngelscriptTickBehaviorTestAccess::SetSubsystemPrimaryEngine(*Subsystem, Engine);
 	return Subsystem;
 }
 
@@ -171,13 +171,13 @@ bool FAngelscriptGameInstanceSubsystemTest::RunTest(const FString& Parameters)
 	}
 
 	TStrongObjectPtr<UGameInstance> GameInstance;
-	UAngelscriptGameInstanceSubsystem* TypedSubsystem = CreateInjectedSubsystem(*this, MoveTemp(OwnedEngine), GameInstance);
+	UAngelscriptGameInstanceSubsystem* TypedSubsystem = CreateInjectedSubsystem(*this, OwnedEngine.Get(), GameInstance);
 	if (!TestNotNull(TEXT("Game instance subsystem test should create an injected subsystem instance"), TypedSubsystem))
 	{
 		return false;
 	}
 
-	FScopedTestEngineGlobalScope GlobalScope(TypedSubsystem->GetEngine());
+	FAngelscriptEngineScope GlobalScope(*TypedSubsystem->GetEngine());
 	ON_SCOPE_EXIT
 	{
 		TypedSubsystem->Deinitialize();
@@ -214,13 +214,13 @@ bool FAngelscriptSubsystemCreatesPrimaryEngineTest::RunTest(const FString& Param
 	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
 	TUniquePtr<FAngelscriptEngine> OwnedEngine = FAngelscriptEngine::CreateForTesting(Config, Dependencies, EAngelscriptEngineCreationMode::Clone);
 	TStrongObjectPtr<UGameInstance> GameInstance;
-	UAngelscriptGameInstanceSubsystem* Subsystem = CreateInjectedSubsystem(*this, MoveTemp(OwnedEngine), GameInstance);
+	UAngelscriptGameInstanceSubsystem* Subsystem = CreateInjectedSubsystem(*this, OwnedEngine.Get(), GameInstance);
 	if (!TestNotNull(TEXT("Subsystem create test should expose the Angelscript subsystem"), Subsystem))
 	{
 		return false;
 	}
 
-	FScopedTestEngineGlobalScope GlobalScope(Subsystem->GetEngine());
+	FAngelscriptEngineScope GlobalScope(*Subsystem->GetEngine());
 	ON_SCOPE_EXIT
 	{
 		Subsystem->Deinitialize();
@@ -242,12 +242,12 @@ bool FAngelscriptSubsystemTicksPrimaryEngineTest::RunTest(const FString& Paramet
 	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
 	TUniquePtr<FAngelscriptEngine> OwnedEngine = FAngelscriptEngine::CreateForTesting(Config, Dependencies, EAngelscriptEngineCreationMode::Clone);
 	TStrongObjectPtr<UGameInstance> GameInstance;
-	UAngelscriptGameInstanceSubsystem* Subsystem = CreateInjectedSubsystem(*this, MoveTemp(OwnedEngine), GameInstance);
+	UAngelscriptGameInstanceSubsystem* Subsystem = CreateInjectedSubsystem(*this, OwnedEngine.Get(), GameInstance);
 	if (!TestNotNull(TEXT("Subsystem tick test should expose the Angelscript subsystem"), Subsystem))
 	{
 		return false;
 	}
-	FScopedTestEngineGlobalScope GlobalScope(Subsystem->GetEngine());
+	FAngelscriptEngineScope GlobalScope(*Subsystem->GetEngine());
 
 	ON_SCOPE_EXIT
 	{
@@ -275,9 +275,12 @@ bool FAngelscriptSubsystemTicksPrimaryEngineTest::RunTest(const FString& Paramet
 
 bool FAngelscriptSubsystemDeinitializeDestroysPrimaryEngineTest::RunTest(const FString& Parameters)
 {
+	TArray<FAngelscriptEngine*> SavedStack = FAngelscriptEngineContextStack::SnapshotAndClear();
+	ON_SCOPE_EXIT { FAngelscriptEngineContextStack::RestoreSnapshot(MoveTemp(SavedStack)); };
+
 	FAngelscriptEngineConfig Config;
 	FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
-	TUniquePtr<FAngelscriptEngine> OwnedEngine = FAngelscriptEngine::CreateForTesting(Config, Dependencies, EAngelscriptEngineCreationMode::Clone);
+	TUniquePtr<FAngelscriptEngine> OwnedEngine = FAngelscriptEngine::CreateForTesting(Config, Dependencies, EAngelscriptEngineCreationMode::Full);
 	if (!TestNotNull(TEXT("Subsystem deinitialize test should create a test-owned primary engine"), OwnedEngine.Get()))
 	{
 		return false;
@@ -290,12 +293,11 @@ bool FAngelscriptSubsystemDeinitializeDestroysPrimaryEngineTest::RunTest(const F
 		return false;
 	}
 
-	FAngelscriptTickBehaviorTestAccess::SetSubsystemOwnedPrimaryEngine(*Subsystem, MoveTemp(OwnedEngine));
-	FScopedTestEngineGlobalScope GlobalScope(Subsystem->GetEngine());
+	FAngelscriptTickBehaviorTestAccess::SetSubsystemPrimaryEngine(*Subsystem, OwnedEngine.Get());
 	Subsystem->Deinitialize();
 
 	TestFalse(TEXT("Subsystem deinitialize test should clear active tick owners"), UAngelscriptGameInstanceSubsystem::HasAnyTickOwner());
-	return TestNull(TEXT("Subsystem deinitialize test should release the global engine it owned"), FAngelscriptTickBehaviorTestAccess::TryGetGlobalEngine());
+	return TestNull(TEXT("Subsystem deinitialize test should release the engine it owned"), Subsystem->GetEngine());
 }
 
 bool FAngelscriptRuntimeFallbackDoesNotTickWhenSubsystemOwnsEngineTest::RunTest(const FString& Parameters)
@@ -304,13 +306,13 @@ bool FAngelscriptRuntimeFallbackDoesNotTickWhenSubsystemOwnsEngineTest::RunTest(
 	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
 	TUniquePtr<FAngelscriptEngine> OwnedEngine = FAngelscriptEngine::CreateForTesting(Config, Dependencies, EAngelscriptEngineCreationMode::Clone);
 	TStrongObjectPtr<UGameInstance> GameInstance;
-	UAngelscriptGameInstanceSubsystem* Subsystem = CreateInjectedSubsystem(*this, MoveTemp(OwnedEngine), GameInstance);
+	UAngelscriptGameInstanceSubsystem* Subsystem = CreateInjectedSubsystem(*this, OwnedEngine.Get(), GameInstance);
 	if (!TestNotNull(TEXT("Fallback tick test should expose the Angelscript subsystem"), Subsystem))
 	{
 		return false;
 	}
 
-	FScopedTestEngineGlobalScope GlobalScope(Subsystem->GetEngine());
+	FAngelscriptEngineScope GlobalScope(*Subsystem->GetEngine());
 	ON_SCOPE_EXIT
 	{
 		Subsystem->Deinitialize();

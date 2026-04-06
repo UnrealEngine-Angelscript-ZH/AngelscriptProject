@@ -1,6 +1,7 @@
 #include "../../Shared/AngelscriptLearningTrace.h"
 #include "../../Shared/AngelscriptTestEngineHelper.h"
 #include "../../Shared/AngelscriptTestUtilities.h"
+#include "../../Shared/AngelscriptTestMacros.h"
 
 #include "Misc/AutomationTest.h"
 #include "Misc/ScopeExit.h"
@@ -115,8 +116,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptLearningCompilerTraceTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
-	ResetSharedCloneEngine(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_CLEAN();
+	ASTEST_BEGIN_SHARE_CLEAN
 	ON_SCOPE_EXIT
 	{
 		Engine.DiscardModule(TEXT("LearningCompilerBuildModule"));
@@ -240,6 +241,8 @@ class UBrokenLearningCompilerTraceCarrier : UObject
 		&& bContainsCompileResultKeyword
 		&& bContainsDiagnosticsKeyword
 		&& bMinimumEventsOk;
+
+	ASTEST_END_SHARE_CLEAN
 }
 
 #endif

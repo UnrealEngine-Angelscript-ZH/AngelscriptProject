@@ -1,4 +1,5 @@
 #include "../Shared/AngelscriptTestUtilities.h"
+#include "../Shared/AngelscriptTestMacros.h"
 #include "../Shared/AngelscriptTestEngineHelper.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -37,7 +38,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptClassLookupBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -88,12 +90,15 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Class lookup helper operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
 bool FAngelscriptTSubclassOfBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -173,12 +178,15 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TSubclassOf compat operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
 bool FAngelscriptTSoftClassPtrBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -260,12 +268,15 @@ int Entry()
 	}
 
 	TestEqual(TEXT("TSoftClassPtr compat operations should behave as expected"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
 bool FAngelscriptStaticClassCompatBindingsTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 
 	asIScriptModule* PlainModule = BuildModule(
 		*this,
@@ -356,7 +367,7 @@ class ABindingStaticClassActor : AActor
 	}
 
 	int32 AnnotatedResult = 0;
-	if (!TestTrue(TEXT("StaticClass compat reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(RuntimeActor, ReadStaticClassCompatFunction, AnnotatedResult)))
+	if (!TestTrue(TEXT("StaticClass compat reflected call should execute on the game thread"), ExecuteGeneratedIntEventOnGameThread(&Engine, RuntimeActor, ReadStaticClassCompatFunction, AnnotatedResult)))
 	{
 		return false;
 	}
@@ -403,12 +414,16 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Follow-up plain module should resolve generated classes into TSubclassOf compat flow"), QueryResult, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 
 bool FAngelscriptNativeStaticClassNamespaceBindingTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	bool bPassed = false;
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptEngine* ScriptEngine = Engine.Engine;
 	if (!TestNotNull(TEXT("AngelScript engine should exist"), ScriptEngine))
 	{
@@ -429,12 +444,16 @@ bool FAngelscriptNativeStaticClassNamespaceBindingTest::RunTest(const FString& P
 	}
 
 	TestTrue(TEXT("Restore global namespace should succeed"), ScriptEngine->SetDefaultNamespace("") >= 0);
-	return bHasFunction;
+	bPassed = bHasFunction;
+	ASTEST_END_SHARE
+
+	return bPassed;
 }
 
 bool FAngelscriptNativeStaticTypeGlobalBindingTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = GetOrCreateSharedCloneEngine();
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE();
+	ASTEST_BEGIN_SHARE
 	asIScriptModule* Module = BuildModule(
 		*this,
 		Engine,
@@ -471,6 +490,8 @@ int Entry()
 	}
 
 	TestEqual(TEXT("Native static type globals should expose usable UClass values"), Result, 1);
+	ASTEST_END_SHARE
+
 	return true;
 }
 

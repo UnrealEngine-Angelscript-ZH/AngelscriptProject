@@ -1,325 +1,272 @@
-<#
-.SYNOPSIS
-    Run the configured Unreal Editor target build with an enforced timeout.
-
-.PARAMETER TimeoutMs
-    Build timeout in milliseconds. Default: Build.DefaultTimeoutMs -> Test.DefaultTimeoutMs -> 600000.
-#>
+[CmdletBinding()]
 param(
     [int]$TimeoutMs = 0,
-    [switch]$UseWaitMutex,
-    [switch]$NoMutex
+
+    [string]$Label = 'build',
+
+    [string]$LogRoot = '',
+
+    [switch]$SerializeByEngine,
+
+    [switch]$NoXGE,
+
+    [switch]$UniqueBuildEnvironment,
+
+    [Parameter(ValueFromRemainingArguments = $true)]
+    [string[]]$ExtraArgs = @()
 )
 
 Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
+$ErrorActionPreference = 'Stop'
 
-function Get-IniMap {
-    param([string]$Path)
-    if (-not (Test-Path -LiteralPath $Path)) {
-        throw "AgentConfig.ini not found at '$Path'. Run Tools\GenerateAgentConfigTemplate.bat first."
+. (Join-Path $PSScriptRoot 'Shared\UnrealCommandUtils.ps1')
+
+$exitCodes = @{
+    Success      = 0
+    BuildFailed  = 1
+    TimedOut     = 2
+    ConfigError  = 3
+    WorktreeBusy = 4
+    EngineBusy   = 5
+}
+
+$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
+$worktreeMutex = $null
+$engineMutex = $null
+$metadataPath = $null
+$scriptExitCode = $exitCodes.ConfigError
+
+try {
+    $agentConfig = Resolve-AgentConfiguration -ProjectRoot $projectRoot
+
+    if ($UniqueBuildEnvironment) {
+        throw 'Using -UniqueBuildEnvironment is prohibited in this repository. It triggers a worktree-private engine rebuild. Use -SerializeByEngine or a dedicated EngineRoot instead.'
     }
-    $result = @{}
-    $currentSection = ""
-    foreach ($line in Get-Content -LiteralPath $Path) {
-        $trimmed = $line.Trim()
-        if ([string]::IsNullOrWhiteSpace($trimmed) -or $trimmed.StartsWith(";")) { continue }
-        if ($trimmed.StartsWith("[") -and $trimmed.EndsWith("]")) {
-            $currentSection = $trimmed.Substring(1, $trimmed.Length - 2)
-            if (-not $result.ContainsKey($currentSection)) { $result[$currentSection] = @{} }
-            continue
+
+    if ($ExtraArgs -contains '-UniqueBuildEnvironment') {
+        throw 'Using -UniqueBuildEnvironment via ExtraArgs is prohibited in this repository. It triggers a worktree-private engine rebuild. Use -SerializeByEngine or a dedicated EngineRoot instead.'
+    }
+
+    $defaultTimeoutMs = $agentConfig.BuildDefaultTimeoutMs
+    $resolvedTimeoutMs = Resolve-TimeoutMs -RequestedTimeoutMs $TimeoutMs -DefaultTimeoutMs $defaultTimeoutMs -ParameterName 'TimeoutMs'
+    $deadlineUtc = New-ExecutionDeadline -TimeoutMs $resolvedTimeoutMs
+    $ubtPaths = Resolve-UbtPaths -EngineRoot $agentConfig.EngineRoot
+    $outputLayout = New-CommandOutputLayout -ProjectRoot $projectRoot -Category 'Build' -Label $Label -RequestedOutputRoot $LogRoot -LogFileName 'Build.log'
+    $metadataPath = Join-Path $outputLayout.OutputRoot 'RunMetadata.json'
+    $engineWaitDurationMs = 0
+    $timedOutPhase = $null
+    $sharedEngineTimestampConflict = [PSCustomObject]@{
+        Detected             = $false
+        SharedEngineDetected = $false
+        Paths                = @()
+        SharedEnginePaths    = @()
+    }
+
+    $worktreeMutexName = Get-NamedMutexName -Scope 'ue-command-worktree' -KeyPath $projectRoot
+    $worktreeMutex = Acquire-NamedMutex -Name $worktreeMutexName -TimeoutMs 0
+    if ($null -eq $worktreeMutex) {
+        Write-Host '[error] Another build or test command is already running for this worktree.' -ForegroundColor Red
+        $scriptExitCode = $exitCodes.WorktreeBusy
+        return
+    }
+
+    if ($SerializeByEngine) {
+        $engineMutexName = Get-NamedMutexName -Scope 'ue-build-engine' -KeyPath $agentConfig.EngineRoot
+        Write-Host ('Serialized engine mode enabled for: {0}' -f $agentConfig.EngineRoot)
+        $engineWaitStartedAt = [DateTime]::UtcNow
+        $engineWaitTimeoutMs = Get-RemainingTimeoutMs -DeadlineUtc $deadlineUtc -PhaseName 'Build engine slot wait'
+        $engineMutex = Acquire-NamedMutex -Name $engineMutexName -TimeoutMs $engineWaitTimeoutMs -PollIntervalMs 5000 -OnWait {
+            param($ElapsedMs, $RemainingMs)
+            Write-Host ("[wait] Engine build slot busy. elapsed={0}ms remaining={1}ms" -f $ElapsedMs, $RemainingMs)
         }
-        $sep = $trimmed.IndexOf("=")
-        if ($sep -lt 0 -or [string]::IsNullOrWhiteSpace($currentSection)) { continue }
-        $result[$currentSection][$trimmed.Substring(0, $sep).Trim()] = $trimmed.Substring($sep + 1).Trim()
-    }
-    return $result
-}
+        $engineWaitDurationMs = [int]([DateTime]::UtcNow - $engineWaitStartedAt).TotalMilliseconds
 
-function Get-IniValue {
-    param([hashtable]$Ini, [string]$Section, [string]$Key, [string]$Default = "")
-    if ($Ini.ContainsKey($Section) -and $Ini[$Section].ContainsKey($Key)) {
-        $v = [string]$Ini[$Section][$Key]
-        if (-not [string]::IsNullOrWhiteSpace($v)) { return $v }
-    }
-    return $Default
-}
-
-function Stop-ProcessTree {
-    param([int]$ProcessId)
-    try {
-        Stop-Process -Id $ProcessId -Force -ErrorAction SilentlyContinue
-    } catch {
-    }
-    try {
-        & taskkill /PID $ProcessId /T /F 2>$null | Out-Null
-    } catch {
-    }
-}
-
-function Get-DescendantProcessIds {
-    param([int]$RootProcessId)
-
-    $descendants = New-Object System.Collections.Generic.List[int]
-    $queue = New-Object System.Collections.Generic.Queue[int]
-    $queue.Enqueue($RootProcessId)
-
-    while ($queue.Count -gt 0) {
-        $current = $queue.Dequeue()
-        foreach ($child in @(Get-CimInstance Win32_Process -Filter "ParentProcessId = $current" -ErrorAction SilentlyContinue)) {
-            $descendants.Add([int]$child.ProcessId)
-            $queue.Enqueue([int]$child.ProcessId)
+        if ($null -eq $engineMutex) {
+            Write-Host '[error] Failed to acquire the engine build slot within the requested timeout.' -ForegroundColor Red
+            $timedOutPhase = 'EngineWait'
+            $scriptExitCode = $exitCodes.EngineBusy
+            return
         }
     }
 
-    return $descendants
-}
-
-function Get-ProjectProcessIds {
-    param(
-        [string]$ProjectFile,
-        [string]$ProjectRoot,
-        [datetime]$StartedAfter
+    $buildModeParts = New-Object System.Collections.Generic.List[string]
+    $baseBuildMode = if ($SerializeByEngine) { 'SerializedEngine' } else { 'ConcurrentNoEngineChanges' }
+    $buildModeParts.Add($baseBuildMode) | Out-Null
+    if ($NoXGE) {
+        $buildModeParts.Add('NoXGE') | Out-Null
+    }
+    $buildMode = [string]::Join('+', $buildModeParts)
+    $ubtLogPath = Join-Path $outputLayout.OutputRoot 'UBT.log'
+    $argumentList = @(
+        $ubtPaths.UbtDllPath
+        $agentConfig.EditorTarget
+        $agentConfig.Platform
+        $agentConfig.Configuration
+        "-Project=$($agentConfig.ProjectFile)"
+        "-architecture=$($agentConfig.Architecture)"
+        "-Log=$ubtLogPath"
+        '-NoMutex'
     )
 
-    $result = New-Object System.Collections.Generic.List[int]
-    $allowedNames = @('dotnet.exe', 'UnrealBuildTool.exe', 'MSBuild.exe', 'cl.exe', 'link.exe', 'rc.exe', 'ShaderCompileWorker.exe', 'cmd.exe')
-    foreach ($proc in @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
-        if ($allowedNames -notcontains $proc.Name) {
-            continue
-        }
+    if (-not $SerializeByEngine) {
+        $argumentList += '-NoEngineChanges'
+    }
 
-        $commandLine = [string]$proc.CommandLine
-        if ([string]::IsNullOrWhiteSpace($commandLine)) {
-            continue
-        }
+    if ($NoXGE) {
+        $argumentList += '-NoXGE'
+    }
 
-        $matchesProject = $commandLine.IndexOf($ProjectFile, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
-            $commandLine.IndexOf($ProjectRoot, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
-        if (-not $matchesProject) {
-            continue
-        }
+    if ($ExtraArgs.Count -gt 0) {
+        $argumentList += $ExtraArgs
+    }
 
-        if (-not (Test-IsTrackedBuildProcess -ProcessName $proc.Name -CommandLine $commandLine)) {
-            continue
-        }
+    Write-Utf8JsonFile -Path $metadataPath -Value ([PSCustomObject]@{
+            Label             = $Label
+            Mode              = $buildMode
+            ProjectRoot       = $projectRoot
+            ProjectFile       = $agentConfig.ProjectFile
+            EngineRoot        = $agentConfig.EngineRoot
+            DotNetExecutable  = $ubtPaths.DotNetExecutablePath
+            UbtDllPath        = $ubtPaths.UbtDllPath
+            WorkingDirectory  = $ubtPaths.WorkingDirectory
+            TimeoutMs         = $resolvedTimeoutMs
+            OutputRoot        = $outputLayout.OutputRoot
+            LogPath           = $outputLayout.LogPath
+            EngineWaitDurationMs = $engineWaitDurationMs
+            NoXGE             = [bool]$NoXGE
+            SharedEngineUhtTimestampConflict = $sharedEngineTimestampConflict
+            TimedOutPhase     = $timedOutPhase
+            Arguments         = $argumentList
+            TimedOut          = $false
+            ProcessExitCode   = $null
+            ExitCode          = $null
+        })
 
-        try {
-            $startTime = [System.Management.ManagementDateTimeConverter]::ToDateTime($proc.CreationDate)
-        } catch {
-            $startTime = $StartedAfter
-        }
+    Write-Host '================================================================'
+    Write-Host 'Angelscript UBT Build Runner'
+    Write-Host '================================================================'
+    Write-Host ('Mode            : {0}' -f $buildMode)
+    Write-Host ('Target          : {0}' -f $agentConfig.EditorTarget)
+    Write-Host ('Platform        : {0}' -f $agentConfig.Platform)
+    Write-Host ('Configuration   : {0}' -f $agentConfig.Configuration)
+    Write-Host ('ProjectFile     : {0}' -f $agentConfig.ProjectFile)
+    Write-Host ('EngineRoot      : {0}' -f $agentConfig.EngineRoot)
+    Write-Host ('DotNet          : {0} ({1})' -f $ubtPaths.DotNetExecutablePath, $ubtPaths.DotNetSource)
+    Write-Host ('TimeoutMs       : {0}' -f $resolvedTimeoutMs)
+    Write-Host ('LogPath         : {0}' -f $outputLayout.LogPath)
+    Write-Host ('UBT LogPath     : {0}' -f $ubtLogPath)
+    Write-Host ('NoXGE          : {0}' -f ([bool]$NoXGE))
+    if (-not $SerializeByEngine) {
+        Write-Host 'Guard           : -NoMutex -NoEngineChanges'
+        Write-Host 'Hint            : rerun with -SerializeByEngine if engine outputs must change.'
+    }
+    Write-Host '----------------------------------------------------------------'
 
-        if ($startTime -ge $StartedAfter) {
-            $result.Add([int]$proc.ProcessId)
+    $processTimeoutMs = Get-RemainingTimeoutMs -DeadlineUtc $deadlineUtc -PhaseName 'Build execution'
+    $result = Invoke-StreamingProcess `
+        -FilePath $ubtPaths.DotNetExecutablePath `
+        -ArgumentList $argumentList `
+        -WorkingDirectory $ubtPaths.WorkingDirectory `
+        -TimeoutMs $processTimeoutMs `
+        -LogPath $outputLayout.LogPath `
+        -Label 'ubt-build' `
+        -Environment $ubtPaths.Environment
+
+    $scriptExitCode = if ($result.TimedOut) {
+        $timedOutPhase = 'BuildExecution'
+        $exitCodes.TimedOut
+    }
+    elseif ([int]$result.ExitCode -eq 0) {
+        $exitCodes.Success
+    }
+    else {
+        $exitCodes.BuildFailed
+    }
+
+    if ($scriptExitCode -eq $exitCodes.Success -and (Test-Path -LiteralPath $outputLayout.LogPath -PathType Leaf)) {
+        $buildLog = Get-Content -LiteralPath $outputLayout.LogPath -Raw -Encoding UTF8
+        if ($buildLog -match '(?m)^Result:\s+Failed\b') {
+            Write-Host '[warn] Build log reports failure despite a zero process exit code. Promoting final exit code to 1.' -ForegroundColor Yellow
+            $scriptExitCode = $exitCodes.BuildFailed
         }
     }
 
-    return $result
-}
-
-function Stop-BuildProcesses {
-    param(
-        [int]$RootProcessId,
-        [string]$ProjectFile,
-        [string]$ProjectRoot,
-        [datetime]$StartedAfter
-    )
-
-    $processIds = New-Object System.Collections.Generic.HashSet[int]
-    $processIds.Add($RootProcessId) | Out-Null
-    foreach ($procId in @(Get-DescendantProcessIds -RootProcessId $RootProcessId)) {
-        $processIds.Add($procId) | Out-Null
-    }
-    foreach ($procId in @(Get-ProjectProcessIds -ProjectFile $ProjectFile -ProjectRoot $ProjectRoot -StartedAfter $StartedAfter)) {
-        $processIds.Add($procId) | Out-Null
-    }
-
-    foreach ($procId in $processIds) {
-        Stop-ProcessTree -ProcessId $procId
-    }
-
-    for ($attempt = 0; $attempt -lt 5; $attempt++) {
-        Start-Sleep -Milliseconds 500
-        $remaining = @(Get-ProjectProcessIds -ProjectFile $ProjectFile -ProjectRoot $ProjectRoot -StartedAfter $StartedAfter)
-        if ($remaining.Count -eq 0) {
-            break
+    $sharedEngineTimestampConflict = Get-UhtTimestampConflictSummary -LogPaths @($outputLayout.LogPath, $ubtLogPath) -EngineRoot $agentConfig.EngineRoot
+    if ($sharedEngineTimestampConflict.SharedEngineDetected) {
+        $previewConflictPaths = @($sharedEngineTimestampConflict.SharedEnginePaths | Select-Object -First 3)
+        Write-Host ("[warn] Detected shared-engine UHT Timestamp contention across {0} path(s)." -f $sharedEngineTimestampConflict.SharedEnginePaths.Count) -ForegroundColor Yellow
+        foreach ($conflictPath in $previewConflictPaths) {
+            Write-Host ("       {0}" -f $conflictPath) -ForegroundColor Yellow
         }
-        foreach ($procId in $remaining) {
-            Stop-ProcessTree -ProcessId $procId
+        if ($sharedEngineTimestampConflict.SharedEnginePaths.Count -gt $previewConflictPaths.Count) {
+            Write-Host ("       ... ({0} more)" -f ($sharedEngineTimestampConflict.SharedEnginePaths.Count - $previewConflictPaths.Count)) -ForegroundColor Yellow
+        }
+
+        if ($scriptExitCode -eq $exitCodes.Success) {
+            Write-Host '[warn] Shared-engine UHT timestamp contention occurred despite a zero process exit code. Promoting final exit code to 1.' -ForegroundColor Yellow
+            $scriptExitCode = $exitCodes.BuildFailed
+        }
+
+        if (-not $SerializeByEngine) {
+            Write-Host '[warn] Rerun with -SerializeByEngine to serialize shared engine writes, or switch to a dedicated EngineRoot for this worktree.' -ForegroundColor Yellow
         }
     }
-}
 
-function Test-IsTrackedBuildProcess {
-    param(
-        [string]$ProcessName,
-        [string]$CommandLine
-    )
+    Write-Utf8JsonFile -Path $metadataPath -Value ([PSCustomObject]@{
+            Label             = $Label
+            Mode              = $buildMode
+            ProjectRoot       = $projectRoot
+            ProjectFile       = $agentConfig.ProjectFile
+            EngineRoot        = $agentConfig.EngineRoot
+            DotNetExecutable  = $ubtPaths.DotNetExecutablePath
+            UbtDllPath        = $ubtPaths.UbtDllPath
+            WorkingDirectory  = $ubtPaths.WorkingDirectory
+            TimeoutMs         = $resolvedTimeoutMs
+            OutputRoot        = $outputLayout.OutputRoot
+            LogPath           = $outputLayout.LogPath
+            EngineWaitDurationMs = $engineWaitDurationMs
+            NoXGE             = [bool]$NoXGE
+            SharedEngineUhtTimestampConflict = $sharedEngineTimestampConflict
+            TimedOutPhase     = $timedOutPhase
+            Arguments         = $argumentList
+            TimedOut          = [bool]$result.TimedOut
+            ProcessExitCode   = [int]$result.ExitCode
+            ExitCode          = $scriptExitCode
+            DurationMs        = [int]$result.DurationMs
+        })
 
-    switch ($ProcessName.ToLowerInvariant()) {
-        'dotnet.exe' {
-            return $CommandLine.IndexOf('UnrealBuildTool', [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
-                $CommandLine.IndexOf('UnrealHeaderTool', [System.StringComparison]::OrdinalIgnoreCase) -ge 0
-        }
-        'cmd.exe' {
-            return $CommandLine.IndexOf('Build.bat', [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
-                $CommandLine.IndexOf('RunUBT.bat', [System.StringComparison]::OrdinalIgnoreCase) -ge 0
-        }
-        default {
-            return $true
-        }
+    Write-Host '----------------------------------------------------------------'
+    Write-Host ('ProcessExitCode : {0}' -f $result.ExitCode)
+    Write-Host ('FinalExitCode   : {0}' -f $scriptExitCode)
+    Write-Host ('DurationMs      : {0}' -f $result.DurationMs)
+    Write-Host ('MetadataPath    : {0}' -f $metadataPath)
+    if ($scriptExitCode -eq $exitCodes.BuildFailed -and -not $SerializeByEngine) {
+        Write-Host 'If the failure is due to shared engine outputs, rerun with -SerializeByEngine or switch to a dedicated EngineRoot.'
     }
 }
+catch {
+    Write-Host ("[error] {0}" -f $_.Exception.Message) -ForegroundColor Red
+    $isTimeoutBudgetError = $_.Exception.Message -like '*allocated timeout budget*'
 
-function Test-ExistingProjectBuild {
-    param(
-        [string]$ProjectFile,
-        [string]$ProjectRoot
-    )
-
-    $currentPid = $PID
-    $matches = @()
-    $allowedNames = @('dotnet.exe', 'UnrealBuildTool.exe', 'MSBuild.exe', 'cl.exe', 'link.exe', 'rc.exe', 'ShaderCompileWorker.exe', 'cmd.exe')
-    foreach ($proc in @(Get-CimInstance Win32_Process -ErrorAction SilentlyContinue)) {
-        if ([int]$proc.ProcessId -eq $currentPid) {
-            continue
-        }
-
-        if ($allowedNames -notcontains $proc.Name) {
-            continue
-        }
-
-        $commandLine = [string]$proc.CommandLine
-        if ([string]::IsNullOrWhiteSpace($commandLine)) {
-            continue
-        }
-
-        $matchesProject = $commandLine.IndexOf($ProjectFile, [System.StringComparison]::OrdinalIgnoreCase) -ge 0 -or
-            $commandLine.IndexOf($ProjectRoot, [System.StringComparison]::OrdinalIgnoreCase) -ge 0
-        if (-not $matchesProject) {
-            continue
-        }
-
-        if (-not (Test-IsTrackedBuildProcess -ProcessName $proc.Name -CommandLine $commandLine)) {
-            continue
-        }
-
-        $matches += $proc
+    if (-not [string]::IsNullOrWhiteSpace($metadataPath)) {
+        Write-Utf8JsonFile -Path $metadataPath -Value ([PSCustomObject]@{
+                Label       = $Label
+                ProjectRoot = $projectRoot
+                Message     = $_.Exception.Message
+                ExitCode    = if ($isTimeoutBudgetError) { $exitCodes.TimedOut } else { $exitCodes.ConfigError }
+            })
     }
 
-    return $matches
+    $scriptExitCode = if ($isTimeoutBudgetError) { $exitCodes.TimedOut } else { $exitCodes.ConfigError }
 }
+finally {
+    if ($null -ne $engineMutex) {
+        Release-NamedMutex -Mutex $engineMutex
+    }
 
-function Try-AppendTimeoutMarker {
-    param([string]$Path, [string]$Message)
-    try {
-        $Message | Out-File -FilePath $Path -Append -Encoding utf8
-    } catch {
+    if ($null -ne $worktreeMutex) {
+        Release-NamedMutex -Mutex $worktreeMutex
     }
 }
 
-$projectRoot = (Resolve-Path (Join-Path $PSScriptRoot "..")).Path
-$configPath = Join-Path $projectRoot "AgentConfig.ini"
-$ini = Get-IniMap -Path $configPath
-
-$engineRoot = Get-IniValue -Ini $ini -Section "Paths" -Key "EngineRoot"
-if ([string]::IsNullOrWhiteSpace($engineRoot)) {
-    throw "Paths.EngineRoot is required in '$configPath'."
-}
-
-$projectFile = Get-IniValue -Ini $ini -Section "Paths" -Key "ProjectFile" -Default (Join-Path $projectRoot "AngelscriptProject.uproject")
-$editorTarget = Get-IniValue -Ini $ini -Section "Build" -Key "EditorTarget" -Default "AngelscriptProjectEditor"
-$platform = Get-IniValue -Ini $ini -Section "Build" -Key "Platform" -Default "Win64"
-$configuration = Get-IniValue -Ini $ini -Section "Build" -Key "Configuration" -Default "Development"
-$architecture = Get-IniValue -Ini $ini -Section "Build" -Key "Architecture" -Default "x64"
-
-if ($UseWaitMutex -and $NoMutex) {
-    throw "-UseWaitMutex and -NoMutex are mutually exclusive."
-}
-
-if (-not $UseWaitMutex -and -not $NoMutex) {
-    $NoMutex = $true
-}
-
-if ($TimeoutMs -le 0) {
-    $TimeoutMs = [int](Get-IniValue -Ini $ini -Section "Build" -Key "DefaultTimeoutMs" -Default (Get-IniValue -Ini $ini -Section "Test" -Key "DefaultTimeoutMs" -Default "600000"))
-}
-
-$runUbtBat = Join-Path $engineRoot "Engine\Build\BatchFiles\RunUBT.bat"
-if (-not (Test-Path -LiteralPath $runUbtBat)) {
-    throw "RunUBT.bat not found: $runUbtBat"
-}
-
-$timestamp = Get-Date -Format "yyyyMMdd_HHmmss"
-$outputDir = Join-Path $projectRoot "Saved\Build\${timestamp}_${editorTarget}"
-New-Item -ItemType Directory -Path $outputDir -Force | Out-Null
-$stdoutLog = Join-Path $outputDir "build.stdout.log"
-$stderrLog = Join-Path $outputDir "build.stderr.log"
-
-$argList = @(
-	$editorTarget
-	$platform
-	$configuration
-    "-Project=$projectFile"
-    "-FromMsBuild"
-    "-architecture=$architecture"
-)
-
-if ($UseWaitMutex) {
-    $argList += "-WaitMutex"
-}
-
-if ($NoMutex) {
-    $argList += "-NoMutex"
-}
-
-Write-Host "================================================================"
-Write-Host "  Angelscript Build Runner"
-Write-Host "================================================================"
-Write-Host "Target      : $editorTarget"
-Write-Host "Project     : $projectFile"
-Write-Host "TimeoutMs   : $TimeoutMs"
-Write-Host "WaitMutex   : $UseWaitMutex"
-Write-Host "NoMutex     : $NoMutex"
-Write-Host "RunUBT.bat  : $runUbtBat"
-Write-Host "Stdout log  : $stdoutLog"
-Write-Host "Stderr log  : $stderrLog"
-Write-Host "----------------------------------------------------------------"
-
-$existingBuilds = @(Test-ExistingProjectBuild -ProjectFile $projectFile -ProjectRoot $projectRoot)
-if ($existingBuilds.Count -gt 0) {
-    Write-Host "[ERROR] Found existing build-related process(es) for this project. Refusing to overlap the same worktree build."
-    foreach ($proc in $existingBuilds) {
-        Write-Host ("  PID {0} {1}" -f $proc.ProcessId, $proc.Name)
-    }
-    exit 125
-}
-
-$startedAt = Get-Date
-$sw = [System.Diagnostics.Stopwatch]::StartNew()
-$proc = Start-Process -FilePath $runUbtBat -ArgumentList $argList -PassThru -NoNewWindow -RedirectStandardOutput $stdoutLog -RedirectStandardError $stderrLog
-$completed = $proc.WaitForExit($TimeoutMs)
-if (-not $completed) {
-    Stop-BuildProcesses -RootProcessId $proc.Id -ProjectFile $projectFile -ProjectRoot $projectRoot -StartedAfter $startedAt.AddSeconds(-2)
-    $sw.Stop()
-    Try-AppendTimeoutMarker -Path $stderrLog -Message "[TIMEOUT] Build exceeded ${TimeoutMs}ms and was terminated."
-    Write-Host "[ERROR] Build timed out after $TimeoutMs ms and was terminated."
-    Write-Host "Stdout log  : $stdoutLog"
-    Write-Host "Stderr log  : $stderrLog"
-    exit 124
-}
-
-$proc.WaitForExit()
-$sw.Stop()
-
-Write-Host "Exit code   : $($proc.ExitCode)"
-Write-Host "Elapsed     : $([math]::Round($sw.Elapsed.TotalSeconds, 1))s"
-Write-Host "Stdout log  : $stdoutLog"
-Write-Host "Stderr log  : $stderrLog"
-
-if ($proc.ExitCode -ne 0) {
-    exit $proc.ExitCode
-}
-
-exit 0
+exit $scriptExitCode

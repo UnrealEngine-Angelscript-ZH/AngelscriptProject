@@ -2,6 +2,7 @@
 #include "Core/AngelscriptEngine.h"
 #include "Shared/AngelscriptNativeInterfaceTestTypes.h"
 #include "Shared/AngelscriptScenarioTestUtils.h"
+#include "Shared/AngelscriptTestMacros.h"
 
 #include "Components/ActorTestSpawner.h"
 #include "Misc/AutomationTest.h"
@@ -124,8 +125,8 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 
 bool FAngelscriptScenarioInterfaceNativeImplementTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
+	ASTEST_BEGIN_SHARE_FRESH
 	static const FName ModuleName(TEXT("ScenarioInterfaceNativeImplement"));
 	EnsureNativeInterfaceFixturesBound();
 	ON_SCOPE_EXIT
@@ -192,7 +193,7 @@ class AScenarioInterfaceNativeImplement : AActor, UAngelscriptNativeParentInterf
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	TestTrue(TEXT("Script actor should implement native parent interface"), ScriptClass->ImplementsInterface(UAngelscriptNativeParentInterface::StaticClass()));
 
@@ -227,13 +228,15 @@ class AScenarioInterfaceNativeImplement : AActor, UAngelscriptNativeParentInterf
 	}
 	TestEqual(TEXT("C++ Execute_ bridge should call the script implementation of SetNativeMarker"), NativeMarker, FName(TEXT("FromCpp")));
 
+	ASTEST_END_SHARE_FRESH
+
 	return true;
 }
 
 bool FAngelscriptScenarioInterfaceNativeInheritedImplementTest::RunTest(const FString& Parameters)
 {
-	FAngelscriptEngine& Engine = AcquireFreshSharedCloneEngine();
-	FAngelscriptEngineScope EngineScope(Engine);
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
+	ASTEST_BEGIN_SHARE_FRESH
 	static const FName ModuleName(TEXT("ScenarioInterfaceNativeInheritedImplement"));
 	EnsureNativeInterfaceFixturesBound();
 	ON_SCOPE_EXIT
@@ -319,7 +322,7 @@ class AScenarioInterfaceNativeInheritedImplement : AActor, UAngelscriptNativeChi
 		return false;
 	}
 
-	BeginPlayActor(*Actor);
+	BeginPlayActor(Engine, *Actor);
 
 	TestTrue(TEXT("Script actor should implement native child interface"), ScriptClass->ImplementsInterface(UAngelscriptNativeChildInterface::StaticClass()));
 	TestTrue(TEXT("Script actor implementing child interface should also satisfy native parent interface"), ScriptClass->ImplementsInterface(UAngelscriptNativeParentInterface::StaticClass()));
@@ -349,6 +352,8 @@ class AScenarioInterfaceNativeInheritedImplement : AActor, UAngelscriptNativeChi
 		IAngelscriptNativeParentInterface::Execute_GetNativeValue(Actor), 7);
 	TestEqual(TEXT("C++ Execute_ should dispatch child interface method on child implementation"),
 		IAngelscriptNativeChildInterface::Execute_GetChildValue(Actor), 11);
+
+	ASTEST_END_SHARE_FRESH
 
 	return true;
 }

@@ -31,6 +31,29 @@ struct FAngelscriptEngineIsolationTestAccess
 	{
 		return Engine.GetBindDatabaseForTesting().Classes.Num();
 	}
+
+	static int32 GetLocalPooledContextCount(asIScriptEngine* ScriptEngine)
+	{
+		return FAngelscriptEngine::GetLocalPooledContextCountForTesting(ScriptEngine);
+	}
+
+	static asIScriptContext* GetActiveContext()
+	{
+		return asCThreadManager::GetLocalData()->activeContext;
+	}
+};
+
+struct FIsolationContextStackGuard
+{
+	TArray<FAngelscriptEngine*> SavedStack;
+	FIsolationContextStackGuard()
+	{
+		SavedStack = FAngelscriptEngineContextStack::SnapshotAndClear();
+	}
+	~FIsolationContextStackGuard()
+	{
+		FAngelscriptEngineContextStack::RestoreSnapshot(MoveTemp(SavedStack));
+	}
 };
 
 static void ResetIsolationRuntime()
@@ -53,7 +76,7 @@ static asIScriptFunction* CompileIsolationFunction(
 	const ANSICHAR* Source,
 	const ANSICHAR* Declaration)
 {
-	FScopedTestEngineGlobalScope GlobalScope(&Engine);
+	FAngelscriptEngineScope GlobalScope(Engine);
 
 	asIScriptModule* Module = Engine.GetScriptEngine()->GetModule(TCHAR_TO_ANSI(*ModuleName), asGM_ALWAYS_CREATE);
 	if (!Test.TestNotNull(*FString::Printf(TEXT("Isolation helper should create module '%s'"), *ModuleName), Module))
@@ -103,6 +126,26 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptRequestContextReusedStartsUnpreparedTest,
+	"Angelscript.CppTests.Engine.Isolation.ContextPool.RequestContextReusedStartsUnprepared",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptRequestContextAfterReturningUnpreparedScopedContextTest,
+	"Angelscript.CppTests.Engine.Isolation.ContextPool.RequestContextAfterReturningUnpreparedScopedContext",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptFullEngineCreateClearsThreadLocalPoolTest,
+	"Angelscript.CppTests.Engine.Isolation.ContextPool.FullEngineCreateClearsThreadLocalPool",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptContextPoolResetSequenceKeepsRequestedContextReusableTest,
+	"Angelscript.CppTests.Engine.Isolation.ContextPool.Sequence.FullEngineCreateThenRequestContextAfterReturningUnpreparedScopedContext",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptScopedPooledContextUsesScopedEngineTest,
 	"Angelscript.CppTests.Engine.Isolation.ContextPool.ScopedPooledContextUsesScopedEngine",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
@@ -115,6 +158,7 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 bool FAngelscriptContextStackScopedResolutionTest::RunTest(const FString& Parameters)
 {
 	ResetIsolationRuntime();
+	FIsolationContextStackGuard StackGuard;
 
 	const FAngelscriptEngineConfig Config;
 	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
@@ -127,7 +171,7 @@ bool FAngelscriptContextStackScopedResolutionTest::RunTest(const FString& Parame
 		return false;
 	}
 
-	TestTrue(TEXT("Context stack should start empty"), FAngelscriptEngineContextStack::IsEmpty());
+	TestTrue(TEXT("Context stack should start empty after guard clears it"), FAngelscriptEngineContextStack::IsEmpty());
 
 	{
 		FAngelscriptEngineScope PrimaryScope(*PrimaryEngine);
@@ -305,6 +349,7 @@ bool FAngelscriptCloneSharesSourceStateTest::RunTest(const FString& Parameters)
 bool FAngelscriptMultipleFullEnginesCanCoexistTest::RunTest(const FString& Parameters)
 {
 	ResetIsolationRuntime();
+	FIsolationContextStackGuard StackGuard;
 
 	const FAngelscriptEngineConfig Config;
 	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
@@ -338,7 +383,7 @@ bool FAngelscriptRequestContextUsesRequestedEngineTest::RunTest(const FString& P
 	}
 
 	{
-		FScopedTestEngineGlobalScope ScopeA(EngineA.Get());
+		FAngelscriptEngineScope ScopeA(*EngineA);
 		asIScriptContext* ContextA = EngineA->GetScriptEngine()->RequestContext();
 		if (!TestNotNull(TEXT("RequestContext isolation test should acquire a context from engine A"), ContextA))
 		{
@@ -350,7 +395,7 @@ bool FAngelscriptRequestContextUsesRequestedEngineTest::RunTest(const FString& P
 	}
 
 	{
-		FScopedTestEngineGlobalScope ScopeB(EngineB.Get());
+		FAngelscriptEngineScope ScopeB(*EngineB);
 		asIScriptContext* ContextB = EngineB->GetScriptEngine()->RequestContext();
 		if (!TestNotNull(TEXT("RequestContext isolation test should acquire a context from engine B"), ContextB))
 		{
@@ -362,6 +407,308 @@ bool FAngelscriptRequestContextUsesRequestedEngineTest::RunTest(const FString& P
 			ContextB->GetEngine() == EngineB->GetScriptEngine());
 		EngineB->GetScriptEngine()->ReturnContext(ContextB);
 		return bMatchesRequestedEngine;
+	}
+}
+
+bool FAngelscriptRequestContextReusedStartsUnpreparedTest::RunTest(const FString& Parameters)
+{
+	ResetIsolationRuntime();
+
+	const FAngelscriptEngineConfig Config;
+	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
+	TUniquePtr<FAngelscriptEngine> Engine = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+	if (!TestNotNull(TEXT("RequestContext reuse test should create an engine"), Engine.Get()))
+	{
+		return false;
+	}
+
+	const FString ModuleName = MakeIsolationName(TEXT("RequestContextReuse"));
+	asIScriptFunction* Function = CompileIsolationFunction(*this, *Engine, ModuleName, "void Run() {}", "void Run()");
+	if (!TestNotNull(TEXT("RequestContext reuse test should compile its helper function"), Function))
+	{
+		return false;
+	}
+
+	ON_SCOPE_EXIT
+	{
+		Function->Release();
+	};
+
+	asIScriptContext* SeedRawContext = Engine->GetScriptEngine()->RequestContext();
+	if (!TestNotNull(TEXT("RequestContext reuse test should acquire a seed context"), SeedRawContext))
+	{
+		return false;
+	}
+
+	const int32 PrepareResult = SeedRawContext->Prepare(Function);
+	const int32 ExecuteResult = PrepareResult == asSUCCESS ? SeedRawContext->Execute() : PrepareResult;
+	if (!TestEqual(TEXT("Seed RequestContext should prepare successfully"), PrepareResult, asSUCCESS)
+		|| !TestEqual(TEXT("Seed RequestContext should execute successfully"), ExecuteResult, asEXECUTION_FINISHED))
+	{
+		Engine->GetScriptEngine()->ReturnContext(SeedRawContext);
+		return false;
+	}
+
+	Engine->GetScriptEngine()->ReturnContext(SeedRawContext);
+
+	asIScriptContext* ReusedContext = Engine->GetScriptEngine()->RequestContext();
+	if (!TestNotNull(TEXT("RequestContext reuse test should reacquire a context"), ReusedContext))
+	{
+		return false;
+	}
+
+	const bool bReusedSameContext = TestTrue(
+		TEXT("RequestContext reuse test should reacquire the pooled context"),
+		ReusedContext == SeedRawContext);
+	const bool bStartsUnprepared = TestEqual(
+		TEXT("Reused RequestContext should start unprepared after pool reuse"),
+		(int32)ReusedContext->GetState(),
+		(int32)asEXECUTION_UNINITIALIZED);
+	Engine->GetScriptEngine()->ReturnContext(ReusedContext);
+	return bReusedSameContext && bStartsUnprepared;
+}
+
+bool FAngelscriptRequestContextAfterReturningUnpreparedScopedContextTest::RunTest(const FString& Parameters)
+{
+	ResetIsolationRuntime();
+
+	const FAngelscriptEngineConfig Config;
+	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
+	TUniquePtr<FAngelscriptEngine> Engine = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+	if (!TestNotNull(TEXT("RequestContext after unprepared scoped context test should create an engine"), Engine.Get()))
+	{
+		return false;
+	}
+
+	const FString ModuleName = MakeIsolationName(TEXT("RequestContextAfterUnpreparedScopedContext"));
+	asIScriptFunction* Function = CompileIsolationFunction(*this, *Engine, ModuleName, "void Run() {}", "void Run()");
+	if (!TestNotNull(TEXT("RequestContext after unprepared scoped context test should compile its helper function"), Function))
+	{
+		return false;
+	}
+
+	ON_SCOPE_EXIT
+	{
+		Function->Release();
+	};
+
+	asIScriptContext* RequestedContext = nullptr;
+	asIScriptContext* ReturnedScopedRawContext = nullptr;
+	{
+		FAngelscriptEngineScope Scope(*Engine);
+		{
+			FAngelscriptPooledContextBase UnpreparedContext;
+			ReturnedScopedRawContext = UnpreparedContext.operator->();
+		}
+
+		RequestedContext = Engine->GetScriptEngine()->RequestContext();
+		if (!TestNotNull(TEXT("RequestContext after unprepared scoped context test should reacquire a context"), RequestedContext))
+		{
+			return false;
+		}
+
+		const bool bReusedReturnedScopedContext = TestTrue(
+			TEXT("RequestContext after unprepared scoped context test should reuse the returned scoped context"),
+			RequestedContext == ReturnedScopedRawContext);
+		const int32 PrepareResult = RequestedContext->Prepare(Function);
+		const int32 ExecuteResult = PrepareResult == asSUCCESS ? RequestedContext->Execute() : PrepareResult;
+		Engine->GetScriptEngine()->ReturnContext(RequestedContext);
+		return bReusedReturnedScopedContext
+			&& TestEqual(TEXT("RequestContext after unprepared scoped context test should prepare successfully"), PrepareResult, asSUCCESS)
+			&& TestEqual(TEXT("RequestContext after unprepared scoped context test should execute successfully"), ExecuteResult, asEXECUTION_FINISHED);
+	}
+}
+
+bool FAngelscriptFullEngineCreateClearsThreadLocalPoolTest::RunTest(const FString& Parameters)
+{
+	ResetIsolationRuntime();
+
+	const FAngelscriptEngineConfig Config;
+	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
+	TUniquePtr<FAngelscriptEngine> EngineA = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+	if (!TestNotNull(TEXT("Full engine create pool reset test should create engine A"), EngineA.Get()))
+	{
+		return false;
+	}
+
+	const FString ModuleNameA = MakeIsolationName(TEXT("FullCreatePoolResetA"));
+	asIScriptFunction* FunctionA = CompileIsolationFunction(*this, *EngineA, ModuleNameA, "void Run() {}", "void Run()");
+	if (!TestNotNull(TEXT("Full engine create pool reset test should compile function A"), FunctionA))
+	{
+		return false;
+	}
+
+	ON_SCOPE_EXIT
+	{
+		FunctionA->Release();
+	};
+
+	{
+		FAngelscriptEngineScope ScopeA(*EngineA);
+		FAngelscriptPooledContextBase SeedContext;
+		const int32 PrepareResult = SeedContext->Prepare(FunctionA);
+		const int32 ExecuteResult = PrepareResult == asSUCCESS ? SeedContext->Execute() : PrepareResult;
+		if (!TestEqual(TEXT("Full engine create pool reset test should seed engine A into the local pool"), PrepareResult, asSUCCESS)
+			|| !TestEqual(TEXT("Full engine create pool reset test should execute the seeded function"), ExecuteResult, asEXECUTION_FINISHED))
+		{
+			return false;
+		}
+	}
+
+	if (!TestTrue(
+		TEXT("Full engine create pool reset test should leave a free pooled context for engine A before creating a new full engine"),
+		FAngelscriptEngineIsolationTestAccess::GetLocalPooledContextCount(EngineA->GetScriptEngine()) > 0))
+	{
+		return false;
+	}
+
+	TUniquePtr<FAngelscriptEngine> EngineB = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+	if (!TestNotNull(TEXT("Full engine create pool reset test should create engine B"), EngineB.Get()))
+	{
+		return false;
+	}
+
+	if (!TestEqual(
+		TEXT("Creating a new full engine should clear stale free contexts from the thread-local pool"),
+		FAngelscriptEngineIsolationTestAccess::GetLocalPooledContextCount(nullptr),
+		0))
+	{
+		return false;
+	}
+
+	{
+		FAngelscriptEngineScope ScopeB(*EngineB);
+		FAngelscriptPooledContextBase FreshContext;
+		return TestTrue(
+			TEXT("Creating a new full engine should acquire a context bound to that engine"),
+			FreshContext->GetEngine() == EngineB->GetScriptEngine());
+	}
+}
+
+bool FAngelscriptContextPoolResetSequenceKeepsRequestedContextReusableTest::RunTest(const FString& Parameters)
+{
+	ResetIsolationRuntime();
+
+	const FAngelscriptEngineConfig Config;
+	const FAngelscriptEngineDependencies Dependencies = FAngelscriptEngineDependencies::CreateDefault();
+
+	{
+		TUniquePtr<FAngelscriptEngine> EngineA = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+		if (!TestNotNull(TEXT("Sequence test should create engine A"), EngineA.Get()))
+		{
+			return false;
+		}
+
+		const FString ModuleNameA = MakeIsolationName(TEXT("SequenceFullCreatePoolResetA"));
+		asIScriptFunction* FunctionA = CompileIsolationFunction(*this, *EngineA, ModuleNameA, "void Run() {}", "void Run()");
+		if (!TestNotNull(TEXT("Sequence test should compile function A"), FunctionA))
+		{
+			return false;
+		}
+
+		ON_SCOPE_EXIT
+		{
+			FunctionA->Release();
+		};
+
+		{
+			FAngelscriptEngineScope ScopeA(*EngineA);
+			FAngelscriptPooledContextBase SeedContext;
+			const int32 PrepareResult = SeedContext->Prepare(FunctionA);
+			const int32 ExecuteResult = PrepareResult == asSUCCESS ? SeedContext->Execute() : PrepareResult;
+			if (!TestEqual(TEXT("Sequence test should seed engine A into the local pool"), PrepareResult, asSUCCESS)
+				|| !TestEqual(TEXT("Sequence test should execute the seeded function"), ExecuteResult, asEXECUTION_FINISHED))
+			{
+				return false;
+			}
+		}
+
+		if (!TestTrue(
+			TEXT("Sequence test should leave a free pooled context for engine A before creating engine B"),
+			FAngelscriptEngineIsolationTestAccess::GetLocalPooledContextCount(EngineA->GetScriptEngine()) > 0))
+		{
+			return false;
+		}
+
+		TUniquePtr<FAngelscriptEngine> EngineB = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+		if (!TestNotNull(TEXT("Sequence test should create engine B"), EngineB.Get()))
+		{
+			return false;
+		}
+
+		if (!TestEqual(
+			TEXT("Sequence test should clear stale free contexts when engine B starts"),
+			FAngelscriptEngineIsolationTestAccess::GetLocalPooledContextCount(nullptr),
+			0))
+		{
+			return false;
+		}
+
+		{
+			FAngelscriptEngineScope ScopeB(*EngineB);
+			FAngelscriptPooledContextBase FreshContext;
+			if (!TestTrue(
+				TEXT("Sequence test should acquire a context bound to engine B"),
+				FreshContext->GetEngine() == EngineB->GetScriptEngine()))
+			{
+				return false;
+			}
+		}
+	}
+
+	if (!TestEqual(
+		TEXT("Sequence test should leave no pooled contexts behind after the full-engine phase"),
+		FAngelscriptEngineIsolationTestAccess::GetLocalPooledContextCount(nullptr),
+		0))
+	{
+		return false;
+	}
+
+	TUniquePtr<FAngelscriptEngine> Engine = FAngelscriptEngine::CreateTestingFullEngine(Config, Dependencies);
+	if (!TestNotNull(TEXT("Sequence test should create the follow-up engine"), Engine.Get()))
+	{
+		return false;
+	}
+
+	const FString ModuleName = MakeIsolationName(TEXT("SequenceRequestContextAfterUnpreparedScopedContext"));
+	asIScriptFunction* Function = CompileIsolationFunction(*this, *Engine, ModuleName, "void Run() {}", "void Run()");
+	if (!TestNotNull(TEXT("Sequence test should compile the follow-up helper function"), Function))
+	{
+		return false;
+	}
+
+	ON_SCOPE_EXIT
+	{
+		Function->Release();
+	};
+
+	{
+		FAngelscriptEngineScope Scope(*Engine);
+		asIScriptContext* ReturnedScopedRawContext = nullptr;
+		{
+			FAngelscriptPooledContextBase UnpreparedContext;
+			ReturnedScopedRawContext = UnpreparedContext.operator->();
+		}
+
+		asIScriptContext* RequestedContext = Engine->GetScriptEngine()->RequestContext();
+		if (!TestNotNull(TEXT("Sequence test should reacquire a context"), RequestedContext))
+		{
+			return false;
+		}
+
+		const bool bReusedReturnedScopedContext = TestTrue(
+			TEXT("Sequence test should reuse the returned scoped context"),
+			RequestedContext == ReturnedScopedRawContext);
+		const bool bContextTargetsCurrentEngine = TestTrue(
+			TEXT("Sequence test should reacquire a context for the current engine"),
+			RequestedContext->GetEngine() == Engine->GetScriptEngine());
+		const int32 PrepareResult = RequestedContext->Prepare(Function);
+		const int32 ExecuteResult = PrepareResult == asSUCCESS ? RequestedContext->Execute() : PrepareResult;
+		Engine->GetScriptEngine()->ReturnContext(RequestedContext);
+		return bReusedReturnedScopedContext
+			&& bContextTargetsCurrentEngine
+			&& TestEqual(TEXT("Sequence test should prepare successfully"), PrepareResult, asSUCCESS)
+			&& TestEqual(TEXT("Sequence test should execute successfully"), ExecuteResult, asEXECUTION_FINISHED);
 	}
 }
 
@@ -467,6 +814,11 @@ bool FAngelscriptReusedPooledContextStartsUnpreparedTest::RunTest(const FString&
 			}
 		}
 
+		if (!TestNull(TEXT("Reused pooled context test should clear the thread-local active context before reacquiring"), FAngelscriptEngineIsolationTestAccess::GetActiveContext()))
+		{
+			return false;
+		}
+
 		FAngelscriptPooledContextBase ReusedContext;
 		TestTrue(TEXT("Reused pooled context test should reacquire the pooled context"), ReusedContext.operator->() == SeedRawContext);
 		TestEqual(TEXT("Reused pooled context should start unprepared after pool reuse"), (int32)ReusedContext->GetState(), (int32)asEXECUTION_UNINITIALIZED);
@@ -476,6 +828,95 @@ bool FAngelscriptReusedPooledContextStartsUnpreparedTest::RunTest(const FString&
 		TestEqual(TEXT("Reused pooled context should prepare successfully"), PrepareResult, asSUCCESS);
 		return TestEqual(TEXT("Reused pooled context should execute successfully"), ExecuteResult, asEXECUTION_FINISHED);
 	}
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptEngineLocalFlagsIsolationTest,
+	"Angelscript.CppTests.Engine.Isolation.EngineLocal.FlagsAreInstanceScoped",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FAngelscriptEngineLocalFlagsIsolationTest::RunTest(const FString& Parameters)
+{
+	FIsolationContextStackGuard ContextGuard;
+
+	FAngelscriptEngineConfig ConfigA;
+	ConfigA.bSimulateCooked = true;
+	ConfigA.bTestErrors = true;
+	FAngelscriptEngineDependencies Deps = FAngelscriptEngineDependencies::CreateDefault();
+	TUniquePtr<FAngelscriptEngine> EngineA = FAngelscriptEngine::CreateTestingFullEngine(ConfigA, Deps);
+	if (!TestNotNull(TEXT("Should create engine A with custom config"), EngineA.Get()))
+	{
+		return false;
+	}
+
+	FAngelscriptEngineConfig ConfigB;
+	ConfigB.bSimulateCooked = false;
+	ConfigB.bTestErrors = false;
+	TUniquePtr<FAngelscriptEngine> EngineB = FAngelscriptEngine::CreateTestingFullEngine(ConfigB, Deps);
+	if (!TestNotNull(TEXT("Should create engine B with different config"), EngineB.Get()))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Engine A bSimulateCooked should be true"), EngineA->bSimulateCooked);
+	TestTrue(TEXT("Engine A bTestErrors should be true"), EngineA->bTestErrors);
+	TestFalse(TEXT("Engine B bSimulateCooked should be false"), EngineB->bSimulateCooked);
+	TestFalse(TEXT("Engine B bTestErrors should be false"), EngineB->bTestErrors);
+
+	{
+		FAngelscriptEngineScope ScopeA(*EngineA);
+		TestTrue(TEXT("IsSimulatingCookedForCurrentContext should reflect engine A"), FAngelscriptEngine::IsSimulatingCookedForCurrentContext());
+		TestTrue(TEXT("IsTestingErrorsForCurrentContext should reflect engine A"), FAngelscriptEngine::IsTestingErrorsForCurrentContext());
+	}
+	{
+		FAngelscriptEngineScope ScopeB(*EngineB);
+		TestFalse(TEXT("IsSimulatingCookedForCurrentContext should reflect engine B"), FAngelscriptEngine::IsSimulatingCookedForCurrentContext());
+		TestFalse(TEXT("IsTestingErrorsForCurrentContext should reflect engine B"), FAngelscriptEngine::IsTestingErrorsForCurrentContext());
+	}
+
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptEngineLocalTypeDatabaseIsolationTest,
+	"Angelscript.CppTests.Engine.Isolation.EngineLocal.TypeDatabaseIsInstanceScoped",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FAngelscriptEngineLocalTypeDatabaseIsolationTest::RunTest(const FString& Parameters)
+{
+	FIsolationContextStackGuard ContextGuard;
+
+	FAngelscriptEngineConfig Config;
+	FAngelscriptEngineDependencies Deps = FAngelscriptEngineDependencies::CreateDefault();
+
+	TUniquePtr<FAngelscriptEngine> EngineA = FAngelscriptEngine::CreateTestingFullEngine(Config, Deps);
+	TUniquePtr<FAngelscriptEngine> EngineB = FAngelscriptEngine::CreateTestingFullEngine(Config, Deps);
+	if (!TestNotNull(TEXT("Should create engine A"), EngineA.Get()) || !TestNotNull(TEXT("Should create engine B"), EngineB.Get()))
+	{
+		return false;
+	}
+
+	int32 TypeCountA = 0;
+	int32 TypeCountB = 0;
+	{
+		FAngelscriptEngineScope ScopeA(*EngineA);
+		TypeCountA = FAngelscriptType::GetTypes().Num();
+	}
+	{
+		FAngelscriptEngineScope ScopeB(*EngineB);
+		TypeCountB = FAngelscriptType::GetTypes().Num();
+	}
+
+	TestTrue(TEXT("Both engines should have their own TypeDatabase with types"), TypeCountA > 0 && TypeCountB > 0);
+
+	EngineA.Reset();
+
+	{
+		FAngelscriptEngineScope ScopeB(*EngineB);
+		TestTrue(TEXT("Engine B TypeDatabase should survive after engine A destruction"), FAngelscriptType::GetTypes().Num() > 0);
+	}
+
+	return true;
 }
 
 #endif
