@@ -52,6 +52,10 @@
 //[UE--]
 #include "AngelscriptSettings.h"
 
+#ifdef _MSC_VER
+#pragma warning(disable : 4191)
+#endif
+
 BEGIN_AS_NAMESPACE
 
 #ifndef AS_NO_COMPILER

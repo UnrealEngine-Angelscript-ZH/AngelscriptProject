@@ -13,6 +13,7 @@
 #include "IAutomationControllerModule.h"
 #include "Settings/LevelEditorPlaySettings.h"
 #include "UnrealEdMisc.h"
+#include "Framework/Docking/TabManager.h"
 #endif // WITH_EDITOR
 
 #include "Containers/UnrealString.h"
@@ -333,7 +334,7 @@ void ConfigureEditorForTest(FEditorState& OutOriginalState)
 		// Don't try to save the windows that get launched for integration tests. This is only a
 		// problem in headless mode. This setting needs to be false all the way to shutdown so
 		// we don't restore this one.
-		FUnrealEdMisc::Get().AllowSavingLayoutOnClose(false);
+		FGlobalTabmanager::Get()->SetCanSavePersistentLayouts(false);
 	}
 
 	// Don't trigger breakpoints on ensures since tests intentionally trigger ensures all the time.

@@ -1262,7 +1262,7 @@ void FAngelscriptEditorModule::GenerateBuildFile(FString ModuleName, TArray<FStr
 		str.FindLastChar('/', modIndex);		
 		include = str.RightChop(modIndex);
 		if (removeFirst)
-			include.RemoveAt(0, 1, true);		
+			include.RemoveAt(0, 1, EAllowShrinking::Yes);
 
 		line += '"';
 		line += include;
@@ -2206,7 +2206,7 @@ void FAngelscriptEditorModule::GenerateFunctionEntries(UClass* Class, TArray<FSt
 		for (auto& elem : UPars)
 		{
 			if (elem.Key != -1 && elem.Value != -1)
-				line.RemoveAt(elem.Key, (elem.Value - elem.Key) + 1, true);
+				line.RemoveAt(elem.Key, (elem.Value - elem.Key) + 1, EAllowShrinking::Yes);
 		}
 
 		File.Add(line);
@@ -3375,7 +3375,7 @@ void FAngelscriptEditorModule::OriginalGenerate()
 		int32 modIndex = 0;
 		ModuleName.FindLastChar('/', modIndex);
 		ModuleName = ModuleName.RightChop(modIndex);
-		ModuleName.RemoveAt(0, 1, true);
+		ModuleName.RemoveAt(0, 1, EAllowShrinking::Yes);
 		//lines.Add("//Module: " + ModuleName);
 		//newLines.Add("//Module: " + ModuleName);
 

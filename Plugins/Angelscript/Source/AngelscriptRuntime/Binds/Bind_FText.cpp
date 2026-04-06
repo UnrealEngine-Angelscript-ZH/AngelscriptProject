@@ -255,7 +255,7 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_FText_Operations(FAngelscriptB
 	[](const FString& Namespace, const FString& Key, const FString& Text) -> FText
 	{
 		// Call the internal function directly here so we don't gather this line for localization
-		return FInternationalization::ForUseOnlyByLocMacroAndGraphNodeTextLiterals_CreateText(*Text, *Namespace, *Key);
+		return FText::AsLocalizable_Advanced(*Namespace, *Key, Text);
 	});
 	SCRIPT_BIND_DOCUMENTATION(
 	 "Function for using localization texts in Angelscript. Emulates NSLOCTEXT macro.\n"

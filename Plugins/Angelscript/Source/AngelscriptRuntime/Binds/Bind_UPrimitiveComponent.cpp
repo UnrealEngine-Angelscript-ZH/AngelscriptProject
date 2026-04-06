@@ -47,6 +47,6 @@ AS_FORCE_LINK const FAngelscriptBinds::FBind Bind_UPrimitiveComponent([]
 
 	UPrimitiveComponent_.Method("void SetLightmapType(ELightmapType Type)", [](UPrimitiveComponent* Component, ELightmapType Type)
 	{
-		Component->LightmapType = Type;
+		Component->SetLightmapType(Type);
 	});
 });

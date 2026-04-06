@@ -19,14 +19,14 @@ namespace
 	bool StartDebuggerSession(FAutomationTestBase& Test, FAngelscriptDebuggerTestSession& Session, FAngelscriptDebuggerTestClient& Client)
 	{
 		FAngelscriptDebuggerSessionConfig SessionConfig;
-		SessionConfig.ExistingEngine = TryGetRunningProductionEngine();
+		SessionConfig.ExistingEngine = TryGetRunningProductionDebuggerEngine();
 		SessionConfig.DefaultTimeoutSeconds = 45.0f;
-		if (!Test.TestNotNull(TEXT("Debugger session should attach to the production engine inside the editor automation process"), SessionConfig.ExistingEngine))
+		if (!Test.TestNotNull(TEXT("Debugger session should attach to a debuggable production engine inside the editor automation process"), SessionConfig.ExistingEngine))
 		{
 			return false;
 		}
 
-		if (!Test.TestTrue(TEXT("Debugger session should initialize against the production engine"), Session.Initialize(SessionConfig)))
+		if (!Test.TestTrue(TEXT("Debugger session should initialize against the debuggable production engine"), Session.Initialize(SessionConfig)))
 		{
 			return false;
 		}

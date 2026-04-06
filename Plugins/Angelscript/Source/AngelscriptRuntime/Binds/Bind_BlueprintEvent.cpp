@@ -629,7 +629,7 @@ void BindBlueprintEvent(
 
 	if (Signature.bStaticInScript)
 	{
-		Sig->StaticObject = InType->GetClass(FAngelscriptTypeUsage::DefaultUsage)->ClassDefaultObject;
+		Sig->StaticObject = InType->GetClass(FAngelscriptTypeUsage::DefaultUsage)->GetDefaultObject();
 
 		FAngelscriptBinds::FNamespace Namespace(Signature.ClassName);
 		int32 FunctionId = FAngelscriptBinds::BindGlobalFunctionDirect(Signature.Declaration,
@@ -638,7 +638,7 @@ void BindBlueprintEvent(
 	}
 	else if (Signature.bStaticInUnreal)
 	{
-		Sig->StaticObject = InType->GetClass(FAngelscriptTypeUsage::DefaultUsage)->ClassDefaultObject;
+		Sig->StaticObject = InType->GetClass(FAngelscriptTypeUsage::DefaultUsage)->GetDefaultObject();
 
 		Sig->MixinType = FAngelscriptTypeUsage();
 		Sig->MixinType.Type = InType;

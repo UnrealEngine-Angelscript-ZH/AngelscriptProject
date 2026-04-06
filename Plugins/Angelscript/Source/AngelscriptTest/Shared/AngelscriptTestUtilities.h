@@ -4,6 +4,8 @@
 #include "AngelscriptGameInstanceSubsystem.h"
 #include "HAL/FileManager.h"
 #include "Containers/StringConv.h"
+#include "Engine/Engine.h"
+#include "Engine/GameInstance.h"
 #include "Misc/Crc.h"
 #include "Misc/AutomationTest.h"
 #include "Misc/FileHelper.h"
@@ -41,6 +43,41 @@ namespace AngelscriptTestSupport
 {
 	using FAngelscriptTestEngineScopeAccess = ::FAngelscriptTestEngineScopeAccess;
 
+	inline UAngelscriptGameInstanceSubsystem* TryGetRunningProductionSubsystem()
+	{
+		if (UAngelscriptGameInstanceSubsystem* Subsystem = UAngelscriptGameInstanceSubsystem::GetCurrent())
+		{
+			return Subsystem;
+		}
+
+		if (GEngine == nullptr)
+		{
+			return nullptr;
+		}
+
+		for (const FWorldContext& WorldContext : GEngine->GetWorldContexts())
+		{
+			UWorld* World = WorldContext.World();
+			if (World == nullptr)
+			{
+				continue;
+			}
+
+			UGameInstance* GameInstance = World->GetGameInstance();
+			if (GameInstance == nullptr)
+			{
+				continue;
+			}
+
+			if (UAngelscriptGameInstanceSubsystem* Subsystem = GameInstance->GetSubsystem<UAngelscriptGameInstanceSubsystem>())
+			{
+				return Subsystem;
+			}
+		}
+
+		return nullptr;
+	}
+
 	inline TUniquePtr<FAngelscriptEngine>& GetSharedTestEngineStorage()
 	{
 		static TUniquePtr<FAngelscriptEngine> Storage;
@@ -69,7 +106,7 @@ namespace AngelscriptTestSupport
 
 	inline FAngelscriptEngine* TryGetRunningProductionEngine()
 	{
-		if (UAngelscriptGameInstanceSubsystem* Subsystem = UAngelscriptGameInstanceSubsystem::GetCurrent())
+		if (UAngelscriptGameInstanceSubsystem* Subsystem = TryGetRunningProductionSubsystem())
 		{
 			if (FAngelscriptEngine* AttachedEngine = Subsystem->GetEngine())
 			{
@@ -83,6 +120,39 @@ namespace AngelscriptTestSupport
 		}
 
 		return nullptr;
+	}
+
+	inline FAngelscriptEngine* TryGetRunningProductionDebuggerEngine()
+	{
+		if (UAngelscriptGameInstanceSubsystem* Subsystem = TryGetRunningProductionSubsystem())
+		{
+			if (FAngelscriptEngine* AttachedEngine = Subsystem->GetEngine())
+			{
+				if (AttachedEngine->DebugServer != nullptr)
+				{
+					return AttachedEngine;
+				}
+			}
+		}
+
+#if WITH_DEV_AUTOMATION_TESTS
+		TArray<FAngelscriptEngine*> SavedStack = FAngelscriptEngineContextStack::SnapshotAndClear();
+		FAngelscriptEngine* MatchingEngine = nullptr;
+		for (int32 Index = SavedStack.Num() - 1; Index >= 0; --Index)
+		{
+			FAngelscriptEngine* Candidate = SavedStack[Index];
+			if (Candidate != nullptr && Candidate->DebugServer != nullptr)
+			{
+				MatchingEngine = Candidate;
+				break;
+			}
+		}
+
+		FAngelscriptEngineContextStack::RestoreSnapshot(MoveTemp(SavedStack));
+		return MatchingEngine;
+#else
+		return nullptr;
+#endif
 	}
 
 	inline TUniquePtr<FAngelscriptEngine> CreateIsolatedFullEngine()

@@ -17,9 +17,9 @@ namespace
 	bool StartSteppingDebuggerSession(FAutomationTestBase& Test, FAngelscriptDebuggerTestSession& Session, FAngelscriptDebuggerTestClient& Client)
 	{
 		FAngelscriptDebuggerSessionConfig SessionConfig;
-		SessionConfig.ExistingEngine = TryGetRunningProductionEngine();
+		SessionConfig.ExistingEngine = TryGetRunningProductionDebuggerEngine();
 		SessionConfig.DefaultTimeoutSeconds = 45.0f;
-		if (!Test.TestNotNull(TEXT("Debugger stepping should attach to the running production engine"), SessionConfig.ExistingEngine))
+		if (!Test.TestNotNull(TEXT("Debugger stepping should attach to a debuggable production engine"), SessionConfig.ExistingEngine))
 		{
 			return false;
 		}

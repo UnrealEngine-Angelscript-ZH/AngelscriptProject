@@ -39,6 +39,9 @@
 #ifndef AS_CONFIG_H
 #define AS_CONFIG_H
 
+#ifdef _MSC_VER
+#pragma warning(disable : 4191)
+#endif
 
 
 //

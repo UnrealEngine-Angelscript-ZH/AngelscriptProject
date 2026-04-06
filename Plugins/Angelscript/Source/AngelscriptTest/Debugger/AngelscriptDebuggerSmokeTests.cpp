@@ -17,8 +17,8 @@ bool FAngelscriptDebuggerSmokeHandshakeTest::RunTest(const FString& Parameters)
 {
 	FAngelscriptDebuggerTestSession Session;
 	FAngelscriptDebuggerSessionConfig SessionConfig;
-	SessionConfig.ExistingEngine = TryGetRunningProductionEngine();
-	if (!TestNotNull(TEXT("Debugger.Smoke.Handshake should find a production engine inside the editor automation process"), SessionConfig.ExistingEngine))
+	SessionConfig.ExistingEngine = TryGetRunningProductionDebuggerEngine();
+	if (!TestNotNull(TEXT("Debugger.Smoke.Handshake should find a debuggable production engine inside the editor automation process"), SessionConfig.ExistingEngine))
 	{
 		return false;
 	}

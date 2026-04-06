@@ -1158,14 +1158,14 @@ void UASClass::FinishConstructObject(class asIScriptObject* ScriptObject, class 
 
 		if (!bIsInTree)
 		{
-			CurrentObjectInitializers.RemoveAt(CurrentObjectInitializers.Num() - 1, 1, false);
+			CurrentObjectInitializers.RemoveAt(CurrentObjectInitializers.Num() - 1, 1, EAllowShrinking::No);
 			return;
 		}
 #endif
 
 		if (TopClass->ScriptTypePtr == ScriptType)
 		{
-			CurrentObjectInitializers.RemoveAt(CurrentObjectInitializers.Num() - 1, 1, false);
+			CurrentObjectInitializers.RemoveAt(CurrentObjectInitializers.Num() - 1, 1, EAllowShrinking::No);
 
 			// Run the defaults function now that we've finished constructing the childmost script class
 			ExecuteDefaultsFunctions(Object, TopClass);

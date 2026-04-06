@@ -1202,7 +1202,7 @@ void BindProperties(FAngelscriptBinds Binds, TSharedRef<FAngelscriptType> Type, 
 				}
 				else if (auto* EnumProperty = CastField<FEnumProperty>(Property))
 				{
-					if (EnumProperty->ElementSize == 4)
+					if (EnumProperty->GetElementSize() == 4)
 					{
 						Binds.Method(Decl, FUNC_TRIVIAL_CUSTOMNATIVE(FAngelscriptBindHelpers::SetValueFromProperty_ByteExtendToDWord, FAngelscriptBindHelpers::SetValueFromProperty_NativeByteExtendToDWord), Params, (void*)(SIZE_T)Property->GetOffset_ForUFunction());
 						FAngelscriptBinds::PreviousBindPassScriptFunctionAsFirstParam();
@@ -1213,17 +1213,17 @@ void BindProperties(FAngelscriptBinds Binds, TSharedRef<FAngelscriptType> Type, 
 						FAngelscriptBinds::PreviousBindPassScriptFunctionAsFirstParam();
 					}
 				}
-				else if (Property->HasAnyPropertyFlags(CPF_IsPlainOldData) && Property->ElementSize == 1)
+				else if (Property->HasAnyPropertyFlags(CPF_IsPlainOldData) && Property->GetElementSize() == 1)
 				{
 					Binds.Method(Decl, FUNC_TRIVIAL_CUSTOMNATIVE(FAngelscriptBindHelpers::SetValueFromProperty_Byte, FAngelscriptBindHelpers::SetValueFromProperty_NativeByte), Params, (void*)(SIZE_T)Property->GetOffset_ForUFunction());
 					FAngelscriptBinds::PreviousBindPassScriptFunctionAsFirstParam();
 				}
-				else if (Property->HasAnyPropertyFlags(CPF_IsPlainOldData) && Property->ElementSize == 4)
+				else if (Property->HasAnyPropertyFlags(CPF_IsPlainOldData) && Property->GetElementSize() == 4)
 				{
 					Binds.Method(Decl, FUNC_TRIVIAL_CUSTOMNATIVE(FAngelscriptBindHelpers::SetValueFromProperty_DWord, FAngelscriptBindHelpers::SetValueFromProperty_NativeDWord), Params, (void*)(SIZE_T)Property->GetOffset_ForUFunction());
 					FAngelscriptBinds::PreviousBindPassScriptFunctionAsFirstParam();
 				}
-				else if (Property->HasAnyPropertyFlags(CPF_IsPlainOldData) && Property->ElementSize == 8)
+				else if (Property->HasAnyPropertyFlags(CPF_IsPlainOldData) && Property->GetElementSize() == 8)
 				{
 					Binds.Method(Decl, FUNC_TRIVIAL_CUSTOMNATIVE(FAngelscriptBindHelpers::SetValueFromProperty_QWord, FAngelscriptBindHelpers::SetValueFromProperty_NativeQWord), Params, (void*)(SIZE_T)Property->GetOffset_ForUFunction());
 					FAngelscriptBinds::PreviousBindPassScriptFunctionAsFirstParam();
