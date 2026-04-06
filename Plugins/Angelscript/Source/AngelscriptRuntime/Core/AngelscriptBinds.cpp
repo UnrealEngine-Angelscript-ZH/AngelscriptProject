@@ -103,7 +103,7 @@ bool FAngelscriptBinds::ShouldSkipBlueprintCallableFunction(const UFunction* Fun
 
 	if (const UClass* OwningClass = Function->GetOuterUClass())
 	{
-		if (OwningClass == UActorComponent::StaticClass() && Function->GetFName() == GET_FUNCTION_NAME_CHECKED(UActorComponent, GetOwner))
+		if (OwningClass == UActorComponent::StaticClass() && Function->GetFName() == FName(TEXT("GetOwner")))
 		{
 			return true;
 		}
