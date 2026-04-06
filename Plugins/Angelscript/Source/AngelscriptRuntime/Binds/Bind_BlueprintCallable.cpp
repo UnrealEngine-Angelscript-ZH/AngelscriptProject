@@ -28,7 +28,6 @@ void BindBlueprintCallable(
 	// Don't bind functions that aren't native
 	if (!Function->HasAnyFunctionFlags(FUNC_Native))
 		return;
-
 	if (FAngelscriptBinds::ShouldSkipBlueprintCallableFunction(Function))
 		return;
 #endif

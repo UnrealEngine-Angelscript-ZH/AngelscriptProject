@@ -675,6 +675,23 @@
 | Editor.DirectoryWatcher.Queue.DuplicateStormDeduplicatesEntries | 事件风暴下同一路径重复变更保持去重入队 |
 
 
+> 源文件：`AngelscriptEditor/Private/Tests/AngelscriptBlueprintImpactScannerTests.cpp`
+
+| 测试名 | 验证内容 |
+|--------|----------|
+| Editor.BlueprintImpact.NormalizePaths | changed-script 输入会统一分隔符、去掉前导相对标记、大小写归一化并去重 |
+| Editor.BlueprintImpact.MatchChangedScriptsToModuleSections | changed-script 只命中包含对应 code section 的活跃模块 |
+| Editor.BlueprintImpact.BuildImpactSymbols | scanner 会从 module desc 收集生成类、struct 与 enum 符号集合 |
+| Editor.BlueprintImpact.AnalyzeParentClass | 已加载 Blueprint 的父类链命中 impact class 时，会返回 `ScriptParentClass` 原因 |
+| Editor.BlueprintImpact.AnalyzeVariableType | `NewVariables` 中引用 impacted struct 的 Blueprint 会返回 `VariableType` 原因 |
+| Editor.BlueprintImpact.AnalyzePinType | 节点 pin 使用 impacted struct 时会返回 `PinType` 原因 |
+| Editor.BlueprintImpact.AnalyzeNodeDependency | 节点外部依赖命中 impacted class 时会返回 `NodeDependency` 原因 |
+| Editor.BlueprintImpact.AnalyzeReferencedAsset | replacement-object 扫描命中 Blueprint 引用时会返回 `ReferencedAsset` 原因 |
+| Editor.BlueprintImpact.AnalyzeDelegateSignature | 事件节点签名命中 impacted delegate 时会返回 `DelegateSignature` 原因 |
+| Editor.BlueprintImpact.FindBlueprintAssetsDiskBacked | `FindBlueprintAssets(..., true)` 只返回磁盘上真实存在的 Blueprint 资产 |
+| Editor.BlueprintImpact.CommandletInvalidFile | commandlet 对无效 `ChangedScriptFile=` 参数返回参数错误退出码 |
+
+
 > 源文件：`Editor/AngelscriptSourceNavigationTests.cpp`
 
 | 测试名 | 验证内容 |
@@ -786,6 +803,15 @@
 | BlueprintChild.RecreateDoesNotLeakPreviousState | BP 子类重新创建不会泄漏之前实例的状态 |
 | BlueprintChild.NoOverrideUsesScriptParentDefault | BP 子类不覆盖属性时正确继承脚本父类的默认值 |
 | BlueprintChild.OverrideChainHasDeterministicCounts | 脚本父→子重写链再被蓝图子类化后，各层计数确定性正确 |
+
+
+> 源文件：`Blueprint/AngelscriptBlueprintImpactTests.cpp`
+
+| 测试名 | 验证内容 |
+|--------|----------|
+| BlueprintImpact.ScriptParentMatch | 变更脚本过滤命中对应 module 后，脚本父类派生的 Blueprint 会被 scanner 标记为受影响 |
+| BlueprintImpact.ChangedScriptFilter | changed-script 过滤不会把无关脚本父类的 Blueprint 一并误报 |
+| BlueprintImpact.DiskBackedAssetScan | 保存到 `/Game/Automation/...` 的磁盘 Blueprint 资产会进入 AssetRegistry 候选集，并能被 scanner 命中 |
 
 ### 12.8 Component 组件
 

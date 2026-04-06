@@ -169,6 +169,39 @@ D:\Tmp\TestRuns\Tests\<Label>\<RunId>\
 - `AngelscriptExamples`
 
 常用 suite 以 `Tools\RunTestSuite.ps1 -ListSuites` 输出为准，当前重点包括：
+推荐顺序：
+
+1. 快速冒烟：`AngelscriptSmoke`
+2. 无 world 的运行时回归：`AngelscriptRuntimeUnit`、`AngelscriptFast`
+3. 需要 world / actor / subsystem 的集成回归：`AngelscriptScenario`
+4. 编辑器相关：`AngelscriptEditor`
+
+### Blueprint impact commandlet 相关回归
+
+新增 Blueprint impact 相关功能后，优先使用以下入口：
+
+- Editor 内部 scanner / commandlet 入口回归：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -TestPrefix "Angelscript.Editor.BlueprintImpact" -TimeoutMs 300000
+```
+
+- Blueprint 场景与磁盘资产回归：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.BlueprintImpact" -TimeoutMs 300000
+```
+
+- commandlet 手工验证：
+
+```powershell
+J:\UnrealEngine\UERelease\Engine\Binaries\Win64\UnrealEditor-Cmd.exe <ProjectFile> -run=AngelscriptBlueprintImpactScan -stdout -FullStdOutLogOutput -Unattended -NoPause -NoSplash -NullRHI
+J:\UnrealEngine\UERelease\Engine\Binaries\Win64\UnrealEditor-Cmd.exe <ProjectFile> -run=AngelscriptBlueprintImpactScan -ChangedScript="Foo.as;Bar.as" -stdout -FullStdOutLogOutput -Unattended -NoPause -NoSplash -NullRHI
+```
+
+其中 `<ProjectFile>` 应由当前 worktree 的 `AgentConfig.ini` 提供，不要在常规执行说明里写死其他 worktree 的 `.uproject` 路径。
+
+常用具名 suite 以 `Tools\RunTestSuite.ps1 -ListSuites` 的输出为准，当前重点包括：
 
 - `Smoke`
 - `NativeCore`
