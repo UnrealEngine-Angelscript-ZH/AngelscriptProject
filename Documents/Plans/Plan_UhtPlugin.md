@@ -84,14 +84,14 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
 
 > 目标：创建可编译运行的 UHT C# 插件骨架，验证插件加载和类型遍历能力。
 
-- [ ] **P1.1** 创建 `AngelscriptUhtPlugin` 项目结构
-  - 在 `Plugins/Angelscript/Source/` 下创建 `AngelscriptUhtPlugin/` 目录，包含 `AngelscriptUhtPlugin.ubtplugin.csproj`
+- [x] **P1.1** 创建 `AngelscriptUHTTool` 项目结构
+  - 在 `Plugins/Angelscript/Source/` 下创建 `AngelscriptUHTTool/` 目录，包含 `AngelscriptUHTTool.ubtplugin.csproj`
   - 项目引用 `EpicGames.UHT`、`EpicGames.Core`、`EpicGames.Build`、`UnrealBuildTool` 的 DLL
-  - 输出路径设为 `Plugins/Angelscript/Binaries/DotNET/UnrealBuildTool/Plugins/AngelscriptUhtPlugin/`
+  - 输出路径设为 `Plugins/Angelscript/Binaries/DotNET/UnrealBuildTool/Plugins/AngelscriptUHTTool/`
   - 参考 `UHT-Plugin-Capabilities-Reference.md` §4.2 的 csproj 模板
 - [ ] **P1.1** 📦 Git 提交：`[Plugin/UHT] Feat: scaffold AngelscriptUhtPlugin C# project`
 
-- [ ] **P1.2** 实现最小 Exporter 骨架
+- [x] **P1.2** 实现最小 Exporter 骨架
   - 创建 `AngelscriptFunctionTableExporter.cs`，注册为 `[UhtExporter]`，`Options = UhtExporterOptions.Default | UhtExporterOptions.CompileOutput`
   - 遍历 `factory.Session.Packages` → `UhtClass` → `UhtFunction`，计数 BlueprintCallable 函数并输出到日志
   - 验证插件在 UBT 构建时被正确加载和执行
@@ -101,7 +101,7 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
 
 > 目标：Exporter 能为所有 BlueprintCallable 函数生成正确的 `AddFunctionEntry` C++ 代码并参与编译。
 
-- [ ] **P2.1** 实现 C++ 类型签名还原
+- [x] **P2.1** 实现 C++ 类型签名还原
   - 从 `UhtFunction` 的参数列表（`UhtProperty` Children）还原原始 C++ 函数签名
   - 处理 const/ref（从 `PropertyFlags` 和 MetaData 推断）、指针、TEnumAsByte、TSubclassOf 等
   - 处理返回值类型、void 特殊情况
@@ -109,7 +109,7 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
   - 当前 UHT 类型系统中 `UhtProperty` 的 `PropertyExportFlags` 和 `PropertyFlags` 已包含足够信息用于还原 const/ref，无需 Hazelight 的 `EAngelscriptPropertyFlags`
 - [ ] **P2.1** 📦 Git 提交：`[Plugin/UHT] Feat: C++ type signature reconstruction from UHT types`
 
-- [ ] **P2.2** 实现函数表 C++ 文件生成
+- [x] **P2.2** 实现函数表 C++ 文件生成
   - 按模块分片生成 `AS_FunctionTable_<ModuleName>.cpp` 文件（避免单文件过大）
   - 每个文件包含：必要的 `#include`、`FAngelscriptBinds::AddFunctionEntry(...)` 调用
   - include 列表从 `UhtHeaderFile` 路径生成
@@ -118,7 +118,7 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
   - 对于 `NativeInterface` 类或包含静态数组/不支持参数的函数，生成 `ERASE_NO_FUNCTION()`
 - [ ] **P2.2** 📦 Git 提交：`[Plugin/UHT] Feat: generate AddFunctionEntry C++ files per module`
 
-- [ ] **P2.3** 构建集成与增量更新验证
+- [x] **P2.3** 构建集成与增量更新验证
   - 确保生成的 C++ 文件被 AngelscriptRuntime 模块编译（可能需要在 Build.cs 中添加 generated 目录）
   - 验证增量构建：头文件未变时不重新生成、生成内容未变时不重写文件
   - 验证完整构建：从零开始构建时生成所有文件并编译通过
@@ -129,19 +129,19 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
 
 > 目标：自动生成的函数表在运行时正确填充 `ClassFuncMaps`，`BindBlueprintCallable` 路径恢复工作。
 
-- [ ] **P3.1** 运行时加载验证
+- [x] **P3.1** 运行时加载验证
   - 确保 UHT 生成的 `AddFunctionEntry` 调用在模块加载时执行（可能需要 `FAngelscriptBinds::FBind` 包装，或利用全局静态初始化）
   - 验证 `ClassFuncMaps` 在绑定阶段前已填充
   - 打印统计：自动填充条目数 vs 手写条目数
 - [ ] **P3.1** 📦 Git 提交：`[Plugin/UHT] Feat: runtime loading and ClassFuncMaps population`
 
-- [ ] **P3.2** 与手写绑定的兼容性处理
+- [x] **P3.2** 与手写绑定的兼容性处理
   - `AddFunctionEntry` 已有去重逻辑（`ClassFuncMaps.Contains` 检查），手写在先的条目不会被覆盖
   - 确保 UHT 生成的条目在手写 Bind_*.cpp 之前注册（利用 `FAngelscriptBinds::EOrder` 或静态初始化顺序）
   - 验证手写绑定仍能覆盖自动生成的绑定（对于需要自定义 wrapper 的函数）
 - [ ] **P3.2** 📦 Git 提交：`[Plugin/UHT] Feat: hand-written bind compatibility`
 
-- [ ] **P3.3** 功能验证测试
+- [x] **P3.3** 功能验证测试
   - 选取 10 个有代表性的 UE 类（`AActor`、`UWorld`、`UGameplayStatics`、`APlayerController` 等），验证其 BlueprintCallable 函数自动可用
   - 对比 Hazelight 的覆盖列表，统计覆盖率差异
   - 添加自动化测试：调用若干自动绑定的函数，验证参数传递和返回值正确
@@ -151,20 +151,20 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
 
 > 目标：移除死代码，优化生成策略。
 
-- [ ] **P4.1** 清理 FunctionCallers_*.cpp 死代码
+- [x] **P4.1** 清理 FunctionCallers_*.cpp 死代码
   - 14 个 FunctionCallers_*.cpp 文件全部是注释掉的死代码（~27000 条被注释的 ERASE 条目）
   - 删除所有 FunctionCallers_*.cpp 文件
   - 从 Build.cs 移除相关引用（如有）
   - 保留 `FunctionCallers.h`（`ASAutoCaller` 命名空间、`FFuncEntry`、`ERASE_*` 宏仍被活跃使用）
 - [ ] **P4.1** 📦 Git 提交：`[Plugin/UHT] Cleanup: remove dead FunctionCallers_*.cpp files`
 
-- [ ] **P4.2** 清理编辑器中的代码生成工具
+- [x] **P4.2** 清理编辑器中的代码生成工具
   - `AngelscriptEditorModule.cpp` 中存在生成 `AddFunctionEntry` 代码的编辑器工具函数
   - 这些工具函数是当初手动维护 FunctionCallers 的辅助工具，现已被 UHT 插件取代
   - 评估是否保留（可能仍有调试价值）或移除
 - [ ] **P4.2** 📦 Git 提交：`[Plugin/UHT] Cleanup: evaluate editor code generation tools`
 
-- [ ] **P4.3** 生成策略优化
+- [x] **P4.3** 生成策略优化
   - 分析生成文件大小和编译时间，必要时调整分片策略
   - 考虑按 "Runtime vs Editor" 分开生成（Editor 模块的函数只在编辑器构建中生成）
   - 评估是否需要添加 `#if WITH_EDITOR` 条件编译
@@ -209,3 +209,35 @@ AngelScript VM → CallFunctionCaller → ASAutoCaller::RedirectMethodCaller →
 | 函数表维护工作量 | 手动添加/更新 | 零维护（自动生成） |
 | 每次调用性能 | 已绑定函数等价 Hazelight | 等价 Hazelight |
 | 对引擎版本的依赖 | 手写绑定需要随引擎更新 | 自动适应引擎变更 |
+
+## 阶段验收记录（2026-04-06）
+
+### P2.3 构建集成与增量更新
+
+- 完整生成路径验证：`Saved/Build/20260405_205926_AngelscriptProjectEditor/build.stdout.log` 记录 `AngelscriptUHTTool exporter visited 513 packages, 8415 classes, 13469 BlueprintCallable/Pure functions, reconstructed 9017, skipped 4452, wrote 14 module files.`，且 `UHT processed AngelscriptProjectEditor in 5.1037542 seconds (9 files written)`。
+- 增量路径验证：`Saved/Build/20260405_211035_AngelscriptProjectEditor/build.stdout.log` 记录 `UHT processed AngelscriptProjectEditor in 5.1731255 seconds (0 files written)` 且 `Target is up to date`。
+- 当前 worktree 下可复现的生成/增量对比基线：上述两次构建总执行时间分别为 `120.57s` 与 `17.89s`。
+
+### P3.2 手写绑定兼容性
+
+- `Plugins/Angelscript/Source/AngelscriptRuntime/Binds/Bind_AngelscriptGASLibrary.cpp` 中手写 `AddFunctionEntry` 顺序仍早于 UHT 生成的 `Late + 50` 注册顺序。
+- 修复了 `WaitGameplayTagRemoveFromActor` 被错误登记到 `WaitForAttributeChanged` 键名下的问题，确保手写 GAS 条目和生成条目按预期去重。
+- 自动化验证：`Saved/Automation/Direct_121146_GeneratedFunctionTable/Reports/index.json` 中 `Angelscript.TestModule.Engine.GeneratedFunctionTable.PreservesHandwrittenGASEntries` 通过。
+
+### P3.3 功能验证测试
+
+- 自动填充验证：`Saved/Automation/Direct_121146_GeneratedFunctionTable/Reports/index.json` 中 `PopulatesClassFuncMaps` 通过。
+- 代表类覆盖验证：同一报告中 `RepresentativeCoverage` 覆盖 `AActor`、`UWorld`、`UGameplayStatics`、`APlayerController`、`UActorComponent`、`USceneComponent`、`UKismetSystemLibrary`、`UUserWidget`、`UAssetRegistryHelpers`、`UAngelscriptAbilityAsyncLibrary` 共 10 个代表类并通过。
+- 端到端调用验证：`Saved/Automation/Direct_ExecuteGeneratedBindings/Reports/index.json` 中 `NativeActorMethods`、`NativeComponentMethods`、`ComponentDestroyCompat` 全部通过，证明生成绑定路径可以支撑真实脚本调用而不仅是 `ClassFuncMaps` 静态检查。
+- Hazelight 覆盖差异说明：本机参考仓 `J:\UnrealEngine\UEAS2` 中未检索到可直接提取的 Hazelight 函数覆盖清单（未发现可用的 `FunctionCallers` / `AddFunctionEntry` / `ASReflectedFunctionPointers` 统计入口），因此当前阶段以生成条目统计（`14` 个模块文件、`6042` 条 `AddFunctionEntry`）以及代表类/端到端自动化测试作为可复现对照证据。
+
+### P4.2 编辑器代码生成工具评估
+
+- 结论：保留旧编辑器生成器代码作为 **debug-only** 辅助路径，不再视为主流程。
+- 证据：`Plugins/Angelscript/Source/AngelscriptEditor/Private/AngelscriptEditorModule.cpp` 中菜单项已重命名为 `Legacy Native Bind Generator (Debug Only)`，并明确说明主流程已切换到 `AngelscriptUHTTool`。
+
+### P4.3 生成策略验证
+
+- 生成器已按模块分片输出 `AS_FunctionTable_<Module>.cpp`，并对 editor-only 模块生成 `#if WITH_EDITOR` 包裹。
+- 自动化验证：`Saved/Automation/Direct_121146_GeneratedFunctionTable/Reports/index.json` 中 `EditorOutputsUseWithEditorGuard` 通过。
+- 直接产物示例：`Plugins/Angelscript/Intermediate/Build/Win64/UnrealEditor/Inc/AngelscriptRuntime/UHT/AS_FunctionTable_UMGEditor.cpp` 以 `#if WITH_EDITOR` 开头，而 `AS_FunctionTable_Engine.cpp` 不包含该前置 guard。

@@ -717,8 +717,8 @@ void FAngelscriptEditorModule::RegisterToolsMenuEntries()
 	BindSection.AddMenuEntry
 	(
 		"ASGenerateBindings",
-		NSLOCTEXT("Angelscript", "GenerateBind.Label", "Generate Native Angelscript Binds"),
-		NSLOCTEXT("Angelscript", "GenerateBind.ToolTip", "Generate Native Function Bindings for existing UObjects"),
+		NSLOCTEXT("Angelscript", "GenerateBind.Label", "Legacy Native Bind Generator (Debug Only)"),
+		NSLOCTEXT("Angelscript", "GenerateBind.ToolTip", "Legacy editor-side generator retained only for debugging old FunctionCallers output. The UHT-based AngelscriptUHTTool pipeline is the primary path."),
 		FSourceCodeNavigation::GetOpenSourceCodeIDEIcon(),
 		GenerateAction
 	);
