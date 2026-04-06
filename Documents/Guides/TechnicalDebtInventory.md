@@ -217,8 +217,8 @@
 
 ## 15. Phase 6.3 最终回归快照
 
-- 命令解析：通过 `Tools/ResolveAgentCommandTemplates.ps1` 基于 `AgentConfig.ini` 成功解析 `UnrealEditor-Cmd.exe` 的最终命令行，确认 `ProjectFile` 回退到 worktree 根 `AngelscriptProject.uproject`，`Test.DefaultTimeoutMs` 为 `600000ms`。
-- 最终回归执行：在 `technical-debt-plan` worktree 上重新执行 `Automation RunTests Angelscript.TestModule`；结果日志见 `Saved/Logs/AngelscriptProject.log`。
+- 命令解析：通过 `Tools/ResolveAgentCommandTemplates.ps1` 读取 `AgentConfig.ini` 并生成 `Tools\RunTests.ps1 -Group <group>` 的完整模板，确认 `ProjectFile` 指向 worktree 根 `AngelscriptProject.uproject`，`Test.DefaultTimeoutMs` 保持 `600000ms`。
+- 最终回归执行：在 `technical-debt-plan` worktree 上通过 `Tools\RunTests.ps1` （配合 `-Group` / `-TestPrefix`）重复 `Angelscript.TestModule` 的 automation run，日志同样记录在 `Saved/Logs/AngelscriptProject.log`。
 - 失败计数：`Saved/Logs/AngelscriptProject.log` 中 `LogAutomationController: Error: Test Completed. Result={失败}` 共 **4** 处，且 `LogAutomationCommandLine` 以 `**** TEST COMPLETE. EXIT CODE: -1 ****` 收尾，对应这 4 个失败项。
 - 最终保留失败项与 Phase 3 记录保持一致，没有新增指向本轮技术债收口改动面的回归：
   - `Angelscript.TestModule.Angelscript.NativeScriptHotReload.Phase2A`

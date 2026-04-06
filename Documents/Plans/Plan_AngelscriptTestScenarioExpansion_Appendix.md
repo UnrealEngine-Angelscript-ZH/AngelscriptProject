@@ -169,10 +169,11 @@ bool FTemplateComplexTest::RunTest(const FString& Parameters)
 
 ```text
 命令要素：
-- `UnrealEditor-Cmd.exe`
-- `-ExecCmds="Automation RunTests <TestName>; Quit"`
-- `-Unattended -NoPause -NoSplash -NullRHI -NOSOUND`
-- 可选：`-ReportExportPath=<path>`、`-ResumeRunTest`
+- `Tools\RunTests.ps1`
+-- `-Group AngelscriptScenario` / `-TestPrefix Angelscript.TestModule.Scenario.*`
+-- `-ReportExportPath=<Project>/Saved/Automation/Scenario/<RunId>/Reports`
+-- `-ABSLOG=<Project>/Saved/Automation/Scenario/<RunId>/Logs/Editor.log`
+-- `-TimeoutMs <ms>`、`-Label <name>`、`-- -NullRHI -Unattended -NoPause -NoSplash -NOSOUND`（或 `-Render`）
 ```
 
 **固定要求**：

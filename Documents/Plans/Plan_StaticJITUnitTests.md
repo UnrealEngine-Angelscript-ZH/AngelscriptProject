@@ -88,9 +88,7 @@
 
 先按 `Documents/Guides/Test.md` 读取 `AgentConfig.ini`，然后构建 `AngelscriptProjectEditor`：
 
-```powershell
-powershell.exe -Command "& '<EngineRoot>\Engine\Build\BatchFiles\Build.bat' AngelscriptProjectEditor Win64 Development '-Project=<ProjectFile>' -WaitMutex -FromMsBuild -architecture=x64 2>&1 | Out-String"
-```
+对 Editor 目标使用 `Tools\RunBuild.ps1`（例如加 `-Label debug-static -TimeoutMs 180000 -- -SerializeByEngine`），避免直接调用 `Build.bat` 并保持与共享 `AgentConfig.ini` 的路径/超时一致。
 
 ### Static JIT 测试前缀
 

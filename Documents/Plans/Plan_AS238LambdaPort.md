@@ -380,7 +380,7 @@ int TestCapture()
 - [ ] **P4.4** 📦 Git 提交：`[Test/Lambda] Feat: add lifecycle regression for anonymous functions`
 
 - [ ] **P4.5** 运行分层测试与全量回归
-  - 使用 `Documents/Guides/Test.md` 中约定的 `UnrealEditor-Cmd.exe` 自动化测试入口
+  - 使用 `Documents/Guides/Test.md` 中约定的 `Tools\RunTests.ps1` 自动化测试入口
   - 至少执行：
     - `Automation RunTests Angelscript.TestModule.Internals.Parser`
     - `Automation RunTests Angelscript.TestModule.Internals.Compiler`

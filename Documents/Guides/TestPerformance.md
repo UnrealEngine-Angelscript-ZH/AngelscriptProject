@@ -94,12 +94,10 @@
 执行路径应从 `AgentConfig.ini` 的 `Paths.EngineRoot` 读取引擎目录，并为每次运行生成唯一 `RunId`：
 
 ```text
-<EngineRoot>/Engine/Binaries/Win64/UnrealEditor-Cmd.exe \
-  "<Project>.uproject" \
-  -ExecCmds="Automation RunTests <TestPrefix>; Quit" \
-  -Unattended -NoPause -NoSplash -NullRHI -NOSOUND \
+Tools\RunTests.ps1 -Group AngelscriptPerformance \
   -ReportExportPath="<Project>/Saved/Automation/AngelscriptPerformance/<RunId>/Reports" \
-  -ABSLOG="<Project>/Saved/Automation/AngelscriptPerformance/<RunId>/Logs/Editor.log"
+  -ABSLOG="<Project>/Saved/Automation/AngelscriptPerformance/<RunId>/Logs/Editor.log" \
+  -- -NullRHI -NoSplash -NOSOUND
 ```
 
 ### 当前已落地的性能测试前缀
