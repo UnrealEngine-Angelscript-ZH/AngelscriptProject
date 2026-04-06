@@ -2,7 +2,7 @@
 #include "AngelscriptEngine.h"
 #include "AngelscriptSettings.h"
 #include "AngelscriptUhtCoverageTestTypes.h"
-#include "Helper_FunctionSignature.h"
+#include "Binds/Helper_FunctionSignature.h"
 #include "Testing/AngelscriptUhtOverloadCoverageTypes.h"
 #include "ClassGenerator/ASClass.h"
 #include "../Shared/AngelscriptTestUtilities.h"

@@ -58,14 +58,14 @@ bool FAngelscriptGeneratedFunctionTablePopulatesClassFuncMapsTest::RunTest(const
 		return false;
 	}
 
-	const FFuncEntry* ActorHasTagEntry = ActorFunctionMap->Find(TEXT("ActorHasTag"));
-	if (!TestNotNull(TEXT("Generated function table startup pass should register the generated AActor::ActorHasTag entry"), ActorHasTagEntry))
+	const FFuncEntry* ActorTimeDilationEntry = ActorFunctionMap->Find(TEXT("GetActorTimeDilation"));
+	if (!TestNotNull(TEXT("Generated function table startup pass should register the generated AActor::GetActorTimeDilation entry"), ActorTimeDilationEntry))
 	{
 		return false;
 	}
 
-	FGenericFuncPtr ActorHasTagPointer = ActorHasTagEntry->FuncPtr;
-	TestTrue(TEXT("Generated function table startup pass should produce a bound direct-call pointer for AActor::ActorHasTag"), ActorHasTagPointer.IsBound());
+	FGenericFuncPtr ActorTimeDilationPointer = ActorTimeDilationEntry->FuncPtr;
+	TestTrue(TEXT("Generated function table startup pass should produce a bound direct-call pointer for AActor::GetActorTimeDilation"), ActorTimeDilationPointer.IsBound());
 	return true;
 }
 
