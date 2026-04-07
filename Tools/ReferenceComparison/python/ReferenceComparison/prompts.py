@@ -7,6 +7,26 @@ from typing import List
 
 from .config import Dimension, RepoConfig
 
+# ---------------------------------------------------------------------------
+# Shared sections injected into every first-round prompt
+# ---------------------------------------------------------------------------
+
+_WORK_MODE_SECTION = """\
+## Work Mode — Write Incrementally, No Concurrency
+
+You MUST create the output file early and write to it as you go.
+**ABSOLUTELY NO CONCURRENCY** — this is the single most important constraint.
+
+1. **First action**: Create the output file and write all section headings as a skeleton.
+2. After scanning each dimension, immediately append findings to the corresponding section.
+3. Do NOT accumulate results in memory. The same section can be appended to multiple times.
+4. If you are running low on budget, STOP gathering evidence and finalize what you have already written.
+5. A complete document with partial evidence is far better than exhaustive evidence with no output file.
+6. **NEVER launch parallel sub-agents, background agents, Explore Agents, or concurrent tasks.** Work strictly sequentially: read one source file → write findings to document → move to next source file. Any form of concurrency or parallel dispatch will cause the session to terminate prematurely without writing the output file.
+7. Do NOT spend time reading skill files, creating TodoLists, or planning. Start scanning source code immediately.
+8. Do NOT create todo items. Do NOT use the TodoWrite tool.
+9. Do NOT output `<promise>DONE</promise>` until ALL requested output files exist on disk AND each contains substantive content. If any requested file has not been written, you are FORBIDDEN from outputting `<promise>DONE</promise>`. Verify every file before claiming completion."""
+
 
 def build_repo_analysis_prompt(
     repo: RepoConfig,
@@ -46,6 +66,8 @@ For each dimension, include a concrete comparison with the Angelscript plugin's 
 
 Write the complete analysis document to: {output_path}
 Create parent directories if they do not exist.
+
+{_WORK_MODE_SECTION}
 
 ## Critical Requirements
 
@@ -103,6 +125,8 @@ For each dimension, compare **Hazelight original → our current implementation*
 Write the complete analysis document to: {output_path}
 Create parent directories if they do not exist.
 
+{_WORK_MODE_SECTION}
+
 ## Critical Requirements
 
 1. Every dimension MUST include at least one ASCII architecture/call-chain diagram.
@@ -150,6 +174,8 @@ Also read the actual source code in Reference/ and {angelscript_plugin_path}/ fo
 
 Write the cross-comparison document to: {output_path}
 
+{_WORK_MODE_SECTION}
+
 ## Critical Requirements
 
 1. MUST include an ASCII comparison matrix table (plugin × sub-feature).
@@ -192,6 +218,8 @@ Angelscript plugin: {angelscript_plugin_path}/
 
 Write to: {output_path}
 
+{_WORK_MODE_SECTION}
+
 ## Critical Requirements
 
 1. MUST include a gap matrix (dimension × gap severity).
@@ -215,53 +243,57 @@ def build_deepen_prompt(
     doc_lines = previous_doc.count("\n") + 1
 
     return f"""\
-{initial_prompt}
+## CRITICAL INSTRUCTION — EDIT THE FILE
 
-## Continuation — Round {current_round}/{max_rounds}
+You are in Round {current_round}/{max_rounds} of an iterative deepening process.
+The document already exists ({doc_lines} lines, {doc_size} chars).
 
-The document already exists from a previous round ({doc_lines} lines, {doc_size} chars). **Read it first**, then apply the deepening checklist below.
+**YOUR ONLY JOB IS TO EDIT THE EXISTING FILE.** Not to analyze. Not to plan. Not to report.
+You MUST use file editing tools (StrReplace, Write, or equivalent) to modify the document.
+If you finish this round without having edited the file, you have FAILED.
 
-### Deepening Checklist (MUST address every item)
+### Workflow (follow strictly)
 
-**A. Source-Code Grounding Audit**
-- For every claim or comparison point in the document, check: is there a specific file path + line range cited?
-- If a section says "X uses Y pattern" but provides no code snippet, **find the actual source file and add an annotated snippet** (5-15 lines, with Chinese comments on key lines).
-- Target: every section should have at least 2 concrete source-code references from different files.
+1. **Read the existing document** (1 minute max — skim, don't study every line).
+2. **Pick the 2-3 weakest sections** from the checklist below.
+3. **Start editing immediately.** For each weak section:
+   - Find 1-2 relevant source files (Grep/Glob).
+   - Use StrReplace to insert annotated code snippets, ASCII diagrams, or precise comparisons directly into the document.
+4. **NEVER launch parallel sub-agents, background agents, Explore Agents, or concurrent tasks.** Work strictly sequentially: find evidence → edit → next section. Any form of concurrency will cause premature session termination.
+5. **Do NOT rewrite from scratch.** Only insert/replace within existing sections.
+6. **Do NOT create todo items.** Do NOT use the TodoWrite tool.
 
-**B. ASCII Diagram Completeness**
-- Count how many ASCII diagrams exist. Each dimension/section MUST have at least one.
-- If a diagram is too high-level (only boxes with module names), **add a second diagram** showing internal structure: key classes, call chains, or data flow within that module.
-- Preferred diagram types: module dependency graph, class inheritance tree, call sequence, data pipeline, state machine.
+### Deepening Checklist (pick 2-3 to address per round)
 
-**C. Missing Depth — Explore Deeper Into Source**
-- For each dimension, open at least 3 source files you haven't referenced yet and look for:
-  - Non-obvious design patterns (e.g., template metaprogramming, CRTP, policy classes)
-  - Error handling strategies and edge cases
-  - Performance-critical paths (caching, lazy init, pooling)
-  - Thread safety mechanisms (locks, atomics, game-thread assertions)
-  - Preprocessor macros that shape the API surface
-- Add findings as new subsections or expand existing ones.
+**A. Source-Code Grounding** — Sections that claim "X uses Y pattern" without citing a file path + code snippet. Find the actual source and insert an annotated snippet (5-15 lines, Chinese comments on key lines). Target: 2+ source references per section.
 
-**D. Comparison Precision**
-- Replace vague comparisons ("similar approach", "different strategy") with specific technical differences:
-  - What exact class/function does X use vs Y?
-  - What is the concrete call chain difference?
-  - What are the measurable implications (compile time, runtime overhead, API surface size)?
+**B. ASCII Diagrams** — Sections without diagrams, or with only high-level module boxes. Add internal structure diagrams: class inheritance, call sequence, data pipeline, state machine.
 
-**E. Gap Severity Assessment**
-- For each identified gap or difference, assign a concrete severity:
+**C. Deeper Source Exploration** — For each dimension, open 2-3 source files not yet referenced. Look for: non-obvious patterns (CRTP, policy classes), error handling, performance paths (caching, pooling), thread safety, preprocessor macros. Insert findings into existing sections.
+
+**D. Comparison Precision** — Replace vague phrases ("similar approach", "different strategy") with: exact class/function names, concrete call chain differences, measurable implications (compile time, runtime overhead, API surface size).
+
+**E. Gap Severity** — For each gap, insert a severity tag:
   - 🔴 Blocking: prevents a key use case
   - 🟡 Important: degrades experience but has workaround
   - 🟢 Nice-to-have: polish or optimization
-- Back up severity with evidence (e.g., "blocks hot-reload of X because Y class is missing").
+  Back up with evidence.
 
-### Execution Rules
+### Hard Rules
 
-1. **Do NOT rewrite from scratch.** Preserve existing content and expand in place.
+1. **MUST edit the file.** No round is complete without file modifications.
 2. **Do NOT add TodoList or action items.** Only analysis and evidence.
-3. **Prioritize depth over breadth** — it's better to make 3 sections excellent than 10 sections shallow.
-4. After expanding, re-read the full document to ensure consistency and remove any duplicate content introduced.
-5. The final document should read as a single coherent analysis, not as "round 1 content + round 2 additions".
+3. **Do NOT rewrite from scratch.** Preserve existing content, expand in place.
+4. **Budget: spend ≤20% of your time reading, ≥80% editing.**
+5. After editing, do a quick consistency pass to remove duplicates.
+6. **ABSOLUTELY NO CONCURRENCY.** No parallel agents, no background tasks, no concurrent exploration.
+7. Do NOT output `<promise>DONE</promise>` until you have verified the file was actually modified in this round.
+
+---
+
+Below is the original task description for context (do not re-execute from scratch):
+
+{initial_prompt}
 """
 
 
