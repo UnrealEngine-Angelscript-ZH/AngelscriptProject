@@ -1,5 +1,7 @@
 #include "../../AngelscriptRuntime/Core/AngelscriptBinds.h"
 #include "AngelscriptEngine.h"
+#include "Camera/PlayerCameraManager.h"
+#include "HAL/FileManager.h"
 #include "GameFramework/Actor.h"
 #include "Misc/FileHelper.h"
 #include "Misc/AutomationTest.h"
@@ -9,6 +11,141 @@
 #include "Shared/AngelscriptTestUtilities.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
+
+namespace GeneratedFunctionTableTests
+{
+	struct FBindingRateStats
+	{
+		FString ModuleName;
+		int32 TotalEntries = 0;
+		int32 DirectEntries = 0;
+		int32 StubEntries = 0;
+
+		double GetDirectRatePercent() const
+		{
+			return TotalEntries > 0 ? (static_cast<double>(DirectEntries) * 100.0) / static_cast<double>(TotalEntries) : 0.0;
+		}
+	};
+
+	static FString GetGeneratedDirectory()
+	{
+		return FPaths::Combine(
+			FPaths::ProjectPluginsDir(),
+			TEXT("Angelscript"),
+			TEXT("Intermediate/Build/Win64/UnrealEditor/Inc/AngelscriptRuntime/UHT"));
+	}
+
+	static bool TryParseModuleName(const FString& FileName, FString& OutModuleName)
+	{
+		FString Stem = FileName;
+		if (!Stem.RemoveFromStart(TEXT("AS_FunctionTable_")) || !Stem.RemoveFromEnd(TEXT(".cpp")))
+		{
+			return false;
+		}
+
+		int32 LastUnderscoreIndex = INDEX_NONE;
+		if (!Stem.FindLastChar(TEXT('_'), LastUnderscoreIndex) || LastUnderscoreIndex <= 0)
+		{
+			return false;
+		}
+
+		OutModuleName = Stem.Left(LastUnderscoreIndex);
+		return !OutModuleName.IsEmpty();
+	}
+
+	static void AccumulateFileStats(const FString& FileContents, FBindingRateStats& Stats)
+	{
+		TArray<FString> Lines;
+		FileContents.ParseIntoArrayLines(Lines, false);
+
+		for (const FString& Line : Lines)
+		{
+			if (Line.Contains(TEXT("AddFunctionEntry("), ESearchCase::CaseSensitive))
+			{
+				Stats.TotalEntries++;
+			}
+
+			if (Line.Contains(TEXT("ERASE_NO_FUNCTION("), ESearchCase::CaseSensitive))
+			{
+				Stats.StubEntries++;
+			}
+		}
+	}
+
+	static bool CollectBindingRateStats(TArray<FBindingRateStats>& OutModuleStats, FBindingRateStats& OutOverallStats, FString& OutFailureReason)
+	{
+		const FString GeneratedDirectory = GetGeneratedDirectory();
+		TArray<FString> GeneratedFiles;
+		IFileManager::Get().FindFiles(GeneratedFiles, *FPaths::Combine(GeneratedDirectory, TEXT("AS_FunctionTable_*.cpp")), true, false);
+
+		if (GeneratedFiles.Num() == 0)
+		{
+			OutFailureReason = FString::Printf(TEXT("No generated function table files found under %s"), *GeneratedDirectory);
+			return false;
+		}
+
+		TMap<FString, FBindingRateStats> StatsByModule;
+		for (const FString& GeneratedFile : GeneratedFiles)
+		{
+			FString ModuleName;
+			if (!TryParseModuleName(GeneratedFile, ModuleName))
+			{
+				OutFailureReason = FString::Printf(TEXT("Unable to parse module name from generated function table file %s"), *GeneratedFile);
+				return false;
+			}
+
+			FString FileContents;
+			const FString FullPath = FPaths::Combine(GeneratedDirectory, GeneratedFile);
+			if (!FFileHelper::LoadFileToString(FileContents, *FullPath))
+			{
+				OutFailureReason = FString::Printf(TEXT("Unable to load generated function table file %s"), *FullPath);
+				return false;
+			}
+
+			FBindingRateStats& ModuleStats = StatsByModule.FindOrAdd(ModuleName);
+			ModuleStats.ModuleName = ModuleName;
+			AccumulateFileStats(FileContents, ModuleStats);
+		}
+
+		StatsByModule.GenerateValueArray(OutModuleStats);
+		OutModuleStats.Sort([](const FBindingRateStats& Left, const FBindingRateStats& Right)
+		{
+			return Left.ModuleName < Right.ModuleName;
+		});
+
+		OutOverallStats.ModuleName = TEXT("Overall");
+		for (FBindingRateStats& ModuleStats : OutModuleStats)
+		{
+			ModuleStats.DirectEntries = ModuleStats.TotalEntries - ModuleStats.StubEntries;
+			OutOverallStats.TotalEntries += ModuleStats.TotalEntries;
+			OutOverallStats.DirectEntries += ModuleStats.DirectEntries;
+			OutOverallStats.StubEntries += ModuleStats.StubEntries;
+		}
+
+		return true;
+	}
+
+	static void LogBindingRateStats(FAutomationTestBase& Test, const FBindingRateStats& OverallStats, const TArray<FBindingRateStats>& ModuleStats)
+	{
+		Test.AddInfo(FString::Printf(
+			TEXT("Generated binding export rate (overall): direct=%d/%d (%.2f%%), stub=%d"),
+			OverallStats.DirectEntries,
+			OverallStats.TotalEntries,
+			OverallStats.GetDirectRatePercent(),
+			OverallStats.StubEntries));
+
+		for (const FBindingRateStats& ModuleStatsEntry : ModuleStats)
+		{
+			Test.AddInfo(FString::Printf(
+				TEXT("Generated binding export rate (%s): direct=%d/%d (%.2f%%), stub=%d"),
+				*ModuleStatsEntry.ModuleName,
+				ModuleStatsEntry.DirectEntries,
+				ModuleStatsEntry.TotalEntries,
+				ModuleStatsEntry.GetDirectRatePercent(),
+				ModuleStatsEntry.StubEntries));
+		}
+	}
+}
 
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptGeneratedFunctionTablePopulatesClassFuncMapsTest,
@@ -28,6 +165,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptGeneratedFunctionTableRepresentativeCoverageTest,
 	"Angelscript.TestModule.Engine.GeneratedFunctionTable.RepresentativeCoverage",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptGeneratedFunctionTableMinimalApiFunctionLevelExportTest,
+	"Angelscript.TestModule.Engine.GeneratedFunctionTable.MinimalApiFunctionLevelExports",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FAngelscriptGeneratedFunctionTablePopulatesClassFuncMapsTest::RunTest(const FString& Parameters)
@@ -58,14 +200,14 @@ bool FAngelscriptGeneratedFunctionTablePopulatesClassFuncMapsTest::RunTest(const
 		return false;
 	}
 
-	const FFuncEntry* ActorTimeDilationEntry = ActorFunctionMap->Find(TEXT("GetActorTimeDilation"));
-	if (!TestNotNull(TEXT("Generated function table startup pass should register the generated AActor::GetActorTimeDilation entry"), ActorTimeDilationEntry))
+	const FFuncEntry* ActorHasTagEntry = ActorFunctionMap->Find(TEXT("ActorHasTag"));
+	if (!TestNotNull(TEXT("Generated function table startup pass should register the generated AActor::ActorHasTag entry"), ActorHasTagEntry))
 	{
 		return false;
 	}
 
-	FGenericFuncPtr ActorTimeDilationPointer = ActorTimeDilationEntry->FuncPtr;
-	TestTrue(TEXT("Generated function table startup pass should produce a bound direct-call pointer for AActor::GetActorTimeDilation"), ActorTimeDilationPointer.IsBound());
+	FGenericFuncPtr ActorHasTagPointer = ActorHasTagEntry->FuncPtr;
+	TestTrue(TEXT("Generated function table startup pass should produce a bound direct-call pointer for AActor::ActorHasTag"), ActorHasTagPointer.IsBound());
 	return true;
 }
 
@@ -114,10 +256,18 @@ bool FAngelscriptGeneratedFunctionTablePreservesHandwrittenGASEntriesTest::RunTe
 
 bool FAngelscriptGeneratedFunctionTableEditorOutputsUseWithEditorGuardTest::RunTest(const FString& Parameters)
 {
-	const FString GeneratedDirectory = FPaths::Combine(
-		FPaths::ProjectPluginsDir(),
-		TEXT("Angelscript"),
-		TEXT("Intermediate/Build/Win64/UnrealEditor/Inc/AngelscriptRuntime/UHT"));
+	TArray<GeneratedFunctionTableTests::FBindingRateStats> ModuleStats;
+	GeneratedFunctionTableTests::FBindingRateStats OverallStats;
+	FString BindingRateFailureReason;
+	if (!TestTrue(TEXT("Generated strategy test should collect binding export rate stats from generated UHT outputs"), GeneratedFunctionTableTests::CollectBindingRateStats(ModuleStats, OverallStats, BindingRateFailureReason)))
+	{
+		AddError(BindingRateFailureReason);
+		return false;
+	}
+
+	GeneratedFunctionTableTests::LogBindingRateStats(*this, OverallStats, ModuleStats);
+
+	const FString GeneratedDirectory = GeneratedFunctionTableTests::GetGeneratedDirectory();
 
 	const FString EditorOutputPath = FPaths::Combine(GeneratedDirectory, TEXT("AS_FunctionTable_UMGEditor_000.cpp"));
 	const FString RuntimeOutputPath = FPaths::Combine(GeneratedDirectory, TEXT("AS_FunctionTable_Engine_000.cpp"));
@@ -183,6 +333,45 @@ bool FAngelscriptGeneratedFunctionTableRepresentativeCoverageTest::RunTest(const
 		}
 
 		if (!TestTrue(FString::Printf(TEXT("Representative coverage test should add at least one generated function entry for %s"), Expectation.DisplayName), FunctionMap->Num() > 0))
+		{
+			return false;
+		}
+	}
+
+	return true;
+}
+
+bool FAngelscriptGeneratedFunctionTableMinimalApiFunctionLevelExportTest::RunTest(const FString& Parameters)
+{
+	if (!TestTrue(TEXT("MinimalAPI function export regression test requires the runtime engine to be initialized in editor automation"), FAngelscriptEngine::IsInitialized()))
+	{
+		return false;
+	}
+
+	const TMap<UClass*, TMap<FString, FFuncEntry>>& ClassFuncMaps = FAngelscriptBinds::GetClassFuncMaps();
+	const TMap<FString, FFuncEntry>* PlayerCameraManagerEntries = ClassFuncMaps.Find(APlayerCameraManager::StaticClass());
+	if (!TestNotNull(TEXT("MinimalAPI function export regression test should expose generated entries for APlayerCameraManager"), PlayerCameraManagerEntries))
+	{
+		return false;
+	}
+
+	const TCHAR* ExpectedBoundFunctions[] =
+	{
+		TEXT("SetManualCameraFade"),
+		TEXT("StartCameraFade"),
+		TEXT("StopCameraFade"),
+	};
+
+	for (const TCHAR* ExpectedFunctionName : ExpectedBoundFunctions)
+	{
+		const FFuncEntry* Entry = PlayerCameraManagerEntries->Find(ExpectedFunctionName);
+		if (!TestNotNull(FString::Printf(TEXT("MinimalAPI function export regression test should register %s"), ExpectedFunctionName), Entry))
+		{
+			return false;
+		}
+
+		FGenericFuncPtr FunctionPointer = Entry->FuncPtr;
+		if (!TestTrue(FString::Printf(TEXT("MinimalAPI function export regression test should recover a direct-call pointer for %s"), ExpectedFunctionName), FunctionPointer.IsBound()))
 		{
 			return false;
 		}
