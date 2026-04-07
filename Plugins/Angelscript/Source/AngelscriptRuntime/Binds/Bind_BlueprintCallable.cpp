@@ -7,6 +7,7 @@
 #include "UObject/UnrealType.h"
 #include "ClassGenerator/ASClass.h"
 
+#include "BlueprintCallableReflectiveFallback.h"
 #include "Helper_FunctionSignature.h"
 
 extern void RegisterBlueprintEventByScriptName(UClass* Class, const FString& ScriptName, UFunction* Function);
@@ -46,14 +47,6 @@ void BindBlueprintCallable(
 	if (Entry == nullptr)
 		return;
 
-	auto* DirectNativePointer = &Entry->FuncPtr;
-	if (DirectNativePointer == nullptr || !DirectNativePointer->IsBound())
-		return;
-
-	//auto* DirectNativePointer = &FuncInMap->Key;	
-	//if (!DirectNativePointer->IsBound())
-	//	return;	
-
 #if AS_USE_BIND_DB
 	FAngelscriptFunctionSignature Signature;
 	Signature.InitFromDB(InType, Function, DBBind, /* bInitTypes= */ false);
@@ -65,6 +58,39 @@ void BindBlueprintCallable(
 	if (!Signature.bAllTypesValid)
 		return;
 #endif
+
+	if (IsScriptDeclarationAlreadyBound(InType, Signature))
+	{
+		Entry->bReflectiveFallbackBound = false;
+
+#if !AS_USE_BIND_DB
+		Signature.WriteToDB(DBBind);
+#endif
+		return;
+	}
+
+	auto* DirectNativePointer = &Entry->FuncPtr;
+	const bool bHasDirectNativePointer = DirectNativePointer != nullptr && DirectNativePointer->IsBound();
+	if (!bHasDirectNativePointer)
+	{
+		if (!BindBlueprintCallableReflectiveFallback(InType, Function, Signature, *Entry))
+			return;
+
+#if AS_CAN_GENERATE_JIT
+#if AS_USE_BIND_DB
+		SCRIPT_NATIVE_UFUNCTION(Function, FPackageName::ObjectPathToObjectName(DBBind.UnrealPath), false);
+#else
+		SCRIPT_NATIVE_UFUNCTION(Function, Function->GetName(), false);
+#endif
+#endif
+
+#if !AS_USE_BIND_DB
+		Signature.WriteToDB(DBBind);
+#endif
+		return;
+	}
+
+	Entry->bReflectiveFallbackBound = false;
 
 	// FGenericFuncPtr is a copy of asSFuncPtr, so do a direct memcpy
 	asSFuncPtr ASFuncPtr;

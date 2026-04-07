@@ -6,6 +6,7 @@
 #include "Misc/Paths.h"
 #include "Misc/ScopeExit.h"
 #include "UObject/UObjectGlobals.h"
+#include "UObject/Package.h"
 #include "Shared/AngelscriptTestUtilities.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
@@ -28,6 +29,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptGeneratedFunctionTableRepresentativeCoverageTest,
 	"Angelscript.TestModule.Engine.GeneratedFunctionTable.RepresentativeCoverage",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptGeneratedFunctionTableReflectiveFallbackStatsTest,
+	"Angelscript.TestModule.Engine.GeneratedFunctionTable.ReflectiveFallbackStats",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FAngelscriptGeneratedFunctionTablePopulatesClassFuncMapsTest::RunTest(const FString& Parameters)
@@ -188,6 +194,105 @@ bool FAngelscriptGeneratedFunctionTableRepresentativeCoverageTest::RunTest(const
 		}
 	}
 
+	return true;
+}
+
+bool FAngelscriptGeneratedFunctionTableReflectiveFallbackStatsTest::RunTest(const FString& Parameters)
+{
+	if (!TestTrue(TEXT("Generated reflective fallback stats test requires the runtime engine to be initialized in editor automation"), FAngelscriptEngine::IsInitialized()))
+	{
+		return false;
+	}
+
+	const TMap<UClass*, TMap<FString, FFuncEntry>>& ClassFuncMaps = FAngelscriptBinds::GetClassFuncMaps();
+	int32 DirectCount = 0;
+	int32 ReflectiveCount = 0;
+	int32 UnresolvedCount = 0;
+	TMap<FString, int32> ReflectiveCountsByModule;
+
+	for (const TPair<UClass*, TMap<FString, FFuncEntry>>& ClassEntry : ClassFuncMaps)
+	{
+		const FString PackageName = ClassEntry.Key != nullptr && ClassEntry.Key->GetOutermost() != nullptr
+			? ClassEntry.Key->GetOutermost()->GetName()
+			: FString();
+		FString ModuleName = PackageName;
+		ModuleName.RemoveFromStart(TEXT("/Script/"));
+
+		for (const TPair<FString, FFuncEntry>& FunctionEntry : ClassEntry.Value)
+		{
+			FGenericFuncPtr FunctionPointer = FunctionEntry.Value.FuncPtr;
+			if (FunctionPointer.IsBound())
+			{
+				++DirectCount;
+				continue;
+			}
+
+			if (FunctionEntry.Value.bReflectiveFallbackBound)
+			{
+				++ReflectiveCount;
+				ReflectiveCountsByModule.FindOrAdd(ModuleName) += 1;
+				continue;
+			}
+
+			++UnresolvedCount;
+		}
+	}
+
+	if (!TestTrue(TEXT("Generated function table stats should still report direct bindings after reflective fallback lands"), DirectCount > 0))
+	{
+		return false;
+	}
+
+	if (!TestTrue(TEXT("Generated function table stats should report at least one reflective fallback binding"), ReflectiveCount > 0))
+	{
+		return false;
+	}
+
+	if (!TestTrue(TEXT("Generated function table stats should continue to report unresolved entries after reflective fallback lands"), UnresolvedCount > 0))
+	{
+		return false;
+	}
+
+	if (!TestTrue(TEXT("Generated function table stats should record reflective fallback coverage in AIModule"), ReflectiveCountsByModule.FindRef(TEXT("AIModule")) > 0))
+	{
+		return false;
+	}
+
+	if (!TestTrue(TEXT("Generated function table stats should record reflective fallback coverage in GameplayTags"), ReflectiveCountsByModule.FindRef(TEXT("GameplayTags")) > 0))
+	{
+		return false;
+	}
+
+	if (!TestTrue(TEXT("Generated function table stats should record reflective fallback coverage in UMG"), ReflectiveCountsByModule.FindRef(TEXT("UMG")) > 0))
+	{
+		return false;
+	}
+
+	UClass* AbilityAsyncLibraryClass = FindObject<UClass>(nullptr, TEXT("/Script/AngelscriptRuntime.AngelscriptAbilityAsyncLibrary"));
+	if (!TestNotNull(TEXT("Generated reflective fallback stats test should locate UAngelscriptAbilityAsyncLibrary"), AbilityAsyncLibraryClass))
+	{
+		return false;
+	}
+
+	const TMap<FString, FFuncEntry>* AsyncLibraryFunctionMap = ClassFuncMaps.Find(AbilityAsyncLibraryClass);
+	if (!TestNotNull(TEXT("Generated reflective fallback stats test should expose handwritten GAS entries in ClassFuncMaps"), AsyncLibraryFunctionMap))
+	{
+		return false;
+	}
+
+	const FFuncEntry* WaitForAttributeChangedEntry = AsyncLibraryFunctionMap->Find(TEXT("WaitForAttributeChanged"));
+	if (!TestNotNull(TEXT("Generated reflective fallback stats test should keep WaitForAttributeChanged present"), WaitForAttributeChangedEntry))
+	{
+		return false;
+	}
+
+	FGenericFuncPtr WaitForAttributeChangedPointer = WaitForAttributeChangedEntry->FuncPtr;
+	if (!TestTrue(TEXT("Generated reflective fallback stats test should keep handwritten GAS entries on the direct path"), WaitForAttributeChangedPointer.IsBound()))
+	{
+		return false;
+	}
+
+	TestTrue(TEXT("Generated reflective fallback stats test should not reclassify handwritten GAS entries as reflective fallback"), !WaitForAttributeChangedEntry->bReflectiveFallbackBound);
 	return true;
 }
 #endif
