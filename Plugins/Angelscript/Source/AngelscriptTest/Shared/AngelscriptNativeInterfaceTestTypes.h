@@ -21,6 +21,9 @@ public:
 
 	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
 	void SetNativeMarker(FName Marker);
+
+	UFUNCTION(BlueprintCallable, BlueprintNativeEvent)
+	void AdjustNativeValue(int32 Delta, UPARAM(ref) int32& Value);
 };
 
 UINTERFACE(BlueprintType)

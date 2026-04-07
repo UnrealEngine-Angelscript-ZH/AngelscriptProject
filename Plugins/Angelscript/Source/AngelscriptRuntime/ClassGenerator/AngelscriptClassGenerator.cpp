@@ -30,6 +30,7 @@
 #include "AngelscriptDebugValue.h"
 #include "AngelscriptInclude.h"
 #include "AngelscriptSettings.h"
+#include "Binds/BlueprintCallableReflectiveFallback.h"
 #include "Binds/Helper_FunctionSignature.h"
 
 #include "StartAngelscriptHeaders.h"
@@ -56,45 +57,14 @@ void CallInterfaceMethod(asIScriptGeneric* InGeneric)
 {
 	asCGeneric* Generic = static_cast<asCGeneric*>(InGeneric);
 	auto* Sig = (FInterfaceMethodSignature*)Generic->GetFunction()->GetUserData();
+	if (Sig == nullptr) return;
 
 	UObject* Object = (UObject*)Generic->GetObject();
 	if (Object == nullptr) return;
 
 	UFunction* RealFunc = Object->FindFunction(Sig->FunctionName);
 	if (RealFunc == nullptr) return;
-
-	// Allocate parameter buffer
-	uint8* Buffer = (uint8*)FMemory_Alloca(RealFunc->ParmsSize);
-	FMemory::Memzero(Buffer, RealFunc->ParmsSize);
-
-	// Copy arguments from AS generic call into UFunction parameter buffer
-	int32 ArgIndex = 0;
-	for (TFieldIterator<FProperty> It(RealFunc); It && (It->PropertyFlags & CPF_Parm); ++It)
-	{
-		FProperty* Prop = *It;
-		if (Prop->PropertyFlags & CPF_ReturnParm) continue;
-		void* SrcPtr = Generic->GetAddressOfArg(ArgIndex++);
-		Prop->CopySingleValue(Prop->ContainerPtrToValuePtr<void>(Buffer), SrcPtr);
-	}
-
-	// Call the function
-	Object->ProcessEvent(RealFunc, Buffer);
-
-	// Copy return value
-	if (RealFunc->ReturnValueOffset != MAX_uint16)
-	{
-		FProperty* RetProp = RealFunc->GetReturnProperty();
-		if (RetProp)
-		{
-			void* RetSrc = RetProp->ContainerPtrToValuePtr<void>(Buffer);
-			void* RetDst = Generic->GetAddressOfReturnLocation();
-			RetProp->CopySingleValue(RetDst, RetSrc);
-		}
-	}
-
-	// Cleanup
-	for (TFieldIterator<FProperty> It(RealFunc); It && (It->PropertyFlags & CPF_Parm); ++It)
-		It->DestroyValue(It->ContainerPtrToValuePtr<void>(Buffer));
+	InvokeReflectiveUFunctionFromGenericCall(Generic, Object, RealFunc);
 }
 
 FOnAngelscriptClassReload FAngelscriptClassGenerator::OnClassReload;

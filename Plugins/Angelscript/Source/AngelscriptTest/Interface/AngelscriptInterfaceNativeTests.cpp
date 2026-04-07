@@ -3,6 +3,7 @@
 #include "Shared/AngelscriptNativeInterfaceTestTypes.h"
 #include "Shared/AngelscriptScenarioTestUtils.h"
 #include "Shared/AngelscriptTestMacros.h"
+#include "../../AngelscriptRuntime/Binds/BlueprintCallableReflectiveFallback.h"
 
 #include "Components/ActorTestSpawner.h"
 #include "Misc/AutomationTest.h"
@@ -34,38 +35,7 @@ namespace
 			return;
 		}
 
-		uint8* Buffer = static_cast<uint8*>(FMemory_Alloca(RealFunc->ParmsSize));
-		FMemory::Memzero(Buffer, RealFunc->ParmsSize);
-
-		int32 ArgIndex = 0;
-		for (TFieldIterator<FProperty> It(RealFunc); It && (It->PropertyFlags & CPF_Parm); ++It)
-		{
-			FProperty* Property = *It;
-			if (Property->HasAnyPropertyFlags(CPF_ReturnParm))
-			{
-				continue;
-			}
-
-			void* Source = Generic->GetAddressOfArg(ArgIndex++);
-			Property->CopySingleValue(Property->ContainerPtrToValuePtr<void>(Buffer), Source);
-		}
-
-		Object->ProcessEvent(RealFunc, Buffer);
-
-		if (RealFunc->ReturnValueOffset != MAX_uint16)
-		{
-			if (FProperty* ReturnProperty = RealFunc->GetReturnProperty())
-			{
-				void* ReturnSource = ReturnProperty->ContainerPtrToValuePtr<void>(Buffer);
-				void* ReturnDestination = Generic->GetAddressOfReturnLocation();
-				ReturnProperty->CopySingleValue(ReturnDestination, ReturnSource);
-			}
-		}
-
-		for (TFieldIterator<FProperty> It(RealFunc); It && (It->PropertyFlags & CPF_Parm); ++It)
-		{
-			It->DestroyValue(It->ContainerPtrToValuePtr<void>(Buffer));
-		}
+		InvokeReflectiveUFunctionFromGenericCall(Generic, Object, RealFunc);
 	}
 
 	void BindNativeInterfaceMethod(FAngelscriptBinds& Binds, const TCHAR* Declaration, const TCHAR* FunctionName)
@@ -99,6 +69,7 @@ namespace
 		{
 			BindNativeInterfaceMethod(Binds, TEXT("int GetNativeValue() const"), TEXT("GetNativeValue"));
 			BindNativeInterfaceMethod(Binds, TEXT("void SetNativeMarker(FName Marker)"), TEXT("SetNativeMarker"));
+			BindNativeInterfaceMethod(Binds, TEXT("void AdjustNativeValue(int Delta, int& Value)"), TEXT("AdjustNativeValue"));
 		}
 		else if (InterfaceClass == UAngelscriptNativeChildInterface::StaticClass())
 		{
@@ -121,6 +92,11 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptScenarioInterfaceNativeInheritedImplementTest,
 	"Angelscript.TestModule.Interface.NativeInheritedImplement",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptScenarioInterfaceNativeReferenceRoundTripTest,
+	"Angelscript.TestModule.Interface.NativeReferenceRoundTrip",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 
 bool FAngelscriptScenarioInterfaceNativeImplementTest::RunTest(const FString& Parameters)
@@ -163,6 +139,12 @@ class AScenarioInterfaceNativeImplement : AActor, UAngelscriptNativeParentInterf
 	void SetNativeMarker(FName Marker)
 	{
 		NativeMarker = Marker;
+	}
+
+	UFUNCTION()
+	void AdjustNativeValue(int Delta, int& Value)
+	{
+		Value += Delta;
 	}
 
 	UFUNCTION(BlueprintOverride)
@@ -282,6 +264,12 @@ class AScenarioInterfaceNativeInheritedImplement : AActor, UAngelscriptNativeChi
 	}
 
 	UFUNCTION()
+	void AdjustNativeValue(int Delta, int& Value)
+	{
+		Value += Delta;
+	}
+
+	UFUNCTION()
 	int GetChildValue() const
 	{
 		return 11;
@@ -352,6 +340,93 @@ class AScenarioInterfaceNativeInheritedImplement : AActor, UAngelscriptNativeChi
 		IAngelscriptNativeParentInterface::Execute_GetNativeValue(Actor), 7);
 	TestEqual(TEXT("C++ Execute_ should dispatch child interface method on child implementation"),
 		IAngelscriptNativeChildInterface::Execute_GetChildValue(Actor), 11);
+
+	ASTEST_END_SHARE_FRESH
+
+	return true;
+}
+
+bool FAngelscriptScenarioInterfaceNativeReferenceRoundTripTest::RunTest(const FString& Parameters)
+{
+	FAngelscriptEngine& Engine = ASTEST_CREATE_ENGINE_SHARE_FRESH();
+	ASTEST_BEGIN_SHARE_FRESH
+	static const FName ModuleName(TEXT("ScenarioInterfaceNativeReferenceRoundTrip"));
+	EnsureNativeInterfaceFixturesBound();
+	ON_SCOPE_EXIT
+	{
+		Engine.DiscardModule(*ModuleName.ToString());
+		ResetSharedCloneEngine(Engine);
+	};
+
+	UClass* ScriptClass = CompileScriptModule(
+		*this,
+		Engine,
+		ModuleName,
+		TEXT("ScenarioInterfaceNativeReferenceRoundTrip.as"),
+		TEXT(R"AS(
+UCLASS()
+class AScenarioInterfaceNativeReferenceRoundTrip : AActor, UAngelscriptNativeParentInterface
+{
+	UPROPERTY()
+	int ScriptAdjustedValue = 0;
+
+	UFUNCTION()
+	int GetNativeValue() const
+	{
+		return 0;
+	}
+
+	UFUNCTION()
+	void SetNativeMarker(FName Marker)
+	{
+	}
+
+	UFUNCTION()
+	void AdjustNativeValue(int Delta, int& Value)
+	{
+		Value += Delta;
+	}
+
+	UFUNCTION(BlueprintOverride)
+	void BeginPlay()
+	{
+		UObject Self = this;
+		UAngelscriptNativeParentInterface ParentRef = Cast<UAngelscriptNativeParentInterface>(Self);
+		if (ParentRef == nullptr)
+			return;
+
+		int Value = 10;
+		ParentRef.AdjustNativeValue(5, Value);
+		ScriptAdjustedValue = Value;
+	}
+}
+)AS"),
+		TEXT("AScenarioInterfaceNativeReferenceRoundTrip"));
+	if (ScriptClass == nullptr)
+	{
+		return false;
+	}
+
+	FActorTestSpawner Spawner;
+	Spawner.InitializeGameSubsystems();
+	AActor* Actor = SpawnScriptActor(*this, Spawner, ScriptClass);
+	if (Actor == nullptr)
+	{
+		return false;
+	}
+
+	BeginPlayActor(Engine, *Actor);
+
+	int32 ScriptAdjustedValue = 0;
+	if (!ReadPropertyValue<FIntProperty>(*this, Actor, TEXT("ScriptAdjustedValue"), ScriptAdjustedValue))
+	{
+		return false;
+	}
+	TestEqual(TEXT("Script-side native interface call should round-trip ref parameters"), ScriptAdjustedValue, 15);
+
+	int32 CppAdjustedValue = 20;
+	IAngelscriptNativeParentInterface::Execute_AdjustNativeValue(Actor, 7, CppAdjustedValue);
+	TestEqual(TEXT("C++ Execute_ bridge should round-trip ref parameters through the script implementation"), CppAdjustedValue, 27);
 
 	ASTEST_END_SHARE_FRESH
 
