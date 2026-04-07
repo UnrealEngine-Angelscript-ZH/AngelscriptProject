@@ -27,6 +27,7 @@
 
 - **范围内**
   - 项目目录 `Script/` 下示例目录结构与 `.as` 示例资产
+  - `Documents/Plans/Plan_ScriptExamplesExpansion/` 伴侣目录下的覆盖矩阵、执行包与后续修订资料
   - 与示例资产直接相关的最小测试支撑适配（仅在现有专门测试无法复用时）
   - 示例目录的 README / Guide / 索引挂接
   - 与示例直接相关的最小测试/文档同步
@@ -53,6 +54,8 @@
 4. 这些 Example 测试本质上属于专门测试层，当前计划不应默认把它们视为 20+ 个待批量修改文件；它们首先是现有验证入口，而不是示例资产主承载位置。
 5. `Plugins/Angelscript/Source/AngelscriptTest/Examples/AngelscriptScriptExampleTestSupport.cpp` 当前仍以内联字符串为示例源码来源，并通过 `CompileAnnotatedModuleFromMemory()` 使用虚拟路径 `ScriptExamples/<ExampleFileName>` 编译。
 6. `Documents/Plans/Plan_HazelightCapabilityGap.md` 已把“独立脚本示例与上手资产差距”列为 `P2.3` 明显差距，因此本计划应视为其后续执行面，而不是平行重复盘点。
+7. 当前已新增首波真实 Coverage 资产：`Documents/Plans/Plan_ScriptExamplesExpansion/Coverage/Example_Coverage_Actor.as`、`Example_Coverage_Component.as`、`Example_Coverage_UObject.as`、`Example_Coverage_PropertySpecifiers.as`，并由 `Plugins/Angelscript/Source/AngelscriptTest/Examples/AngelscriptScriptExampleCoverageTests.cpp` 直接从伴侣目录读取验证。
+8. 当前已建立 `Documents/Plans/Plan_ScriptExamplesExpansion/` 伴侣目录，并按最新要求把首波需要交付的 `.as` 代码先放入该目录；`Script/Examples/` 当前保留为后续正式示例入口预留位。
 
 ## 影响范围
 
@@ -67,6 +70,10 @@
 ### 按目录分组的文件清单
 
 Script 示例资产（首批 26+ 个）：
+- `Documents/Plans/Plan_ScriptExamplesExpansion/Coverage/Example_Coverage_Actor.as` — 新建，首波交付 Actor 覆盖样例
+- `Documents/Plans/Plan_ScriptExamplesExpansion/Coverage/Example_Coverage_Component.as` — 新建，首波交付 Component 覆盖样例
+- `Documents/Plans/Plan_ScriptExamplesExpansion/Coverage/Example_Coverage_UObject.as` — 新建，首波交付 UObject 覆盖样例
+- `Documents/Plans/Plan_ScriptExamplesExpansion/Coverage/Example_Coverage_PropertySpecifiers.as` — 新建，首波交付属性说明符覆盖样例
 - `Script/Examples/Core/Example_AccessSpecifiers.as` — 新建，对位 Hazelight 基础示例
 - `Script/Examples/Core/Example_Actor.as` — 从现有 `Script/Example_Actor.as` 迁移/复制为正式示例目录资产
 - `Script/Examples/Core/Example_Array.as` — 新建，对位 Hazelight 基础示例
@@ -101,6 +108,8 @@ Script 示例资产（首批 26+ 个）：
 - `Plugins/Angelscript/Source/AngelscriptTest/Examples/AngelscriptScriptExampleTestSupport.cpp` — 按需修改，仅在需要读取项目目录示例文件时做最小支撑层适配
 
 文档与索引：
+- `Documents/Plans/Plan_ScriptExamplesExpansion/README.md` — 新建，记录伴侣目录用途与真实资产落点
+- `Documents/Plans/Plan_ScriptExamplesExpansion/Plan_ScriptExamplesCoverageWave.md` — 新建，记录首波 Coverage 执行包与覆盖矩阵
 - `Documents/Guides/TestCatalog.md` — 修改，新增/更新 ScriptExamples 条目与示例目录说明
 - `Documents/Guides/Build.md` 或 `Documents/Guides/Test.md` — 修改，按需补充示例运行/验证入口
 - `Documents/Plans/Plan_HazelightCapabilityGap.md` — 修改，按需把“示例差距”挂接到本计划
@@ -231,6 +240,7 @@ Phase 0（规则冻结）
 3. 当前仓库已明确哪些示例由现有专门测试复用、哪些仅做 compile smoke、哪些属于当前排除项，而不是把 20+ 个 Example 测试默认拉进迁移。
 4. 本仓库专属扩展示例至少覆盖 `Subsystem`、`Interface/BlueprintSubclass`、`Networking/ConsoleWorkflow` 中的一组或多组，并具备最小验证入口。
 5. `Script/Examples/README.md`、`Documents/Guides/TestCatalog.md` 与 `Plan_OpportunityIndex.md` 可以直接把用户导航到示例目录、对应测试和计划状态。
+6. `Documents/Plans/Plan_ScriptExamplesExpansion/` 伴侣目录能够承载当前波次执行资料，而不与 `Script/Examples/` 的真实资产形成双份源码。
 
 ## 风险与注意事项
 

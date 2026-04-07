@@ -954,7 +954,7 @@
 
 ## 14. Examples — 示例脚本编译
 
-> 源文件：`Examples/AngelscriptScriptExample*Test.cpp`（各文件对应一个示例 `.as`）
+> 源文件：`Examples/AngelscriptScriptExample*Test.cpp`（各文件对应一个示例 `.as`）以及 `Examples/AngelscriptScriptExampleCoverageTests.cpp`（直接从 `Documents/Plans/Plan_ScriptExamplesExpansion/Coverage/` 读取真实资产）
 >
 > 所有测试通过 `RunScriptExampleCompileTest` 将内嵌示例脚本编译为注解模块，验证文档级示例脚本能完整通过编译。
 
@@ -977,6 +977,10 @@
 | ScriptExamples.MovingObject | 移动对象 |
 | ScriptExamples.Overlaps | 重叠检测 |
 | ScriptExamples.PropertySpecifiers | 属性说明符（依赖 `Example_Enum.as`） |
+| ScriptExamples.Coverage.Actor | 从真实 `Documents/Plans/Plan_ScriptExamplesExpansion/Coverage/Example_Coverage_Actor.as` 读取并验证 Actor 默认值、`BeginPlay`、`UFUNCTION` 与默认语句 |
+| ScriptExamples.Coverage.Component | 从真实 `Documents/Plans/Plan_ScriptExamplesExpansion/Coverage/Example_Coverage_Component.as` 读取并验证脚本组件 `BeginPlay`、`Tick` 与宿主 Actor 访问 |
+| ScriptExamples.Coverage.UObject | 从真实 `Documents/Plans/Plan_ScriptExamplesExpansion/Coverage/Example_Coverage_UObject.as` 读取并验证脚本 `UObject` 默认值与 `UFUNCTION` |
+| ScriptExamples.Coverage.PropertySpecifiers | 从真实 `Documents/Plans/Plan_ScriptExamplesExpansion/Coverage/Example_Coverage_PropertySpecifiers.as` 读取并验证 `DefaultComponent`、`RootComponent`、`Attach` 与常用属性说明符 |
 | ScriptExamples.Struct | 结构体 |
 | ScriptExamples.Timers | 定时器 |
 | ScriptExamples.WidgetUMG | UMG 控件 |

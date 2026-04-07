@@ -30,6 +30,8 @@
 | PolicyAuditSmokeTests | `Tools\Tests\PolicyAuditSmokeTests.ps1` | 审计 live 文档与计划中的旧入口示例，防止回退到 `Build.bat` / 直调编辑器 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\Tests\PolicyAuditSmokeTests.ps1` | 控制台 PASS/FAIL | 覆盖 `Documents/Guides/`、`Documents/Plans/` 等 live 文档 |
 | RunReferenceComparison | `Tools\ReferenceComparison\RunReferenceComparison.bat` / `Tools\ReferenceComparison\powershell\RunReferenceComparison.ps1` | 多轮迭代 AI 探索 Reference 中的 UE 脚本插件，输出对比分析文档 | `Tools\ReferenceComparison\RunReferenceComparison.bat` | `Documents\Comparisons\<yyyy-MM-dd>\` | 需要 Python 3.8+ 和 opencode CLI |
 | ReferenceComparisonSelfTests | `Tools\ReferenceComparison\tests\ReferenceComparisonSelfTests.ps1` | 自测 Reference 对比工具文件结构、Python 导入、Preview/DryRun 模式 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\ReferenceComparison\tests\ReferenceComparisonSelfTests.ps1` | 控制台 PASS/FAIL | 需要 Python 3.8+ |
+| RunIterationAnalysis | `Tools\IterationAnalysis\RunIterationAnalysis.bat` / `Tools\IterationAnalysis\powershell\RunIterationAnalysis.ps1` | 多轮迭代 AI 分析活跃 Plan，产出评估、任务分解与行动汇总文档 | `Tools\IterationAnalysis\RunIterationAnalysis.bat` | `Documents\Iterations\<yyyy-MM-dd>\` | 需要 Python 3.8+ 和 opencode CLI |
+| IterationAnalysisSelfTests | `Tools\IterationAnalysis\tests\IterationAnalysisSelfTests.ps1` | 自测迭代分析工具文件结构、Python 导入、Preview/DryRun 模式 | `powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\IterationAnalysis\tests\IterationAnalysisSelfTests.ps1` | 控制台 PASS/FAIL | 需要 Python 3.8+ |
 
 ## BootstrapWorktree.ps1
 
@@ -192,13 +194,13 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\ReferenceCompariso
 ### 前置依赖
 
 - **Python 3.8+**：确保 `python` 在 PATH 中
-- **opencode CLI**：确保 `opencode` 在 PATH 中，且已配置 `ulw-loop` command
+- **opencode CLI**：确保 `opencode` 在 PATH 中，且已配置 `ralph-loop` command
 - **AgentConfig.ini**：Hazelight 分析需要配置 `References.HazelightAngelscriptEngineRoot`
 - **Reference 仓库**：不存在时自动调用 `Tools\PullReference\PullReference.bat` 拉取（Hazelight 除外，走 AgentConfig.ini）
 
 ### 工作原理
 
-通过 `opencode run --command ulw-loop` 调用 AI，多轮迭代探索（生成 → 读取 → 深入补充）逐步加深文档：
+通过 `opencode run --command ralph-loop` 调用 AI，多轮迭代探索（生成 → 读取 → 深入补充）逐步加深文档：
 
 ```
 Round 1: 扫描源码 → 生成文档骨架
@@ -306,3 +308,99 @@ Documents\Comparisons\2026-04-06\
 - 单个仓库 + 单个维度 + 1 轮迭代 ≈ 5-10 分钟
 - 全量扫描（5 仓库 × 11 维度 × 3 轮迭代）≈ 数小时
 - 建议首次使用时先用少量范围试跑：`-Repos hazelight -Dimensions D1 -MaxIterations 1`
+
+---
+
+## RunIterationAnalysis
+
+### 路径
+
+- BAT 入口：`Tools\IterationAnalysis\RunIterationAnalysis.bat`
+- PS1 编排器：`Tools\IterationAnalysis\powershell\RunIterationAnalysis.ps1`
+- Python 核心：`Tools\IterationAnalysis\python\IterationAnalysis\main.py`
+- 规则文档：`Documents\Rules\IterationAnalysisRule_ZH.md`
+
+### 用途
+
+自动扫描 `Documents/Plans/` 下的活跃 Plan，通过多轮 AI 迭代分析，产出三类文档：
+
+1. **评估文档**（Phase 1）：对每个 Plan 的任务逐项核实实际完成状态，标注偏差
+2. **分解文档**（Phase 2）：对未完成任务生成具体文件修改步骤和 unified diff
+3. **行动汇总**（Phase 3）：跨 Plan 优先级排序、文件影响矩阵和建议执行顺序
+
+### 依赖
+
+- Python 3.8+
+- `opencode` CLI（PATH 中可用）
+- `Documents/Rules/IterationAnalysisRule_ZH.md`
+
+### 参数
+
+| 参数 | 默认值 | 说明 |
+| --- | --- | --- |
+| `-Plans` | 全部活跃 Plan | 指定分析哪些 Plan（空格分隔 topic 名） |
+| `-MaxIterations` | `3` | 每篇文档的迭代探索轮数 |
+| `-Timeout` | `600` | 每次 opencode 调用的超时秒数 |
+| `-DateSuffix` | 今天日期 | 自定义输出子目录名 |
+| `-Preview` | - | 只打印配置信息，不执行 |
+| `-DryRun` | - | 模拟运行，记录命令但不调用 opencode |
+| `-AssessmentOnly` | - | 只运行 Phase 1 |
+| `-SkipAssessment` | - | 跳过 Phase 1，直接从 Phase 2 开始 |
+| `-VerboseLog` | - | 开启 DEBUG 级别日志 |
+
+### 快捷入口
+
+- `RunIterationAnalysis_KnownFixes.bat`：只分析 `KnownTestFailureFixes` Plan
+- `RunIterationAnalysis_Roadmap.bat`：只分析 `StatusPriorityRoadmap` Plan
+
+### 常用命令
+
+```powershell
+# 预览配置
+Tools\IterationAnalysis\RunIterationAnalysis.bat -Preview
+
+# Dry-run（记录 prompt 但不调用 opencode）
+Tools\IterationAnalysis\RunIterationAnalysis.bat -DryRun
+
+# 只分析一个 Plan，1 轮迭代
+Tools\IterationAnalysis\RunIterationAnalysis.bat -Plans KnownTestFailureFixes -MaxIterations 1
+
+# 全量分析（48 Plan × 3 轮 × 3 阶段）
+Tools\IterationAnalysis\RunIterationAnalysis.bat
+
+# 只运行评估阶段
+Tools\IterationAnalysis\RunIterationAnalysis.bat -AssessmentOnly
+
+# 跳过评估，使用已有结果做分解和汇总
+Tools\IterationAnalysis\RunIterationAnalysis.bat -SkipAssessment
+```
+
+### 输出目录结构
+
+```
+Documents\Iterations\2026-04-06\
+├── run.log                                      ← 完整运行日志
+├── _prompts\
+│   ├── call_001_prompt.md                       ← 每次 AI 调用的完整 prompt
+│   └── ...
+├── _outputs\
+│   ├── call_001_output.md                       ← 每次 AI 调用的完整输出
+│   └── ...
+├── 00_Assessment_KnownTestFailureFixes.md       ← Phase 1: 计划评估
+├── 00_Assessment_StatusPriorityRoadmap.md
+├── 01_Decomposition_KnownTestFailureFixes.md    ← Phase 2: 任务分解
+├── 01_Decomposition_StatusPriorityRoadmap.md
+└── Summary_ActionPlan.md                        ← Phase 3: 行动汇总
+```
+
+### 耗时参考
+
+- 单个 Plan + 1 轮迭代 ≈ 5-10 分钟
+- 全量扫描（48 Plan × 3 轮迭代 × 3 阶段）≈ 数小时
+- 建议首次使用时先用少量范围试跑：`-Plans KnownTestFailureFixes -MaxIterations 1`
+
+### 自测
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\IterationAnalysis\tests\IterationAnalysisSelfTests.ps1
+```
