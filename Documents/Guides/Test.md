@@ -51,6 +51,18 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\ResolveAgentComman
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.Bindings." -Label bindings -TimeoutMs 600000
 ```
 
+反射回退绑定专项前缀：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.Bindings.BlueprintCallableReflectiveFallback" -Label reflective-fallback -TimeoutMs 600000
+```
+
+GeneratedFunctionTable 三分类统计专项前缀：
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.Engine.GeneratedFunctionTable" -Label generated-table -TimeoutMs 600000
+```
+
 ### 按测试组运行
 
 ```powershell
