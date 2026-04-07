@@ -294,15 +294,16 @@ internal static class AngelscriptHeaderSignatureResolver
 
 	private static bool IsLinkVisible(string classDeclaration, string declaration)
 	{
-		int openParenIndex = declaration.IndexOf('(');
-		string declarationPrefix = openParenIndex >= 0 ? declaration.Substring(0, openParenIndex) : declaration;
+		string normalizedDeclaration = StripLeadingMacroInvocations(declaration);
+		int openParenIndex = normalizedDeclaration.IndexOf('(');
+		string declarationPrefix = openParenIndex >= 0 ? normalizedDeclaration.Substring(0, openParenIndex) : normalizedDeclaration;
 		bool functionHasApiMacro = ApiMacroPattern.IsMatch(declarationPrefix);
 		bool classHasApiMacro = ApiMacroPattern.IsMatch(classDeclaration);
 		bool classIsMinimalApi = classDeclaration.Contains("MinimalAPI", StringComparison.Ordinal);
 		bool isInlineDefinition = declarationPrefix.Contains("inline ", StringComparison.Ordinal) ||
 			declarationPrefix.Contains("FORCEINLINE", StringComparison.Ordinal) ||
 			declarationPrefix.Contains("constexpr ", StringComparison.Ordinal) ||
-			declaration.Contains('{', StringComparison.Ordinal);
+			normalizedDeclaration.Contains('{', StringComparison.Ordinal);
 
 		if (functionHasApiMacro || isInlineDefinition)
 		{
@@ -310,6 +311,52 @@ internal static class AngelscriptHeaderSignatureResolver
 		}
 
 		return classHasApiMacro && !classIsMinimalApi;
+	}
+
+	private static string StripLeadingMacroInvocations(string declaration)
+	{
+		string normalizedDeclaration = declaration.TrimStart();
+		while (normalizedDeclaration.Length > 0)
+		{
+			int tokenEnd = 0;
+			while (tokenEnd < normalizedDeclaration.Length &&
+				(char.IsLetterOrDigit(normalizedDeclaration[tokenEnd]) || normalizedDeclaration[tokenEnd] == '_'))
+			{
+				tokenEnd++;
+			}
+
+			if (tokenEnd == 0)
+			{
+				break;
+			}
+
+			string token = normalizedDeclaration.Substring(0, tokenEnd);
+			if (!Regex.IsMatch(token, "^[A-Z_][A-Z0-9_]*$", RegexOptions.CultureInvariant))
+			{
+				break;
+			}
+
+			int nextIndex = tokenEnd;
+			while (nextIndex < normalizedDeclaration.Length && char.IsWhiteSpace(normalizedDeclaration[nextIndex]))
+			{
+				nextIndex++;
+			}
+
+			if (nextIndex >= normalizedDeclaration.Length || normalizedDeclaration[nextIndex] != '(')
+			{
+				break;
+			}
+
+			int closeParenIndex = FindMatchingParen(normalizedDeclaration, nextIndex);
+			if (closeParenIndex < 0)
+			{
+				break;
+			}
+
+			normalizedDeclaration = normalizedDeclaration.Substring(closeParenIndex + 1).TrimStart();
+		}
+
+		return normalizedDeclaration;
 	}
 
 	private static List<CandidateDeclaration> FindCandidates(string header, int classBodyStart, int classBodyEnd, string functionName)

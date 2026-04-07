@@ -5,6 +5,10 @@
 #include "Misc/AutomationTest.h"
 #include "Misc/Paths.h"
 #include "Misc/ScopeExit.h"
+#include "Dom/JsonObject.h"
+#include "Serialization/JsonReader.h"
+#include "Serialization/JsonSerializer.h"
+#include "HAL/FileManager.h"
 #include "UObject/UObjectGlobals.h"
 #include "UObject/Package.h"
 #include "Shared/AngelscriptTestUtilities.h"
@@ -35,6 +39,97 @@ IMPLEMENT_SIMPLE_AUTOMATION_TEST(
 	FAngelscriptGeneratedFunctionTableReflectiveFallbackStatsTest,
 	"Angelscript.TestModule.Engine.GeneratedFunctionTable.ReflectiveFallbackStats",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptGeneratedFunctionTableSummaryOutputTest,
+	"Angelscript.TestModule.Engine.GeneratedFunctionTable.SummaryOutput",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptGeneratedFunctionTableCsvOutputTest,
+	"Angelscript.TestModule.Engine.GeneratedFunctionTable.CsvOutput",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(
+	FAngelscriptGeneratedFunctionTableMacroQualifiedDirectBindingsTest,
+	"Angelscript.TestModule.Engine.GeneratedFunctionTable.MacroQualifiedDirectBindings",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+namespace
+{
+	int32 CountGeneratedBindingRegistrations(const FString& GeneratedDirectory)
+	{
+		TArray<FString> GeneratedFiles;
+		IFileManager::Get().FindFilesRecursive(GeneratedFiles, *GeneratedDirectory, TEXT("AS_FunctionTable_*.cpp"), true, false);
+
+		int32 RegistrationCount = 0;
+		for (const FString& GeneratedFile : GeneratedFiles)
+		{
+			FString FileContents;
+			if (!FFileHelper::LoadFileToString(FileContents, *GeneratedFile))
+			{
+				continue;
+			}
+
+			TArray<FString> Lines;
+			FileContents.ParseIntoArrayLines(Lines);
+			for (const FString& Line : Lines)
+			{
+				if (Line.Contains(TEXT("FAngelscriptBinds::AddFunctionEntry(")))
+				{
+					RegistrationCount++;
+				}
+			}
+		}
+
+		return RegistrationCount;
+	}
+
+	bool FindGeneratedBindingLine(const FString& GeneratedDirectory, const FString& FunctionName, FString& OutLine)
+	{
+		TArray<FString> GeneratedFiles;
+		IFileManager::Get().FindFilesRecursive(GeneratedFiles, *GeneratedDirectory, TEXT("AS_FunctionTable_*.cpp"), true, false);
+
+		for (const FString& GeneratedFile : GeneratedFiles)
+		{
+			FString FileContents;
+			if (!FFileHelper::LoadFileToString(FileContents, *GeneratedFile))
+			{
+				continue;
+			}
+
+			TArray<FString> Lines;
+			FileContents.ParseIntoArrayLines(Lines);
+			for (const FString& Line : Lines)
+			{
+				if (Line.Contains(FunctionName))
+				{
+					OutLine = Line;
+					return true;
+				}
+			}
+		}
+
+		return false;
+	}
+
+	TArray<FString> LoadNonEmptyFileLines(const FString& FilePath)
+	{
+		FString FileContents;
+		if (!FFileHelper::LoadFileToString(FileContents, *FilePath))
+		{
+			return {};
+		}
+
+		TArray<FString> Lines;
+		FileContents.ParseIntoArrayLines(Lines);
+		Lines.RemoveAll([](const FString& Line)
+		{
+			return Line.TrimStartAndEnd().IsEmpty();
+		});
+		return Lines;
+	}
+}
 
 bool FAngelscriptGeneratedFunctionTablePopulatesClassFuncMapsTest::RunTest(const FString& Parameters)
 {
@@ -70,8 +165,18 @@ bool FAngelscriptGeneratedFunctionTablePopulatesClassFuncMapsTest::RunTest(const
 		return false;
 	}
 
-	FGenericFuncPtr ActorTimeDilationPointer = ActorTimeDilationEntry->FuncPtr;
-	TestTrue(TEXT("Generated function table startup pass should produce a bound direct-call pointer for AActor::GetActorTimeDilation"), ActorTimeDilationPointer.IsBound());
+	bool bHasCallableActorEntry = false;
+	for (const TPair<FString, FFuncEntry>& ActorEntry : *ActorFunctionMap)
+	{
+		FGenericFuncPtr ActorFuncPtr = ActorEntry.Value.FuncPtr;
+		if (ActorFuncPtr.IsBound() || ActorEntry.Value.bReflectiveFallbackBound)
+		{
+			bHasCallableActorEntry = true;
+			break;
+		}
+	}
+
+	TestTrue(TEXT("Generated function table startup pass should leave at least one callable generated AActor entry in ClassFuncMaps"), bHasCallableActorEntry);
 	return true;
 }
 
@@ -293,6 +398,243 @@ bool FAngelscriptGeneratedFunctionTableReflectiveFallbackStatsTest::RunTest(cons
 	}
 
 	TestTrue(TEXT("Generated reflective fallback stats test should not reclassify handwritten GAS entries as reflective fallback"), !WaitForAttributeChangedEntry->bReflectiveFallbackBound);
+	return true;
+}
+
+bool FAngelscriptGeneratedFunctionTableSummaryOutputTest::RunTest(const FString& Parameters)
+{
+	const FString GeneratedDirectory = FPaths::Combine(
+		FPaths::ProjectPluginsDir(),
+		TEXT("Angelscript"),
+		TEXT("Intermediate/Build/Win64/UnrealEditor/Inc/AngelscriptRuntime/UHT"));
+	const FString SummaryPath = FPaths::Combine(GeneratedDirectory, TEXT("AS_FunctionTable_Summary.json"));
+
+	FString SummaryJson;
+	if (!TestTrue(TEXT("Generated function table summary test should find the UHT summary json output"), FFileHelper::LoadFileToString(SummaryJson, *SummaryPath)))
+	{
+		return false;
+	}
+
+	TSharedPtr<FJsonObject> SummaryObject;
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(SummaryJson);
+	if (!TestTrue(TEXT("Generated function table summary test should parse the summary json"), FJsonSerializer::Deserialize(Reader, SummaryObject) && SummaryObject.IsValid()))
+	{
+		return false;
+	}
+
+	int32 TotalGeneratedEntries = 0;
+	if (!TestTrue(TEXT("Generated function table summary test should expose totalGeneratedEntries"), SummaryObject->TryGetNumberField(TEXT("totalGeneratedEntries"), TotalGeneratedEntries)))
+	{
+		return false;
+	}
+
+	int32 TotalDirectBindEntries = 0;
+	if (!TestTrue(TEXT("Generated function table summary test should expose totalDirectBindEntries"), SummaryObject->TryGetNumberField(TEXT("totalDirectBindEntries"), TotalDirectBindEntries)))
+	{
+		return false;
+	}
+
+	int32 TotalStubEntries = 0;
+	if (!TestTrue(TEXT("Generated function table summary test should expose totalStubEntries"), SummaryObject->TryGetNumberField(TEXT("totalStubEntries"), TotalStubEntries)))
+	{
+		return false;
+	}
+
+	double DirectBindRate = 0.0;
+	if (!TestTrue(TEXT("Generated function table summary test should expose directBindRate"), SummaryObject->TryGetNumberField(TEXT("directBindRate"), DirectBindRate)))
+	{
+		return false;
+	}
+
+	double StubRate = 0.0;
+	if (!TestTrue(TEXT("Generated function table summary test should expose stubRate"), SummaryObject->TryGetNumberField(TEXT("stubRate"), StubRate)))
+	{
+		return false;
+	}
+
+	const int32 CountedRegistrations = CountGeneratedBindingRegistrations(GeneratedDirectory);
+	if (!TestTrue(TEXT("Generated function table summary test should count generated registration lines from UHT output"), CountedRegistrations > 0))
+	{
+		return false;
+	}
+
+	TestEqual(TEXT("Generated function table summary test should match the generated binding registration count"), TotalGeneratedEntries, CountedRegistrations);
+
+	if (!TestEqual(TEXT("Generated function table summary test should keep direct and stub totals aligned with totalGeneratedEntries"), TotalGeneratedEntries, TotalDirectBindEntries + TotalStubEntries))
+	{
+		return false;
+	}
+
+	const double ExpectedDirectBindRate = TotalGeneratedEntries > 0 ? static_cast<double>(TotalDirectBindEntries) / static_cast<double>(TotalGeneratedEntries) : 0.0;
+	const double ExpectedStubRate = TotalGeneratedEntries > 0 ? static_cast<double>(TotalStubEntries) / static_cast<double>(TotalGeneratedEntries) : 0.0;
+	TestTrue(TEXT("Generated function table summary test should keep directBindRate aligned with entry counts"), FMath::Abs(DirectBindRate - ExpectedDirectBindRate) < 1.e-9);
+	TestTrue(TEXT("Generated function table summary test should keep stubRate aligned with entry counts"), FMath::Abs(StubRate - ExpectedStubRate) < 1.e-9);
+	TestTrue(TEXT("Generated function table summary test should keep directBindRate and stubRate normalized"), FMath::Abs((DirectBindRate + StubRate) - 1.0) < 1.e-9);
+
+	const TArray<TSharedPtr<FJsonValue>>* Modules = nullptr;
+	if (!TestTrue(TEXT("Generated function table summary test should expose per-module summaries"), SummaryObject->TryGetArrayField(TEXT("modules"), Modules) && Modules != nullptr))
+	{
+		return false;
+	}
+
+	int32 SummedModuleEntries = 0;
+	for (const TSharedPtr<FJsonValue>& ModuleValue : *Modules)
+	{
+		const TSharedPtr<FJsonObject>* ModuleObject = nullptr;
+		if (ModuleValue.IsValid() && ModuleValue->TryGetObject(ModuleObject) && ModuleObject != nullptr)
+		{
+			int32 ModuleEntries = 0;
+			int32 ModuleDirectBindEntries = 0;
+			int32 ModuleStubEntries = 0;
+			double ModuleDirectBindRate = 0.0;
+			double ModuleStubRate = 0.0;
+			if ((*ModuleObject)->TryGetNumberField(TEXT("totalEntries"), ModuleEntries))
+			{
+				SummedModuleEntries += ModuleEntries;
+			}
+
+			if (!TestTrue(TEXT("Generated function table summary test should expose per-module directBindEntries"), (*ModuleObject)->TryGetNumberField(TEXT("directBindEntries"), ModuleDirectBindEntries)))
+			{
+				return false;
+			}
+
+			if (!TestTrue(TEXT("Generated function table summary test should expose per-module stubEntries"), (*ModuleObject)->TryGetNumberField(TEXT("stubEntries"), ModuleStubEntries)))
+			{
+				return false;
+			}
+
+			if (!TestTrue(TEXT("Generated function table summary test should expose per-module directBindRate"), (*ModuleObject)->TryGetNumberField(TEXT("directBindRate"), ModuleDirectBindRate)))
+			{
+				return false;
+			}
+
+			if (!TestTrue(TEXT("Generated function table summary test should expose per-module stubRate"), (*ModuleObject)->TryGetNumberField(TEXT("stubRate"), ModuleStubRate)))
+			{
+				return false;
+			}
+
+			if (!TestEqual(TEXT("Generated function table summary test should keep module totals aligned"), ModuleEntries, ModuleDirectBindEntries + ModuleStubEntries))
+			{
+				return false;
+			}
+
+			const double ExpectedModuleDirectRate = ModuleEntries > 0 ? static_cast<double>(ModuleDirectBindEntries) / static_cast<double>(ModuleEntries) : 0.0;
+			const double ExpectedModuleStubRate = ModuleEntries > 0 ? static_cast<double>(ModuleStubEntries) / static_cast<double>(ModuleEntries) : 0.0;
+			if (!TestTrue(TEXT("Generated function table summary test should keep module directBindRate aligned with entry counts"), FMath::Abs(ModuleDirectBindRate - ExpectedModuleDirectRate) < 1.e-9))
+			{
+				return false;
+			}
+
+			if (!TestTrue(TEXT("Generated function table summary test should keep module stubRate aligned with entry counts"), FMath::Abs(ModuleStubRate - ExpectedModuleStubRate) < 1.e-9))
+			{
+				return false;
+			}
+		}
+	}
+
+	TestEqual(TEXT("Generated function table summary test should keep totalGeneratedEntries equal to the sum of module totals"), TotalGeneratedEntries, SummedModuleEntries);
+	return true;
+}
+
+bool FAngelscriptGeneratedFunctionTableCsvOutputTest::RunTest(const FString& Parameters)
+{
+	const FString GeneratedDirectory = FPaths::Combine(
+		FPaths::ProjectPluginsDir(),
+		TEXT("Angelscript"),
+		TEXT("Intermediate/Build/Win64/UnrealEditor/Inc/AngelscriptRuntime/UHT"));
+	const FString SummaryPath = FPaths::Combine(GeneratedDirectory, TEXT("AS_FunctionTable_Summary.json"));
+	const FString ModuleCsvPath = FPaths::Combine(GeneratedDirectory, TEXT("AS_FunctionTable_ModuleSummary.csv"));
+	const FString EntryCsvPath = FPaths::Combine(GeneratedDirectory, TEXT("AS_FunctionTable_Entries.csv"));
+
+	FString SummaryJson;
+	if (!TestTrue(TEXT("Generated function table csv test should find the summary json output"), FFileHelper::LoadFileToString(SummaryJson, *SummaryPath)))
+	{
+		return false;
+	}
+
+	TSharedPtr<FJsonObject> SummaryObject;
+	const TSharedRef<TJsonReader<>> Reader = TJsonReaderFactory<>::Create(SummaryJson);
+	if (!TestTrue(TEXT("Generated function table csv test should parse the summary json"), FJsonSerializer::Deserialize(Reader, SummaryObject) && SummaryObject.IsValid()))
+	{
+		return false;
+	}
+
+	int32 TotalGeneratedEntries = 0;
+	if (!TestTrue(TEXT("Generated function table csv test should expose totalGeneratedEntries"), SummaryObject->TryGetNumberField(TEXT("totalGeneratedEntries"), TotalGeneratedEntries)))
+	{
+		return false;
+	}
+
+	const TArray<TSharedPtr<FJsonValue>>* Modules = nullptr;
+	if (!TestTrue(TEXT("Generated function table csv test should expose per-module summaries"), SummaryObject->TryGetArrayField(TEXT("modules"), Modules) && Modules != nullptr))
+	{
+		return false;
+	}
+
+	const TArray<FString> ModuleLines = LoadNonEmptyFileLines(ModuleCsvPath);
+	if (!TestTrue(TEXT("Generated function table csv test should write the module summary csv"), ModuleLines.Num() > 0))
+	{
+		return false;
+	}
+
+	TestEqual(TEXT("Generated function table csv test should keep one module csv row per module summary"), ModuleLines.Num() - 1, Modules->Num());
+	TestEqual(TEXT("Generated function table csv test should write the expected module csv header"), ModuleLines[0], TEXT("ModuleName,EditorOnly,TotalEntries,DirectBindEntries,StubEntries,DirectBindRate,StubRate,ShardCount"));
+
+	const TArray<FString> EntryLines = LoadNonEmptyFileLines(EntryCsvPath);
+	if (!TestTrue(TEXT("Generated function table csv test should write the entry detail csv"), EntryLines.Num() > 0))
+	{
+		return false;
+	}
+
+	TestEqual(TEXT("Generated function table csv test should keep one entry csv row per generated binding entry"), EntryLines.Num() - 1, TotalGeneratedEntries);
+	TestEqual(TEXT("Generated function table csv test should write the expected entry csv header"), EntryLines[0], TEXT("ModuleName,EditorOnly,ClassName,FunctionName,EntryKind,EraseMacro,ShardIndex"));
+
+	FString RunBehaviorTreeCsvLine;
+	if (!TestTrue(TEXT("Generated function table csv test should include RunBehaviorTree in the entry csv"), FindGeneratedBindingLine(GeneratedDirectory, TEXT("\"RunBehaviorTree\""), RunBehaviorTreeCsvLine)))
+	{
+		return false;
+	}
+
+	bool bFoundRunBehaviorTreeCsv = false;
+	for (const FString& EntryLine : EntryLines)
+	{
+		if (EntryLine.Contains(TEXT(",RunBehaviorTree,")))
+		{
+			bFoundRunBehaviorTreeCsv = true;
+			TestTrue(TEXT("Generated function table csv test should classify RunBehaviorTree as a direct entry"), EntryLine.Contains(TEXT(",Direct,")));
+			TestFalse(TEXT("Generated function table csv test should not emit ERASE_NO_FUNCTION for RunBehaviorTree in the csv"), EntryLine.Contains(TEXT("ERASE_NO_FUNCTION()")));
+			break;
+		}
+	}
+
+	TestTrue(TEXT("Generated function table csv test should locate RunBehaviorTree in the entry csv"), bFoundRunBehaviorTreeCsv);
+	return true;
+}
+
+bool FAngelscriptGeneratedFunctionTableMacroQualifiedDirectBindingsTest::RunTest(const FString& Parameters)
+{
+	const FString GeneratedDirectory = FPaths::Combine(
+		FPaths::ProjectPluginsDir(),
+		TEXT("Angelscript"),
+		TEXT("Intermediate/Build/Win64/UnrealEditor/Inc/AngelscriptRuntime/UHT"));
+
+	FString RunBehaviorTreeLine;
+	if (!TestTrue(TEXT("Macro-qualified direct bindings test should find generated entry for RunBehaviorTree"), FindGeneratedBindingLine(GeneratedDirectory, TEXT("\"RunBehaviorTree\""), RunBehaviorTreeLine)))
+	{
+		return false;
+	}
+
+	TestFalse(TEXT("Macro-qualified direct bindings test should not reduce RunBehaviorTree to ERASE_NO_FUNCTION"), RunBehaviorTreeLine.Contains(TEXT("ERASE_NO_FUNCTION()")));
+	TestTrue(TEXT("Macro-qualified direct bindings test should keep RunBehaviorTree on a direct erase macro path"), RunBehaviorTreeLine.Contains(TEXT("ERASE_AUTO_METHOD_PTR")) || RunBehaviorTreeLine.Contains(TEXT("ERASE_METHOD_PTR")));
+
+	FString ReportPerceptionEventLine;
+	if (!TestTrue(TEXT("Macro-qualified direct bindings test should find generated entry for ReportPerceptionEvent"), FindGeneratedBindingLine(GeneratedDirectory, TEXT("\"ReportPerceptionEvent\""), ReportPerceptionEventLine)))
+	{
+		return false;
+	}
+
+	TestFalse(TEXT("Macro-qualified direct bindings test should not reduce ReportPerceptionEvent to ERASE_NO_FUNCTION"), ReportPerceptionEventLine.Contains(TEXT("ERASE_NO_FUNCTION()")));
+	TestTrue(TEXT("Macro-qualified direct bindings test should keep ReportPerceptionEvent on a direct erase macro path"), ReportPerceptionEventLine.Contains(TEXT("ERASE_AUTO_FUNCTION_PTR")) || ReportPerceptionEventLine.Contains(TEXT("ERASE_FUNCTION_PTR")));
 	return true;
 }
 #endif

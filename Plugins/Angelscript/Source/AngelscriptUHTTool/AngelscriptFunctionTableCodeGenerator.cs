@@ -1,7 +1,10 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Text;
+using System.Text.Json;
 using System.Text.RegularExpressions;
 using EpicGames.UHT.Types;
 using EpicGames.UHT.Utils;
@@ -31,6 +34,15 @@ internal sealed record AngelscriptModuleGenerationSummary(
 	int StubEntries,
 	int ShardCount);
 
+internal sealed record AngelscriptGeneratedFunctionCsvEntry(
+	string ModuleName,
+	bool EditorOnly,
+	string ClassName,
+	string FunctionName,
+	string EntryKind,
+	string EraseMacro,
+	int ShardIndex);
+
 internal static class AngelscriptFunctionTableCodeGenerator
 {
 	private static readonly Regex QuotedStringPattern = new("\"([^\"]+)\"", RegexOptions.Compiled);
@@ -42,6 +54,7 @@ internal static class AngelscriptFunctionTableCodeGenerator
 		int generatedFileCount = 0;
 		HashSet<string> generatedPaths = new(StringComparer.OrdinalIgnoreCase);
 		List<AngelscriptModuleGenerationSummary> moduleSummaries = new();
+		List<AngelscriptGeneratedFunctionCsvEntry> csvEntries = new();
 
 		foreach (UhtModule module in factory.Session.Modules)
 		{
@@ -50,7 +63,7 @@ internal static class AngelscriptFunctionTableCodeGenerator
 				continue;
 			}
 
-			AngelscriptModuleGenerationSummary? moduleSummary = GenerateModule(factory, module, supportedModules.EditorOnly.Contains(module.ShortName), generatedPaths);
+			AngelscriptModuleGenerationSummary? moduleSummary = GenerateModule(factory, module, supportedModules.EditorOnly.Contains(module.ShortName), generatedPaths, csvEntries);
 			if (moduleSummary != null)
 			{
 				generatedFileCount += moduleSummary.ShardCount;
@@ -59,12 +72,13 @@ internal static class AngelscriptFunctionTableCodeGenerator
 		}
 
 		DeleteStaleOutputs(factory, generatedPaths);
+		WriteGenerationSummary(factory, moduleSummaries, csvEntries, generatedFileCount);
 		WriteCoverageDiagnostics(moduleSummaries);
 
 		return generatedFileCount;
 	}
 
-	private static AngelscriptModuleGenerationSummary? GenerateModule(IUhtExportFactory factory, UhtModule module, bool editorOnly, HashSet<string> generatedPaths)
+	private static AngelscriptModuleGenerationSummary? GenerateModule(IUhtExportFactory factory, UhtModule module, bool editorOnly, HashSet<string> generatedPaths, List<AngelscriptGeneratedFunctionCsvEntry> csvEntries)
 	{
 		SortedSet<string> includes = new(StringComparer.Ordinal);
 		List<AngelscriptGeneratedFunctionEntry> entries = new();
@@ -107,6 +121,19 @@ internal static class AngelscriptFunctionTableCodeGenerator
 			factory.CommitOutput(outputPath, BuildShard(module.ShortName, editorOnly, includes, entries, startIndex, entryCount, shardIndex, shardCount));
 			generatedPaths.Add(outputPath);
 			generatedShardCount++;
+
+			for (int entryIndex = startIndex; entryIndex < startIndex + entryCount; entryIndex++)
+			{
+				AngelscriptGeneratedFunctionEntry entry = entries[entryIndex];
+				csvEntries.Add(new AngelscriptGeneratedFunctionCsvEntry(
+					module.ShortName,
+					editorOnly,
+					entry.ClassName,
+					entry.FunctionName,
+					entry.EraseMacro == "ERASE_NO_FUNCTION()" ? "Stub" : "Direct",
+					entry.EraseMacro,
+					shardIndex + 1));
+			}
 		}
 
 		return new AngelscriptModuleGenerationSummary(module.ShortName, editorOnly, entries.Count, directBindEntries, stubEntries, generatedShardCount);
@@ -134,6 +161,122 @@ internal static class AngelscriptFunctionTableCodeGenerator
 				summary.StubEntries,
 				summary.ShardCount);
 		}
+	}
+
+	private static void WriteGenerationSummary(IUhtExportFactory factory, List<AngelscriptModuleGenerationSummary> moduleSummaries, List<AngelscriptGeneratedFunctionCsvEntry> csvEntries, int generatedFileCount)
+	{
+		int totalGeneratedEntries = moduleSummaries.Sum(static summary => summary.TotalEntries);
+		int totalDirectBindEntries = moduleSummaries.Sum(static summary => summary.DirectBindEntries);
+		int totalStubEntries = moduleSummaries.Sum(static summary => summary.StubEntries);
+		double directBindRate = totalGeneratedEntries > 0 ? (double)totalDirectBindEntries / totalGeneratedEntries : 0.0;
+		double stubRate = totalGeneratedEntries > 0 ? (double)totalStubEntries / totalGeneratedEntries : 0.0;
+
+		string summaryPath = factory.MakePath("AS_FunctionTable_Summary", ".json");
+		Directory.CreateDirectory(Path.GetDirectoryName(summaryPath)!);
+
+		string summaryJson = JsonSerializer.Serialize(
+			new
+			{
+				totalGeneratedEntries,
+				totalDirectBindEntries,
+				totalStubEntries,
+				directBindRate,
+				stubRate,
+				totalShardCount = generatedFileCount,
+				moduleCount = moduleSummaries.Count,
+				modules = moduleSummaries.Select(summary => new
+				{
+					moduleName = summary.ModuleName,
+					editorOnly = summary.EditorOnly,
+					totalEntries = summary.TotalEntries,
+					directBindEntries = summary.DirectBindEntries,
+					stubEntries = summary.StubEntries,
+					directBindRate = summary.TotalEntries > 0 ? (double)summary.DirectBindEntries / summary.TotalEntries : 0.0,
+					stubRate = summary.TotalEntries > 0 ? (double)summary.StubEntries / summary.TotalEntries : 0.0,
+					shardCount = summary.ShardCount,
+				}),
+			},
+			new JsonSerializerOptions
+			{
+				WriteIndented = true,
+			});
+
+		File.WriteAllText(summaryPath, summaryJson, Encoding.UTF8);
+		WriteModuleSummaryCsv(factory, moduleSummaries);
+		WriteEntryCsv(factory, csvEntries);
+
+		Console.WriteLine(
+			"AngelscriptUHTTool generated {0} binding entries ({1} direct, {2} stubs) across {3} modules and {4} shard files. Summary: {5}",
+			totalGeneratedEntries,
+			totalDirectBindEntries,
+			totalStubEntries,
+			moduleSummaries.Count,
+			generatedFileCount,
+			summaryPath);
+	}
+
+	private static void WriteModuleSummaryCsv(IUhtExportFactory factory, List<AngelscriptModuleGenerationSummary> moduleSummaries)
+	{
+		string csvPath = factory.MakePath("AS_FunctionTable_ModuleSummary", ".csv");
+		Directory.CreateDirectory(Path.GetDirectoryName(csvPath)!);
+
+		StringBuilder builder = new();
+		builder.AppendLine("ModuleName,EditorOnly,TotalEntries,DirectBindEntries,StubEntries,DirectBindRate,StubRate,ShardCount");
+		foreach (AngelscriptModuleGenerationSummary summary in moduleSummaries)
+		{
+			double directBindRate = summary.TotalEntries > 0 ? (double)summary.DirectBindEntries / summary.TotalEntries : 0.0;
+			double stubRate = summary.TotalEntries > 0 ? (double)summary.StubEntries / summary.TotalEntries : 0.0;
+			builder
+				.Append(EscapeCsv(summary.ModuleName)).Append(',')
+				.Append(summary.EditorOnly ? "true" : "false").Append(',')
+				.Append(summary.TotalEntries).Append(',')
+				.Append(summary.DirectBindEntries).Append(',')
+				.Append(summary.StubEntries).Append(',')
+				.Append(FormatRate(directBindRate)).Append(',')
+				.Append(FormatRate(stubRate)).Append(',')
+				.Append(summary.ShardCount)
+				.Append("\r\n");
+		}
+
+		File.WriteAllText(csvPath, builder.ToString(), Encoding.UTF8);
+	}
+
+	private static void WriteEntryCsv(IUhtExportFactory factory, List<AngelscriptGeneratedFunctionCsvEntry> csvEntries)
+	{
+		string csvPath = factory.MakePath("AS_FunctionTable_Entries", ".csv");
+		Directory.CreateDirectory(Path.GetDirectoryName(csvPath)!);
+
+		StringBuilder builder = new();
+		builder.AppendLine("ModuleName,EditorOnly,ClassName,FunctionName,EntryKind,EraseMacro,ShardIndex");
+		foreach (AngelscriptGeneratedFunctionCsvEntry entry in csvEntries)
+		{
+			builder
+				.Append(EscapeCsv(entry.ModuleName)).Append(',')
+				.Append(entry.EditorOnly ? "true" : "false").Append(',')
+				.Append(EscapeCsv(entry.ClassName)).Append(',')
+				.Append(EscapeCsv(entry.FunctionName)).Append(',')
+				.Append(EscapeCsv(entry.EntryKind)).Append(',')
+				.Append(EscapeCsv(entry.EraseMacro)).Append(',')
+				.Append(entry.ShardIndex)
+				.Append("\r\n");
+		}
+
+		File.WriteAllText(csvPath, builder.ToString(), Encoding.UTF8);
+	}
+
+	private static string FormatRate(double value)
+	{
+		return value.ToString("0.################", CultureInfo.InvariantCulture);
+	}
+
+	private static string EscapeCsv(string value)
+	{
+		if (value.IndexOfAny(new[] { ',', '"', '\r', '\n' }) == -1)
+		{
+			return value;
+		}
+
+		return '"' + value.Replace("\"", "\"\"") + '"';
 	}
 
 	private static StringBuilder BuildShard(string moduleShortName, bool editorOnly, SortedSet<string> includes, List<AngelscriptGeneratedFunctionEntry> entries, int startIndex, int entryCount, int shardIndex, int shardCount)
