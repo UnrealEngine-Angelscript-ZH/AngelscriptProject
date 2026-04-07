@@ -154,9 +154,8 @@ class RunConfig:
     repos: List[RepoConfig]
     dimensions: List[Dimension]
     max_iterations: int = 3
-    opencode_command: str = "ulw-loop"
+    opencode_command: str = "ralph-loop"
     opencode_model: str = "codez-gpt/gpt-5.4"
-    opencode_agent: str = "Hephaestus"
     opencode_variant: str = "xhigh"
     timeout_seconds: int = 600
     dry_run: bool = False

@@ -62,15 +62,15 @@ def main(argv: Optional[List[str]] = None) -> int:
     logger.info("Log file: %s", log_file)
     logger.info("Prompt logs: %s", cfg.output_dir / "_prompts")
     logger.info("Output logs: %s", cfg.output_dir / "_outputs")
-    logger.info("Model: %s (agent=%s, variant=%s)", cfg.opencode_model, cfg.opencode_agent, cfg.opencode_variant)
+    logger.info("Model: %s (variant=%s)", cfg.opencode_model, cfg.opencode_variant)
     logger.info("Repos: %s", ", ".join(r.display_name for r in cfg.repos))
     logger.info("Dimensions: %s", ", ".join(d.id for d in cfg.dimensions))
     logger.info("Max rounds: %d", cfg.max_iterations)
     logger.info("=" * 60)
 
-    phase1_ok = _run_phase1(cfg)
-    phase2_ok = _run_phase2(cfg)
-    phase3_ok = _run_phase3(cfg)
+    phase1_ok = _run_phase1(cfg, run_log_path=log_file)
+    phase2_ok = _run_phase2(cfg, run_log_path=log_file)
+    phase3_ok = _run_phase3(cfg, run_log_path=log_file)
 
     summary = (
         f"Phase 1 (per-repo): {'OK' if phase1_ok else 'PARTIAL'}, "
@@ -88,7 +88,7 @@ def main(argv: Optional[List[str]] = None) -> int:
 # Phase 1: Per-Repo Analysis
 # ---------------------------------------------------------------------------
 
-def _run_phase1(cfg: RunConfig) -> bool:
+def _run_phase1(cfg: RunConfig, *, run_log_path: Path) -> bool:
     logger.info("===== Phase 1: Per-Repo Analysis =====")
     all_ok = True
     prompt_log_dir = cfg.output_dir / "_prompts"
@@ -118,13 +118,13 @@ def _run_phase1(cfg: RunConfig) -> bool:
             project_dir=str(cfg.project_root),
             command=cfg.opencode_command,
             model=cfg.opencode_model,
-            agent=cfg.opencode_agent,
             variant=cfg.opencode_variant,
             max_iterations=cfg.max_iterations,
             timeout_seconds=cfg.timeout_seconds,
             dry_run=cfg.dry_run,
             prompt_log_dir=prompt_log_dir,
             output_log_dir=output_log_dir,
+            run_log_path=run_log_path,
         )
 
         if not ok:
@@ -137,7 +137,7 @@ def _run_phase1(cfg: RunConfig) -> bool:
 # Phase 2: Cross-Repo Comparison
 # ---------------------------------------------------------------------------
 
-def _run_phase2(cfg: RunConfig) -> bool:
+def _run_phase2(cfg: RunConfig, *, run_log_path: Path) -> bool:
     logger.info("===== Phase 2: Cross-Repo Comparison =====")
     all_ok = True
     prompt_log_dir = cfg.output_dir / "_prompts"
@@ -162,13 +162,13 @@ def _run_phase2(cfg: RunConfig) -> bool:
             project_dir=str(cfg.project_root),
             command=cfg.opencode_command,
             model=cfg.opencode_model,
-            agent=cfg.opencode_agent,
             variant=cfg.opencode_variant,
             max_iterations=cfg.max_iterations,
             timeout_seconds=cfg.timeout_seconds,
             dry_run=cfg.dry_run,
             prompt_log_dir=prompt_log_dir,
             output_log_dir=output_log_dir,
+            run_log_path=run_log_path,
         )
 
         if not ok:
@@ -181,7 +181,7 @@ def _run_phase2(cfg: RunConfig) -> bool:
 # Phase 3: Gap Analysis
 # ---------------------------------------------------------------------------
 
-def _run_phase3(cfg: RunConfig) -> bool:
+def _run_phase3(cfg: RunConfig, *, run_log_path: Path) -> bool:
     logger.info("===== Phase 3: Gap Analysis =====")
     prompt_log_dir = cfg.output_dir / "_prompts"
     output_log_dir = cfg.output_dir / "_outputs"
@@ -204,13 +204,13 @@ def _run_phase3(cfg: RunConfig) -> bool:
         project_dir=str(cfg.project_root),
         command=cfg.opencode_command,
         model=cfg.opencode_model,
-        agent=cfg.opencode_agent,
         variant=cfg.opencode_variant,
         max_iterations=cfg.max_iterations,
         timeout_seconds=cfg.timeout_seconds,
         dry_run=cfg.dry_run,
         prompt_log_dir=prompt_log_dir,
         output_log_dir=output_log_dir,
+        run_log_path=run_log_path,
     )
 
 
@@ -258,7 +258,6 @@ def _print_preview(cfg: RunConfig) -> int:
     print(f"OutputDir={cfg.output_dir}")
     print(f"RulePath={cfg.rule_path}")
     print(f"Model={cfg.opencode_model}")
-    print(f"Agent={cfg.opencode_agent}")
     print(f"Variant={cfg.opencode_variant}")
     print(f"Repos={','.join(r.key for r in cfg.repos)}")
     print(f"Dimensions={','.join(d.id for d in cfg.dimensions)}")
