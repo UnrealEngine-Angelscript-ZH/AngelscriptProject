@@ -137,6 +137,30 @@ call descriptor
 
 从验证层面说，`AngelscriptGeneratedFunctionTableTests.cpp` 不再只是检查“有没有 direct bind entry”，还需要能够断言 reflective fallback 和 handwritten direct bind 的优先级关系，避免 generated reflective path 侵入已有手写覆盖面。
 
+为了让这套统计不只存在于运行时测试里，当前 UHT 导出链还会在每次生成 `AS_FunctionTable_*.cpp` 的同时写出 `AS_FunctionTable_Summary.json`。这份 summary 至少固定包含：
+
+- `totalGeneratedEntries`
+- `totalDirectBindEntries`
+- `totalStubEntries`
+- `directBindRate`
+- `stubRate`
+- `totalShardCount`
+- `moduleCount`
+- `modules[]`
+
+除此之外，UHT 现在还会同步写出两份 CSV，作为“可查询产物”而不是仅供肉眼阅读的日志：
+
+- `AS_FunctionTable_ModuleSummary.csv`：逐模块聚合统计
+- `AS_FunctionTable_Entries.csv`：逐条 `ClassName + FunctionName + EntryKind + EraseMacro + ShardIndex` 明细
+
+这意味着查询链路已经从“看控制台日志 / grep shard cpp”升级为：
+
+1. 看 `AS_FunctionTable_Summary.json` 获取总量与 rate
+2. 看 `AS_FunctionTable_ModuleSummary.csv` 获取模块聚合分布
+3. 看 `AS_FunctionTable_Entries.csv` 追查具体函数为什么被归类为 direct 或 stub
+
+因此现在既可以从自动化测试验证“三分类统计逻辑仍然成立”，也可以直接从 UHT 产物目录读取“本次实际生成了多少条格式绑定、各模块分布如何”。
+
 ## 2.4.10 第一阶段 reflective fallback 资格矩阵
 
 当前 reflective fallback 并不是对所有 `ERASE_NO_FUNCTION()` 一视同仁地放开，而是要按资格矩阵做保守分层。第一阶段推荐的最小矩阵如下：

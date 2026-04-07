@@ -63,6 +63,30 @@ GeneratedFunctionTable 三分类统计专项前缀：
 powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -TestPrefix "Angelscript.TestModule.Engine.GeneratedFunctionTable" -Label generated-table -TimeoutMs 600000
 ```
 
+对应的 UHT 生成统计会在每次标准 build/UHT 运行时写入：
+
+```text
+Plugins/Angelscript/Intermediate/Build/Win64/UnrealEditor/Inc/AngelscriptRuntime/UHT/AS_FunctionTable_Summary.json
+Plugins/Angelscript/Intermediate/Build/Win64/UnrealEditor/Inc/AngelscriptRuntime/UHT/AS_FunctionTable_ModuleSummary.csv
+Plugins/Angelscript/Intermediate/Build/Win64/UnrealEditor/Inc/AngelscriptRuntime/UHT/AS_FunctionTable_Entries.csv
+```
+
+该文件当前至少包含这些字段：
+
+- `totalGeneratedEntries`
+- `totalDirectBindEntries`
+- `totalStubEntries`
+- `directBindRate`
+- `stubRate`
+- `totalShardCount`
+- `moduleCount`
+- `modules[]`（逐模块 `totalEntries/directBindEntries/stubEntries/directBindRate/stubRate/shardCount`）
+
+CSV 侧的用途区分如下：
+
+- `AS_FunctionTable_ModuleSummary.csv`：按模块聚合，适合快速看 `total/direct/stub/rate/shards`
+- `AS_FunctionTable_Entries.csv`：逐条函数明细，适合按 `ModuleName/ClassName/FunctionName/EntryKind/EraseMacro/ShardIndex` 过滤查询
+
 ### 按测试组运行
 
 ```powershell
@@ -105,6 +129,10 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File Tools\RunTests.ps1 -Grou
 - 在超时或异常退出时结束整棵编辑器/UBT 进程树
 
 `Tools\RunTestSuite.ps1` 是基于 `Tools\RunTests.ps1` 的官方调度层。它会顺序执行内置 suite 中的前缀，并把 `-TimeoutMs`、`-OutputRoot`、`-NoReport` 透传给每个子 run。
+
+`GeneratedFunctionTable` 相关验证除了自动化报告外，还应结合 `AS_FunctionTable_Summary.json` 一起看；前者回答“测试是否通过”，后者回答“本次 UHT 生成了多少条格式绑定，以及 direct/stub 的模块分布”。
+
+当需要定位“某个函数为什么是 direct 还是 stub”时，优先查询 `AS_FunctionTable_Entries.csv`，不要再从 `AS_FunctionTable_*.cpp` shard 文件中手工 grep。前者是正式产物，后者是代码生成中间结果。
 
 ## 常用参数
 
