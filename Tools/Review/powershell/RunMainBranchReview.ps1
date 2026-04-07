@@ -13,6 +13,9 @@ param(
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
+[Console]::OutputEncoding = [System.Text.Encoding]::UTF8
+$OutputEncoding = [System.Text.Encoding]::UTF8
+
 function Format-DisplayArgument {
     param(
         [Parameter(Mandatory = $true)]
@@ -49,22 +52,21 @@ if (-not (Test-Path -LiteralPath $rulePath -PathType Leaf)) {
     throw ("Required review rule document was not found: {0}" -f $rulePath)
 }
 
-$promptLines = [System.Collections.Generic.List[string]]::new()
-$promptLines.Add('Strictly follow Documents/Rules/ReviewRule_ZH.md and perform a full audit of the current mainline state of this repository.') | Out-Null
-$promptLines.Add(('Write the review document to {0}.' -f ($outputRelativePath -replace '\\', '/'))) | Out-Null
-$promptLines.Add('Create Documents/Reviews first if it does not exist.') | Out-Null
-$promptLines.Add('Focus on Plugins/Angelscript as the primary deliverable; treat the host project only as supporting context.') | Out-Null
-$promptLines.Add('The output must cover progress, project problems, risk levels, documentation and test gaps, suggested actions, and a final conclusion.') | Out-Null
-$promptLines.Add('Distinguish verified facts from inferences, and ground conclusions in concrete modules, files, or documents whenever possible.') | Out-Null
+# ── 从独立提示词文件读取，替换占位符 ─────────────────────────────────────────
+$promptTemplatePath = Join-Path $PSScriptRoot '..\ReviewPrompt.md'
+if (-not (Test-Path -LiteralPath $promptTemplatePath -PathType Leaf)) {
+    throw ("Review prompt template was not found: {0}" -f $promptTemplatePath)
+}
+
+$prompt = (Get-Content -LiteralPath $promptTemplatePath -Raw -Encoding UTF8).TrimEnd()
+$prompt = $prompt -replace '\{OUTPUT_PATH\}', ($outputRelativePath -replace '\\', '/')
 
 if ($null -ne $AdditionalRequirements -and $AdditionalRequirements.Count -gt 0) {
     $extraText = ($AdditionalRequirements -join ' ').Trim()
     if (-not [string]::IsNullOrWhiteSpace($extraText)) {
-        $promptLines.Add(('Additional requirement: {0}' -f $extraText)) | Out-Null
+        $prompt = $prompt + [Environment]::NewLine + [Environment]::NewLine + ('Additional requirement: {0}' -f $extraText)
     }
 }
-
-$prompt = ($promptLines -join [Environment]::NewLine)
 $argumentList = @(
     'run',
     '--dir',
@@ -101,24 +103,22 @@ New-Item -ItemType Directory -Path $outputDirectory -Force | Out-Null
 $previousErrorActionPreference = $ErrorActionPreference
 $ErrorActionPreference = 'Continue'
 
+$ansiPattern = '\x1b\[[0-9;]*m'
+
+$logWriter = $null
 try {
+    $logWriter = [System.IO.StreamWriter]::new($logPath, $false, [System.Text.Encoding]::UTF8)
     & opencode @argumentList 2>&1 |
         ForEach-Object {
-            if ($_ -is [System.Management.Automation.ErrorRecord]) {
-                $_.ToString()
-            }
-            else {
-                [string]$_
-            }
-        } |
-        Tee-Object -FilePath $logPath
+            $line = if ($_ -is [System.Management.Automation.ErrorRecord]) { $_.ToString() } else { [string]$_ }
+            $cleanLine = [regex]::Replace($line, $ansiPattern, '')
+            $logWriter.WriteLine($cleanLine)
+            $line
+        }
 }
 finally {
+    if ($null -ne $logWriter) { $logWriter.Dispose() }
     $ErrorActionPreference = $previousErrorActionPreference
-}
-
-if (-not (Test-Path -LiteralPath $logPath -PathType Leaf)) {
-    Set-Content -LiteralPath $logPath -Value $null -Encoding UTF8
 }
 
 $exitCode = $LASTEXITCODE
