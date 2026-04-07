@@ -29,6 +29,20 @@
 
 根据需要可增加：范围与边界、依赖关系、当前事实状态快照、测试框架速查等。
 
+### 伴侣目录（可选）
+
+- 当一份活跃 Plan 需要附带执行包、覆盖矩阵、样例清单或其他补充资料时，可在 `Documents/Plans/` 下创建与主 Plan 同名的伴侣目录。
+- 主 Plan 文档仍建议保留在 `Documents/Plans/` 根目录，命名保持 `Plan_<Topic>.md`；伴侣目录用于承载补充 markdown、矩阵、索引等资料。
+- 若补充资料引用真实可执行资产，应优先指向项目或插件的正式落点，不在 `Documents/Plans/` 下复制第二份 source-of-truth。
+
+```text
+Documents/Plans/
+  Plan_<Topic>.md
+  Plan_<Topic>/
+    README.md
+    <supplement-doc>.md
+```
+
 对**迁移或重构类 Plan**（涉及 10+ 文件的批量修改），还应包含：
 
 6. **影响范围** — 先定义操作类型，再按目录分组列出受影响文件及其操作组合（详见下方"影响范围章节"）
