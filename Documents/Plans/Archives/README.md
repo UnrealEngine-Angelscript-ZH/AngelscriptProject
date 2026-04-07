@@ -17,3 +17,4 @@
 | `Plan_ASEngineStateDump.md` | 2026-04-05 | 完成了 Runtime / Editor / Test 三侧状态 dump 导出链路、`as.DumpEngineState` 控制台命令、27 张 CSV 表与 `Angelscript.TestModule.Dump` 自动化回归，并在验证中修复了 worktree 作用域 `TargetInfo.json` 预热失配问题。 |
 | `Plan_TestMacroOptimization.md` | 2026-04-05 | 完成了 `BEGIN/END` 批量接入、`SHARE_CLEAN` / `SHARE_FRESH` 宏与验证测试补齐，以及最终 build、关键前缀回归和 `AngelscriptFast` / `AngelscriptScenario` group 收口。 |
 | `Plan_TechnicalDebt.md` | 2026-04-04 | 完成了 Phase 0-6 的技术债收口，将高风险问题分流到 sibling plan，并同步了相关构建、测试与清单文档。 |
+| `Plan_UFunctionReflectiveFallbackBinding.md` | 2026-04-07 | 完成了 BlueprintCallable reflective fallback 后端、shared duplicate guard、三分类统计与 representative 正负例验证；收口阶段进一步把 shared reflective invocation helper 统一接入 Blueprint event / interface dispatch，并通过构建、native interface、GeneratedFunctionTable 前缀与完整 `Bindings` suite 回归。 |

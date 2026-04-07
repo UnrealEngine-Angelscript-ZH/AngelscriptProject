@@ -31,6 +31,12 @@ namespace UnrealBuildTool.Rules
 				"AngelscriptRuntime",
 			});
 
+			PrivateDependencyModuleNames.AddRange(new string[]
+			{
+				"AIModule",
+				"UMG",
+			});
+
 			if (Target.bBuildEditor)
 			{
 				PrivateDependencyModuleNames.AddRange(new string[]

@@ -1,6 +1,7 @@
 #include "AngelscriptBinds.h"
 #include "AngelscriptEngine.h"
 #include "AngelscriptType.h"
+#include "BlueprintCallableReflectiveFallback.h"
 
 #include "Containers/StringConv.h"
 #include "UObject/UObjectIterator.h"
@@ -508,20 +509,12 @@ void CallStaticWithSignature(asIScriptGeneric* InGeneric)
 	asCGeneric* Generic = static_cast<asCGeneric*>(InGeneric);
 	auto* Function = (asCScriptFunction*)Generic->GetFunction();
 	auto* Sig = (FBlueprintEventSignature*)Function->GetUserData();
-
-	FScriptCall& Call = CurrentCall();
-	for (int32 Arg = 0; Arg < Sig->ArgCount; ++Arg)
-		Call.PushArgument<false>(Sig->Arguments[Arg], Generic->GetAddressOfArg(Arg));
-	if (Sig->ReturnType.IsValid())
+	if (Sig == nullptr)
 	{
-		void* ReturnPtr = Generic->GetAddressOfReturnLocation();
-		if (Sig->bInitReturn)
-			Sig->ReturnType.ConstructValue(ReturnPtr);
-		else if (Sig->bZeroReturnPtr)
-			*(void**)ReturnPtr = nullptr;
-		Call.PushArgument<false,false>(Sig->ReturnType, &ReturnPtr);
+		return;
 	}
-	Call.ExecuteEvent(Sig->StaticObject, Sig->FunctionName);
+
+	InvokeReflectiveUFunctionFromGenericCall(Generic, Sig->StaticObject, Sig->UnrealFunction);
 }
 
 void CallEventWithSignature(asIScriptGeneric* InGeneric)
@@ -529,20 +522,12 @@ void CallEventWithSignature(asIScriptGeneric* InGeneric)
 	asCGeneric* Generic = static_cast<asCGeneric*>(InGeneric);
 	auto* Function = Generic->GetFunction();
 	auto* Sig = (FBlueprintEventSignature*)Function->GetUserData();
-
-	FScriptCall& Call = CurrentCall();
-	for (int32 Arg = 0; Arg < Sig->ArgCount; ++Arg)
-		Call.PushArgument<false>(Sig->Arguments[Arg], Generic->GetAddressOfArg(Arg));
-	if (Sig->ReturnType.IsValid())
+	if (Sig == nullptr)
 	{
-		void* ReturnPtr = Generic->GetAddressOfReturnLocation();
-		if (Sig->bInitReturn)
-			Sig->ReturnType.ConstructValue(ReturnPtr);
-		else if (Sig->bZeroReturnPtr)
-			*(void**)ReturnPtr = nullptr;
-		Call.PushArgument<false,false>(Sig->ReturnType, &ReturnPtr);
+		return;
 	}
-	Call.ExecuteEvent((UObject*)Generic->GetObject(), Sig->FunctionName);
+
+	InvokeReflectiveUFunctionFromGenericCall(Generic, static_cast<UObject*>(Generic->GetObject()), Sig->UnrealFunction);
 }
 
 void CallMixinWithSignature(asIScriptGeneric* InGeneric)
@@ -550,23 +535,12 @@ void CallMixinWithSignature(asIScriptGeneric* InGeneric)
 	asCGeneric* Generic = static_cast<asCGeneric*>(InGeneric);
 	auto* Function = Generic->GetFunction();
 	auto* Sig = (FBlueprintEventSignature*)Function->GetUserData();
-
-	FScriptCall& Call = CurrentCall();
-
-	UObject* MixinObject = (UObject*)Generic->GetObject();
-	Call.PushArgument<false>(Sig->MixinType, &MixinObject);
-	for (int32 Arg = 0; Arg < Sig->ArgCount; ++Arg)
-		Call.PushArgument<false>(Sig->Arguments[Arg], Generic->GetAddressOfArg(Arg));
-	if (Sig->ReturnType.IsValid())
+	if (Sig == nullptr)
 	{
-		void* ReturnPtr = Generic->GetAddressOfReturnLocation();
-		if (Sig->bInitReturn)
-			Sig->ReturnType.ConstructValue(ReturnPtr);
-		else if (Sig->bZeroReturnPtr)
-			*(void**)ReturnPtr = nullptr;
-		Call.PushArgument<false,false>(Sig->ReturnType, &ReturnPtr);
+		return;
 	}
-	Call.ExecuteEvent(Sig->StaticObject, Sig->FunctionName);
+
+	InvokeReflectiveUFunctionFromGenericCall(Generic, Sig->StaticObject, Sig->UnrealFunction, true);
 }
 
 static const FName NAME_Event_DeprecatedFunction("DeprecatedFunction");
@@ -614,6 +588,7 @@ void BindBlueprintEvent(
 
 	auto* Sig = new FBlueprintEventSignature;
 	Sig->FunctionName = Function->GetFName();
+	Sig->UnrealFunction = Function;
 	Sig->ArgCount = Signature.ArgumentTypes.Num();
 	Sig->ReturnType = Signature.ReturnType;
 	check(!Sig->ReturnType.bIsReference);
